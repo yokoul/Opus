@@ -23,12 +23,34 @@ function Opus.DebutEssai (m)
 	return nil
 end
 
--- liste des essais, les plus anciens d'abord
+-- Le jeu promeut d'un grade à la fois : d'Aspirant à Itinérant, on passe par Sédentaire. Une montée commencée est
+-- suivie jusqu'au grade visé (ou annulée jusqu'au grade de départ), pour que le membre reste dans la liste entre-temps.
+function Opus.Monter (m, cible)
+	local suivie = Opus.db.montees[m.nom]
+	Opus.db.montees[m.nom] = { depuis = suivie and suivie.depuis or m.nomGrade, cible = cible }
+end
+
+local function MonteeEnCours (m)
+	local suivie = Opus.db.montees[m.nom]
+	if not suivie then return nil end
+	local depuis, cible = Opus.RangDe(suivie.depuis), Opus.RangDe(suivie.cible)
+	if not depuis or not cible or m.grade <= cible or m.grade >= depuis then
+		Opus.db.montees[m.nom] = nil      -- arrivé, ou revenu au grade de départ
+		return nil
+	end
+	return suivie
+end
+
+-- liste des essais (et des montées en cours), les plus anciens d'abord
 function Opus.Essais ()
 	local liste, maintenant = {}, time()
 	for _, m in ipairs(Opus.Membres()) do
 		local g = Opus.GRADES[m.grade]
-		if g and g.essai and g.nom == m.nomGrade then
+		m.montee = MonteeEnCours(m)
+		if m.montee then
+			g = Opus.GRADES[Opus.RangDe(m.montee.depuis)]
+		end
+		if g and g.essai and (g.nom == m.nomGrade or m.montee) then
 			local debut, source = Opus.DebutEssai(m)
 			m.debut, m.source = debut, source
 			m.duree = Opus.db.dureeEssai[g.nom] or 14

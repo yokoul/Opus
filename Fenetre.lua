@@ -21,19 +21,35 @@ end
 -- Promouvoir est réservé à l'interface de Blizzard, mais pas la commande /gpromote : un bouton sécurisé qui
 -- l'exécute comme une macro, sur un vrai clic, passe. Un cadre sécurisé ne se modifie pas en combat : la fenêtre
 -- se ferme quand il commence, et ne se met pas à jour pendant.
-local function BoutonPromo (parent)
+local function BoutonSecurise (parent, largeur, bulle)
 	local b = CreateFrame("Button", nil, parent, "SecureActionButtonTemplate, UIPanelButtonTemplate")
-	b:SetSize(118, 22)
+	b:SetSize(largeur, 22)
 	b:RegisterForClicks("AnyUp", "AnyDown")   -- le modèle ne retient que le sens réglé par ActionButtonUseKeyDown
 	b:SetAttribute("type", "macro")
 	b:SetScript("OnEnter", function (self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText("Promouvoir vers " .. self.cible)
-		GameTooltip:AddLine(("Un clic fait monter d'un grade (/gpromote) : %d clic(s) pour atteindre %s."):format(self.crans, self.cible), 1, 1, 1, true)
+		bulle(self)
 		GameTooltip:Show()
 	end)
 	b:SetScript("OnLeave", GameTooltip_Hide)
 	return b
+end
+
+local function BoutonPromo (parent)
+	local b = BoutonSecurise(parent, 118, function (self)
+		GameTooltip:SetText("Promouvoir vers " .. self.cible)
+		GameTooltip:AddLine(("Un clic fait monter d'un grade (/gpromote) : %d clic(s) pour atteindre %s. Le membre reste dans la liste jusque-là."):format(self.crans, self.cible), 1, 1, 1, true)
+	end)
+	-- après l'action sécurisée : on retient la montée (PostClick ne touche pas à l'action elle-même)
+	b:SetScript("PostClick", function (self) Opus.Monter(self.m, self.cible) end)
+	return b
+end
+
+local function BoutonAnnuler (parent)
+	return BoutonSecurise(parent, 60, function (self)
+		GameTooltip:SetText("Annuler la montée")
+		GameTooltip:AddLine(("Un clic fait redescendre d'un grade (/gdemote), jusqu'à %s."):format(self.depuis), 1, 1, 1, true)
+	end)
 end
 
 local function Rafraichir ()
@@ -50,20 +66,27 @@ local function Rafraichir ()
 		if m then
 			l.m = m
 			l.nom:SetText(Couleur(m.classe) .. m.nom .. "|r")
-			l.grade:SetText(m.nomGrade)
+			l.grade:SetText(m.montee and ("|cffffd100" .. m.nomGrade .. "|r") or m.nomGrade)
 			if m.jours then
 				l.etat:SetText(("%d j sur %d"):format(m.jours, m.duree) .. (m.echu and "  |cffff6060échu|r" or "")
 					.. (m.source == "vu" and "  |cffaaaaaa(non noté)|r" or ""))
 			else
 				l.etat:SetText("|cffaaaaaadate inconnue|r")
 			end
-			l.dater:SetShown(m.source ~= "note")
-			local sorties = Opus.SORTIES[m.nomGrade] or {}
+			l.dater:SetShown(m.source ~= "note" and not m.montee)
+			l.annuler:SetShown(m.montee ~= nil)
+			if m.montee then
+				l.etat:SetText("|cffffd100en route vers " .. m.montee.cible .. "|r")
+				l.annuler.depuis = m.montee.depuis
+				l.annuler:SetAttribute("macrotext", "/gdemote " .. m.complet)
+			end
+			-- pendant une montée, seul le grade visé reste proposé
+			local sorties = m.montee and { m.montee.cible } or Opus.SORTIES[m.nomGrade] or {}
 			for k = 1, 2 do
 				local b, cible = l.promo[k], sorties[k]
 				b:SetShown(cible ~= nil)
 				if cible then
-					b.cible, b.crans = cible, m.grade - Opus.RangDe(cible)
+					b.m, b.cible, b.crans = m, cible, m.grade - Opus.RangDe(cible)
 					b:SetText((m.echu and "|cff60ff60" or "") .. cible)
 					b:SetAttribute("macrotext", "/gpromote " .. m.complet)
 				end
@@ -111,7 +134,7 @@ local function Construire ()
 		l.nom = l:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 		l.nom:SetPoint("LEFT", 2, 0) l.nom:SetWidth(110) l.nom:SetJustifyH("LEFT")
 		l.grade = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		l.grade:SetPoint("LEFT", 114, 0) l.grade:SetWidth(70) l.grade:SetJustifyH("LEFT")
+		l.grade:SetPoint("LEFT", 114, 0) l.grade:SetWidth(76) l.grade:SetJustifyH("LEFT")
 		l.etat = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 		l.etat:SetPoint("LEFT", 186, 0) l.etat:SetWidth(150) l.etat:SetJustifyH("LEFT")
 		l.dater = Bouton(l, "Dater", 60, function () Opus.Dater(l.m) end)
@@ -123,6 +146,8 @@ local function Construire ()
 			GameTooltip:Show()
 		end)
 		l.dater:SetScript("OnLeave", GameTooltip_Hide)
+		l.annuler = BoutonAnnuler(l)
+		l.annuler:SetPoint("LEFT", 340, 0)
 		l.promo = {}
 		for k = 1, 2 do
 			l.promo[k] = BoutonPromo(l)

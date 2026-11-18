@@ -2,7 +2,7 @@
 ## Title: |cffd4af37Opus|r
 ## Notes: Outils de la guilde Opus : grille des grades et droits, suivi des essais.
 ## Author: Yan
-## Version: 0.2.0
+## Version: 0.2.1
 ## SavedVariables: OpusDB
 
 Opus.lua
