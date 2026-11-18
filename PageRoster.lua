@@ -20,7 +20,7 @@ local function NomClasse (c) return (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CL
 -- colonnes de la liste : clé de tri, titre, x (depuis le panneau de droite), largeur, alignement
 local COLONNES = {
 	{ "role", "Rôle", 0, 30, "CENTER" }, { "nom", "Membre", 34, 132, "LEFT" }, { "niveau", "Niv.", 168, 28, "RIGHT" },
-	{ "spe", "Spé", 204, 110, "LEFT" }, { "grade", "Grade", 318, 70, "LEFT" }, { "statut", "", 390, 46, "LEFT" },
+	{ "spe", "Spé", 204, 110, "LEFT" }, { "grade", "Grade", 318, 70, "LEFT" }, { "statut", "Statut", 390, 46, "LEFT" },
 }
 
 local function Garder (m)
@@ -35,7 +35,7 @@ end
 
 -- les membres retenus, avec leur spé et leur rôle ; et par classe, l'effectif et les spés
 local function Composition ()
-	local membres, parClasse, roles = {}, {}, { tank = 0, soin = 0, degats = 0, inconnu = 0 }
+	local membres, parClasse, roles = {}, {}, { tank = 0, soin = 0, degats = 0, inconnu = 0, connues = 0 }
 	for _, c in ipairs(CLASSES) do parClasse[c] = { n = 0, spes = {}, inconnues = 0 } end
 	for _, m in ipairs(Opus.Membres()) do
 		local c = m.classe and parClasse[m.classe]
@@ -44,7 +44,12 @@ local function Composition ()
 			m.spe, m.role = s, s and Opus.RoleDeSpe(s.arbre)
 			membres[#membres + 1] = m
 			c.n = c.n + 1
-			if s then c.spes[s.arbre] = (c.spes[s.arbre] or 0) + 1 else c.inconnues = c.inconnues + 1 end
+			if s then
+				c.spes[s.arbre] = (c.spes[s.arbre] or 0) + 1
+				roles.connues = roles.connues + 1
+			else
+				c.inconnues = c.inconnues + 1
+			end
 			roles[m.role or "inconnu"] = roles[m.role or "inconnu"] + 1
 		end
 	end
@@ -62,11 +67,11 @@ end
 local function Rafraichir (cadre)
 	cadre.filtre:GenerateMenu()
 	local membres, parClasse, roles = Composition()
-	local connues = #membres - roles.inconnu
+	local connues = roles.connues
 	cadre.info:SetText(("%d membres · %d spé(s) connue(s)"):format(#membres, connues))
 	cadre.roles:SetText(("%s %s tanks    %s %s soigneurs    %s %s dégâts    %s"):format(
 		IconeRole("tank", 16), Opus.Blanc(roles.tank), IconeRole("soin", 16), Opus.Blanc(roles.soin),
-		IconeRole("degats", 16), Opus.Blanc(roles.degats), Opus.Gris(roles.inconnu .. " sans spé connue")))
+		IconeRole("degats", 16), Opus.Blanc(roles.degats), Opus.Gris(roles.inconnu .. " sans rôle connu")))
 
 	-- le panneau des classes : « Toutes », puis une ligne par classe
 	boutons[1].nom:SetText(Opus.Normal("Toutes les classes"))
