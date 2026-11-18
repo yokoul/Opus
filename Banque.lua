@@ -163,14 +163,12 @@ function Opus.Depuis (heure)
 end
 
 -- montant compact pour un tableau : l'unité la plus grosse seulement (le détail est dans l'infobulle)
-local PO = "|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t"
-local PA = "|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t"
-local PC = "|TInterface\\MoneyFrame\\UI-CopperIcon:0:0:2:0|t"
 function Opus.Or (cuivre)
-	if not cuivre or cuivre == 0 then return "|cff666666–|r" end
-	if cuivre >= 10000 then return math.floor(cuivre / 10000 + 0.5) .. PO
-	elseif cuivre >= 100 then return math.floor(cuivre / 100 + 0.5) .. PA end
-	return cuivre .. PC
+	if not cuivre or cuivre == 0 then return GRAY_FONT_COLOR:WrapTextInColorCode("–") end
+	-- arrondi à l'unité la plus grosse, puis les pièces du client (GetCoinTextureString)
+	local unite = cuivre >= 10000 and 10000 or (cuivre >= 100 and 100 or 1)
+	local arrondi = math.floor(cuivre / unite + 0.5) * unite
+	return GetCoinTextureString and GetCoinTextureString(arrondi) or tostring(arrondi)
 end
 function Opus.OrDetail (cuivre)
 	return GetCoinTextureString and GetCoinTextureString(cuivre) or Opus.Or(cuivre)

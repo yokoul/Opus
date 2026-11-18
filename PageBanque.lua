@@ -1,10 +1,11 @@
 -- PageBanque.lua : la participation de chacun à la banque de guilde (or, réparations, objets), par période
 local _, Opus = ...
 
-local LIGNES, HAUTEUR, ENTETE = 14, 20, 52
+local LIGNES, HAUTEUR, ENTETE = 16, 20, 22
 local lignes, decalage = {}, 0
 local periode, tri, croissant = 7, "orPlus", false
-local periodes, entetes = {}, {}
+local entetes = {}
+local TIRET = GRAY_FONT_COLOR:WrapTextInColorCode("–")
 
 -- colonnes : clé de tri, titre, x, largeur, alignement, texte d'une ligne
 local COLONNES = {
@@ -13,8 +14,8 @@ local COLONNES = {
 	{ "orPlus",   "Or déposé",    236, 78,  "RIGHT", function (p) return Opus.Or(p.orPlus) end },
 	{ "orMoins",  "Or retiré",    316, 78,  "RIGHT", function (p) return Opus.Or(p.orMoins) end },
 	{ "rep",      "Réparations",  396, 82,  "RIGHT", function (p) return Opus.Or(p.rep) end },
-	{ "objPlus",  "Obj. déposés", 480, 66,  "RIGHT", function (p) return p.objPlus > 0 and p.objPlus or "|cff666666–|r" end },
-	{ "objMoins", "Obj. retirés", 548, 66,  "RIGHT", function (p) return p.objMoins > 0 and p.objMoins or "|cff666666–|r" end },
+	{ "objPlus",  "Obj. déposés", 480, 66,  "RIGHT", function (p) return p.objPlus > 0 and p.objPlus or TIRET end },
+	{ "objMoins", "Obj. retirés", 548, 66,  "RIGHT", function (p) return p.objMoins > 0 and p.objMoins or TIRET end },
 	{ "dernier",  "Dernière",     616, 74,  "RIGHT", function (p) return Opus.Depuis(p.dernier) end },
 }
 
@@ -39,23 +40,21 @@ end
 local function Bulle (l)
 	local p, lignesBulle = l.p, {}
 	for i, e in ipairs(p.ev) do
-		if i > 12 then lignesBulle[#lignesBulle + 1] = ("|cffaaaaaa… et %d autre(s)|r"):format(#p.ev - 12) break end
+		if i > 12 then lignesBulle[#lignesBulle + 1] = Opus.Gris(("… et %d autre(s)"):format(#p.ev - 12)) break end
 		lignesBulle[#lignesBulle + 1] = Opus.Operation(e)
 	end
 	return lignesBulle
 end
 
 local function Rafraichir (cadre)
-	for _, b in ipairs(periodes) do
-		if b.jours == periode then Opus.Choisir(periodes, b) end
-	end
+	cadre.periode:GenerateMenu()
 	for _, h in ipairs(entetes) do
 		h.texte:SetText(h.titre .. (h.cle == tri and (croissant and " ^" or " v") or ""))
 	end
 	local banque = Opus.db.banque
 	cadre.info:SetText(banque.releve > 0
 		and ("relevé il y a %s · %d opérations · partagé avec %d membre(s)"):format(Opus.Depuis(math.floor(banque.releve / 3600)), #banque.evenements, Opus.Pairs())
-		or "|cffff6060jamais relevée|r")
+		or Opus.Rouge("jamais relevée : passe à la banque de guilde"))
 
 	local liste = Liste()
 	decalage = math.max(0, math.min(decalage, #liste - LIGNES))
@@ -70,8 +69,8 @@ local function Rafraichir (cadre)
 			l.p = p
 			for c, col in ipairs(COLONNES) do
 				local texte
-				if col[1] == "nom" then texte = (p.parti and "|cff888888" or Opus.Couleur(p.classe)) .. p.nom .. "|r"
-				elseif col[1] == "grade" then texte = p.parti and "|cff888888parti|r" or p.grade
+				if col[1] == "nom" then texte = p.parti and Opus.Gris(p.nom) or (Opus.Couleur(p.classe) .. p.nom .. "|r")
+				elseif col[1] == "grade" then texte = p.parti and Opus.Gris("parti") or p.grade
 				else texte = col[6](p) end
 				l.cases[c]:SetText(texte)
 			end
@@ -102,24 +101,22 @@ local function Cases (l)
 	end
 end
 
-local function Construire (cadre)
-	local largeur = Opus.LARGEUR - 28
+local function Construire (cadre, barre)
+	local largeur = Opus.LARGEUR - 30
 
-	for i, choix in ipairs { { 7, "7 jours" }, { 30, "30 jours" }, { false, "Tout" } } do
-		local b = Opus.Bouton(cadre, choix[2], 80, nil)
-		b.jours = choix[1] or nil
-		b:SetScript("OnClick", function (self) periode = self.jours Opus.Rafraichir() end)
-		b:SetPoint("TOPLEFT", (i - 1) * 84, 0)
-		periodes[i] = b
-	end
-	cadre.info = cadre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	cadre.info:SetPoint("TOPRIGHT", -2, -5)
+	-- la période, en menu du client ; « Tout » vaut 0 (le menu ne garde pas nil)
+	cadre.periode = Opus.Menu(barre, 130, { { 7, "7 derniers jours" }, { 30, "30 derniers jours" }, { 0, "Depuis le début" } },
+		function () return periode or 0 end,
+		function (v) periode = v > 0 and v or nil Opus.Rafraichir() end)
+	cadre.periode:SetPoint("LEFT", 0, 0)
+	cadre.info = barre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	cadre.info:SetPoint("RIGHT", 0, 0)
 
 	-- en-têtes cliquables : un clic trie, un second inverse
 	for c, col in ipairs(COLONNES) do
 		local h = CreateFrame("Button", nil, cadre)
 		h:SetSize(col[4], 18)
-		h:SetPoint("TOPLEFT", col[3], -30)
+		h:SetPoint("TOPLEFT", col[3], 0)
 		h.texte = h:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 		h.texte:SetAllPoints() h.texte:SetJustifyH(col[5])
 		h.cle, h.titre = col[1], col[2]
@@ -128,7 +125,7 @@ local function Construire (cadre)
 			else tri, croissant = self.cle, (self.cle == "nom" or self.cle == "grade") end
 			Opus.Rafraichir()
 		end)
-		h:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+		Opus.Survol(h)
 		entetes[c] = h
 	end
 
@@ -137,7 +134,7 @@ local function Construire (cadre)
 		l:SetSize(largeur, HAUTEUR)
 		l:SetPoint("TOPLEFT", 0, -ENTETE - (i - 1) * HAUTEUR)
 		l:EnableMouse(true)
-		Opus.FondLigne(l, i)
+		Opus.Survol(l)
 		Cases(l)
 		Opus.Bulle(l, function (self) return Opus.Couleur(self.p.classe) .. self.p.nom .. "|r" end, Bulle)
 		lignes[i] = l
@@ -145,9 +142,6 @@ local function Construire (cadre)
 
 	cadre.total = CreateFrame("Frame", nil, cadre)
 	cadre.total:SetSize(largeur, HAUTEUR)
-	local filet = cadre.total:CreateTexture(nil, "ARTWORK")
-	filet:SetColorTexture(1, 0.82, 0, 0.3)
-	filet:SetPoint("TOPLEFT") filet:SetPoint("TOPRIGHT") filet:SetHeight(1)
 	Cases(cadre.total)
 	for _, t in ipairs(cadre.total.cases) do t:SetFontObject("GameFontNormalSmall") end
 

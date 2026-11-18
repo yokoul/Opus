@@ -87,7 +87,7 @@ StaticPopupDialogs["OPUS_NOTE"] = {
 		local popup = self:GetParent()
 		local bouton = popup.button1 or (popup.ButtonContainer and popup.ButtonContainer.Button1)
 		local reste = NOTE_MAX - Longueur(self:GetText())
-		if bouton then bouton:SetText(reste >= 0 and (OKAY .. " (" .. reste .. ")") or ("|cffff6060" .. -reste .. " de trop|r")) end
+		if bouton then bouton:SetText(reste >= 0 and (OKAY .. " (" .. reste .. ")") or RED_FONT_COLOR:WrapTextInColorCode(-reste .. " de trop")) end
 	end,
 	EditBoxOnEnterPressed = function (self) self:GetParent():Hide() end,
 	EditBoxOnEscapePressed = function (self) self:GetParent():Hide() end,

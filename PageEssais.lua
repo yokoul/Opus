@@ -8,8 +8,8 @@ local lignes, decalage = {}, 0
 -- l'exécute comme une macro, sur un vrai clic, passe. Un cadre sécurisé ne se modifie pas en combat : la fenêtre
 -- se ferme quand il commence, et ne se met pas à jour pendant.
 function Opus.BoutonSecurise (parent, largeur, bulle)
-	local b = CreateFrame("Button", nil, parent, "SecureActionButtonTemplate, UIPanelButtonTemplate")
-	b:SetSize(largeur, 22)
+	local b = CreateFrame("Button", nil, parent, "SecureActionButtonTemplate, SharedButtonExtraSmallTemplate")
+	b:SetSize(largeur, 20)
 	b:RegisterForClicks("AnyUp", "AnyDown")   -- le modèle ne retient que le sens réglé par ActionButtonUseKeyDown
 	b:SetAttribute("type", "macro")
 	b:SetScript("OnEnter", function (self)
@@ -65,17 +65,17 @@ end
 local function LigneMembre (l, m)
 	l.m = m
 	l.nom:SetText(Opus.Couleur(m.classe) .. m.nom .. "|r")
-	l.grade:SetText(m.montee and ("|cffffd100" .. m.nomGrade .. "|r") or m.nomGrade)
+	l.grade:SetText(m.montee and Opus.Normal(m.nomGrade) or m.nomGrade)
 	if m.jours then
-		l.etat:SetText(("%d j sur %d"):format(m.jours, m.duree) .. (m.echu and "  |cffff6060échu|r" or "")
-			.. (m.source == "vu" and "  |cffaaaaaa(non noté)|r" or ""))
+		l.etat:SetText(("%d j sur %d"):format(m.jours, m.duree) .. (m.echu and ("  " .. Opus.Rouge("échu")) or "")
+			.. (m.source == "vu" and ("  " .. Opus.Gris("(non noté)")) or ""))
 	else
-		l.etat:SetText("|cffaaaaaadate inconnue|r")
+		l.etat:SetText(Opus.Gris("date inconnue"))
 	end
 	l.dater:SetShown(m.source ~= "note" and not m.montee)
 	l.annuler:SetShown(m.montee ~= nil)
 	if m.montee then
-		l.etat:SetText("|cffffd100en route vers " .. m.montee.cible .. "|r")
+		l.etat:SetText(Opus.Normal("en route vers " .. m.montee.cible))
 		l.annuler.depuis = m.montee.depuis
 		l.annuler:SetAttribute("macrotext", "/gdemote " .. m.complet)
 	end
@@ -86,7 +86,7 @@ local function LigneMembre (l, m)
 		b:SetShown(cible ~= nil)
 		if cible then
 			b.m, b.cible, b.crans = m, cible, m.grade - Opus.RangDe(cible)
-			b:SetText((m.echu and "|cff60ff60" or "") .. cible)
+			b:SetText(m.echu and Opus.Vert(cible) or cible)
 			b:SetAttribute("macrotext", "/gpromote " .. m.complet)
 		end
 	end
@@ -117,11 +117,28 @@ local function Rafraichir (cadre)
 			end
 		end
 	end
+	-- le résumé, dans la bande sous le titre
+	local n, echus, montees = 0, 0, 0
+	for _, e in ipairs(elements) do
+		if e.nom then
+			n = n + 1
+			if e.echu and not e.montee then echus = echus + 1 end
+			if e.montee then montees = montees + 1 end
+		end
+	end
+	cadre.resume:SetText(("%s à l'essai"):format(Opus.Blanc(n))
+		.. (echus > 0 and (" · " .. Opus.Vert(echus .. " à promouvoir")) or "")
+		.. (montees > 0 and (" · " .. Opus.Normal(montees .. " en route")) or ""))
 	return math.min(#elements, LIGNES) * HAUTEUR
 end
 
-local function Construire (cadre)
-	local largeur = Opus.LARGEUR - 28
+local function Construire (cadre, barre)
+	local largeur = Opus.LARGEUR - 30
+	cadre.resume = barre:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	cadre.resume:SetPoint("LEFT", 0, 0)
+	local aide = barre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	aide:SetPoint("RIGHT", 0, 0)
+	aide:SetText("Promotions : un clic = un grade · Dater : prépare la note d'officier")
 	for i = 1, LIGNES do
 		local l = CreateFrame("Frame", nil, cadre)
 		l:SetSize(largeur, HAUTEUR)
@@ -136,7 +153,7 @@ local function Construire (cadre)
 		l.grade:SetPoint("LEFT", 146, 0) l.grade:SetWidth(80) l.grade:SetJustifyH("LEFT")
 		l.etat = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 		l.etat:SetPoint("LEFT", 228, 0) l.etat:SetWidth(150) l.etat:SetJustifyH("LEFT")
-		l.dater = Opus.Bouton(l, "Dater", 66, function () Opus.Dater(l.m) end)
+		l.dater = Opus.Bouton(l, "Dater", 66, function () Opus.Dater(l.m) end, true)
 		l.dater:SetPoint("LEFT", 384, 0)
 		Opus.Bulle(l.dater, "Dater l'essai", "Retient la date (aujourd'hui si elle est inconnue) et prépare la note d'officier à coller.")
 		l.annuler = BoutonAnnuler(l)
