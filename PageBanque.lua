@@ -54,7 +54,7 @@ local function Rafraichir (cadre)
 	end
 	local banque = Opus.db.banque
 	cadre.info:SetText(banque.releve > 0
-		and ("relevé il y a %s · %d opérations en mémoire"):format(Opus.Depuis(math.floor(banque.releve / 3600)), #banque.evenements)
+		and ("relevé il y a %s · %d opérations · partagé avec %d membre(s)"):format(Opus.Depuis(math.floor(banque.releve / 3600)), #banque.evenements, Opus.Pairs())
 		or "|cffff6060jamais relevée|r")
 
 	local liste = Liste()
@@ -157,8 +157,9 @@ local function Construire (cadre)
 
 	cadre.aide = cadre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	cadre.aide:SetWidth(largeur - 4) cadre.aide:SetJustifyH("LEFT")
-	cadre.aide:SetText("Relevé à chaque ouverture de la banque de guilde : le jeu n'y garde que les dernières opérations de chaque onglet, "
-		.. "alors plus on l'ouvre souvent, plus le bilan est complet. Survole un membre pour le détail.")
+	cadre.aide:SetText("Relevé à chaque ouverture de la banque de guilde et partagé avec les membres qui ont l'addon : il suffit que "
+		.. "l'un d'eux passe à la banque. Le jeu n'y garde que les dernières opérations, alors plus elle est ouverte souvent, "
+		.. "plus le bilan est complet. Survole un membre pour le détail.")
 end
 
 Opus.Page("banque", "Banque", Construire, Rafraichir, function (_, d) decalage = decalage - d end)

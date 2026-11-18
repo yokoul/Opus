@@ -18,9 +18,9 @@ local function Signature (e)
 	return table.concat({ e.q, e.nom, e.c or "", e.id or "", e.n or "", e.tab or "" }, "|")
 end
 
--- ajoute les opérations lues qui ne sont pas déjà connues ; renvoie le nombre d'ajouts
-local function Fusionner (lus)
-	local evenements, index, pris, ajouts = Opus.db.banque.evenements, {}, {}, 0
+-- ajoute les opérations lues (ou reçues d'un autre joueur) qui ne sont pas déjà connues ; renvoie celles ajoutées
+function Opus.FusionnerBanque (lus)
+	local evenements, index, pris, ajoutees = Opus.db.banque.evenements, {}, {}, {}
 	for _, e in ipairs(evenements) do
 		local s = Signature(e)
 		index[s] = index[s] or {}
@@ -35,14 +35,15 @@ local function Fusionner (lus)
 			table.insert(evenements, e)
 			index[s] = index[s] or {}
 			table.insert(index[s], e)
-			trouve, ajouts = e, ajouts + 1
+			trouve = e
+			ajoutees[#ajoutees + 1] = e
 		end
 		pris[trouve] = true
 	end
-	return ajouts
+	return ajoutees
 end
 
-local function Purger ()
+function Opus.PurgerBanque ()
 	local limite, garde = Maintenant() - CONSERVATION, {}
 	for _, e in ipairs(Opus.db.banque.evenements) do
 		if e.t >= limite then garde[#garde + 1] = e end
@@ -77,10 +78,12 @@ function Opus.ReleverBanque ()
 			end
 		end
 	end
-	local ajouts = Fusionner(lus)
-	Purger()
+	local ajoutees = Opus.FusionnerBanque(lus)
+	Opus.PurgerBanque()
 	Opus.db.banque.releve = time()
-	return ajouts, #lus
+	-- ce qui est nouveau part aux autres membres de la guilde qui ont l'addon (Partage.lua)
+	if #ajoutees > 0 and Opus.PartagerBanque then Opus.PartagerBanque(ajoutees) end
+	return #ajoutees, #lus
 end
 
 -- demande au serveur les journaux de chaque onglet puis celui de l'or, un par un comme l'interface de Blizzard
@@ -193,7 +196,12 @@ Opus.Commande("diagbanque", "diagbanque", "ce que le jeu donne des journaux de l
 		"GetNumGuildBankMoneyTransactions", "GetGuildBankMoneyTransaction" } do
 		DEFAULT_CHAT_FRAME:AddMessage("  " .. nom .. " : " .. Existe(nom))
 	end
-	if not Opus.banqueOuverte then return end
+	if not Opus.banqueOuverte then
+		local p = Opus.partage
+		DEFAULT_CHAT_FRAME:AddMessage(("  partage : %d message(s) envoyé(s), %d en attente, %d opération(s) reçue(s), %d membre(s) vus ; dernier résultat d'envoi : %s"):format(
+			p.envoyes, Opus.FileDePartage(), p.recus, Opus.Pairs(), tostring(p.dernierResultat)))
+		return
+	end
 	DEFAULT_CHAT_FRAME:AddMessage(("  onglets : %s ; opérations d'or : %s"):format(tostring(GetNumGuildBankTabs()),
 		tostring(GetNumGuildBankMoneyTransactions and GetNumGuildBankMoneyTransactions())))
 	for tab = 1, GetNumGuildBankTabs() or 0 do
@@ -201,6 +209,9 @@ Opus.Commande("diagbanque", "diagbanque", "ce que le jeu donne des journaux de l
 	end
 	local ajouts, lus = Opus.ReleverBanque()
 	DEFAULT_CHAT_FRAME:AddMessage(("  relevé : %d lue(s), %d nouvelle(s), %d en mémoire."):format(lus or 0, ajouts or 0, #Opus.db.banque.evenements))
+	local p = Opus.partage
+	DEFAULT_CHAT_FRAME:AddMessage(("  partage : %d message(s) envoyé(s), %d en attente, %d opération(s) reçue(s), %d membre(s) vus ; dernier résultat d'envoi : %s"):format(
+		p.envoyes, Opus.FileDePartage(), p.recus, Opus.Pairs(), tostring(p.dernierResultat)))
 end)
 
 Opus.Commande("banque", "banque", "ouvre la fenêtre sur la participation à la banque", function ()

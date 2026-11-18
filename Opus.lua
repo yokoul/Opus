@@ -1,14 +1,14 @@
 -- Opus.lua : socle de l'addon (base de données, liste de guilde, commandes)
 local ADDON, Opus = ...
 _G.Opus = Opus
-Opus.version = "0.4.0"
+Opus.version = "0.5.0"
 
 local DEFAUTS = {
 	reglage = "phase",          -- préréglage de référence : "phase" (actuel) ou "raids"
 	dureeEssai = { Apprenti = 14, Aspirant = 14 },
 	arrivees = {},              -- [nom] = time() de l'arrivée vue en jeu
 	montees = {},               -- [nom] = { depuis = grade d'essai, cible = grade visé } : promotions en cours
-	banque = { evenements = {}, releve = 0 },   -- opérations relevées dans les journaux de la banque (Banque.lua)
+	banque = { evenements = {}, releve = 0, pairs = {} },   -- pairs : [membre] = dernier partage reçu de lui   -- opérations relevées dans les journaux de la banque (Banque.lua)
 	page = "essais",            -- dernier onglet ouvert de la fenêtre
 }
 
