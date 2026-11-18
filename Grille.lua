@@ -3,7 +3,7 @@
 -- d'officiers, message du jour et infos de guilde : la grille les accorde à Magister et Architecte seuls.
 local _, Opus = ...
 
--- numéros des droits (C_GuildInfo.GuildControlGetRankFlags / GuildControlSetRankFlag)
+-- numéros des droits (C_GuildInfo.GuildControlGetRankFlags)
 Opus.DROITS = {
 	{ id = 1,  cle = "ecouter",    nom = "Écouter la guilde" },
 	{ id = 2,  cle = "parler",     nom = "Parler en guilde" },

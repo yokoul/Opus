@@ -50,7 +50,14 @@ function Opus.Dater (m)
 	local reste = (m.noteOff or ""):gsub(MOTIF, ""):gsub("^%s+", ""):gsub("%s+$", "")
 	local note = Formate(debut)
 	if reste ~= "" then note = (note .. " " .. reste):sub(1, 31) end
-	GuildRosterSetOfficerNote(m.index, note)
+	-- GuildRosterSetOfficerNote n'existe plus sur ce client : C_GuildInfo.SetNote, par le GUID du membre
+	if C_GuildInfo and C_GuildInfo.SetNote and m.guid then
+		C_GuildInfo.SetNote(m.guid, note, false)
+	elseif GuildRosterSetOfficerNote then
+		GuildRosterSetOfficerNote(m.index, note)
+	else
+		Msg("impossible d'écrire la note d'officier sur ce client.") return
+	end
 	Msg(m.nom .. " : note d'officier « " .. note .. " ».")
 	Opus.DemanderListe()
 end

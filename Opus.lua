@@ -1,7 +1,7 @@
 -- Opus.lua : socle de l'addon (base de données, liste de guilde, commandes)
 local ADDON, Opus = ...
 _G.Opus = Opus
-Opus.version = "0.1.0"
+Opus.version = "0.1.1"
 
 local DEFAUTS = {
 	reglage = "phase",          -- préréglage de référence : "phase" (actuel) ou "raids"
@@ -44,17 +44,17 @@ function Opus.DemanderListe ()
 	elseif GuildRoster then GuildRoster() end
 end
 
--- membres : { index, nom, complet, grade (1 = chef), nomGrade, niveau, classe, note, noteOff, enLigne }
+-- membres : { index, nom, complet, grade (1 = chef), nomGrade, niveau, classe, note, noteOff, enLigne, guid }
 function Opus.Membres ()
 	local liste = {}
 	local n = GetNumGuildMembers() or 0
 	for i = 1, n do
-		local complet, nomGrade, rangIndex, niveau, _, _, note, noteOff, enLigne, _, classe = GetGuildRosterInfo(i)
+		local complet, nomGrade, rangIndex, niveau, _, _, note, noteOff, enLigne, _, classe, _, _, _, _, _, guid = GetGuildRosterInfo(i)
 		if complet then
 			liste[#liste + 1] = {
 				index = i, complet = complet, nom = Opus.Court(complet),
 				grade = rangIndex + 1, nomGrade = nomGrade, niveau = niveau,
-				classe = classe, note = note or "", noteOff = noteOff or "", enLigne = enLigne,
+				classe = classe, note = note or "", noteOff = noteOff or "", enLigne = enLigne, guid = guid,
 			}
 		end
 	end

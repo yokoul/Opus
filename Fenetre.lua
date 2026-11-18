@@ -20,9 +20,6 @@ end
 local function Rafraichir ()
 	if not f or not f:IsShown() then return end
 	f.reglage:SetText("Référence : |cffffd100" .. Opus.REGLAGES[Opus.db.reglage] .. "|r")
-	local chef = IsGuildLeader()
-	f.appPhase:SetEnabled(chef)
-	f.appRaids:SetEnabled(chef)
 
 	local liste = Opus.Essais()
 	f.vide:SetShown(#liste == 0)
@@ -74,10 +71,10 @@ local function Construire ()
 	f.reglage:SetPoint("TOPLEFT", 16, -34)
 	local controle = Bouton(f, "Contrôler", 110, function () Opus.Rapport() end)
 	controle:SetPoint("TOPLEFT", 14, -54)
-	f.appPhase = Bouton(f, "Appliquer : phase", 150, function () Opus.DemanderAppliquer("phase") end)
-	f.appPhase:SetPoint("LEFT", controle, "RIGHT", 8, 0)
-	f.appRaids = Bouton(f, "Appliquer : raids", 150, function () Opus.DemanderAppliquer("raids") end)
-	f.appRaids:SetPoint("LEFT", f.appPhase, "RIGHT", 8, 0)
+	local fichePhase = Bouton(f, "Fiche : phase", 130, function () Opus.Fiche("phase") end)
+	fichePhase:SetPoint("LEFT", controle, "RIGHT", 8, 0)
+	local ficheRaids = Bouton(f, "Fiche : raids", 130, function () Opus.Fiche("raids") end)
+	ficheRaids:SetPoint("LEFT", fichePhase, "RIGHT", 8, 0)
 
 	-- essais
 	local titre = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
