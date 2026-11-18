@@ -53,6 +53,7 @@ function Opus.Essais ()
 		if g and g.essai and (g.nom == m.nomGrade or m.montee) then
 			local debut, source = Opus.DebutEssai(m)
 			m.debut, m.source = debut, source
+			m.essai = g.nom          -- le grade d'essai d'origine, même en pleine montée
 			m.duree = Opus.db.dureeEssai[g.nom] or 14
 			m.jours = debut and math.floor((maintenant - debut) / 86400) or nil
 			m.echu = m.jours and m.jours >= m.duree

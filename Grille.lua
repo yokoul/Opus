@@ -36,16 +36,19 @@ Opus.GRADES = {
 	{ nom = "Sédentaire",  role = "Membres hors raid", voie = "Atelier",
 	  inviter = true, or_ = 0,
 	  onglets = { O(true, true, 0), O(true, true, 5), O(false, true, 0) } },
-	{ nom = "Aspirant",    role = "Raiders à l'essai", voie = "Tour", essai = true,
+	{ nom = "Aspirant",    role = "Raiders à l'essai", voie = "Tour", essai = "raid",
 	  reparer = true, or_ = 3,
 	  onglets = { O(true, true, 3), O(true, true, 0), O(false, true, 0) } },
 	{ nom = "Pierre brute", role = "Alts / rerolls",
 	  or_ = 0,
 	  onglets = { O(true, true, 0), O(true, true, 0), O(false, true, 0) } },
-	{ nom = "Apprenti",    role = "Nouvelles recrues", voie = "Atelier", essai = true,
+	{ nom = "Apprenti",    role = "Nouvelles recrues", voie = "Atelier", essai = "guilde",
 	  or_ = 0,
 	  onglets = { O(false, true, 0), O(false, true, 0), O(false, true, 0) } },
 }
+
+-- les essais, dans l'ordre de la fenêtre : on entre par la guilde, on vise le raid ensuite
+Opus.BLOCS = { "Apprenti", "Aspirant" }
 
 -- où mène chaque essai (le premier est la cible par défaut)
 Opus.SORTIES = {
