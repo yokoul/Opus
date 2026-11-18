@@ -29,6 +29,7 @@ local function Rafraichir (cadre)
 	local avant = restriction ~= nil
 	local editable = Opus.PeutConfigurer()
 	cadre.reprendre:SetShown(editable)
+	cadre.reglages:SetShown(editable)
 	local version = c and c.version and c.version > 0 and ("grille du " .. date("%d/%m", c.version) .. (c.par and (" par " .. c.par) or "")) or "grille de départ"
 	cadre.phase:SetText((avant and (Opus.Normal("En ce moment : ") .. restriction.texte .. ". ") or "")
 		.. Opus.Gris(version .. (editable and " · clic sur un grade pour le modifier" or "")))
@@ -118,9 +119,12 @@ local function Construire (cadre, barre)
 
 	cadre.reprendre = Opus.Bouton(barre, "Reprendre l'état du jeu", 170, function () StaticPopup_Show("OPUS_REPRENDRE") end)
 	cadre.reprendre:SetPoint("RIGHT", 0, 0)
+	cadre.reglages = Opus.Bouton(barre, "Réglages", 100, function () Opus.OuvrirReglages() end)
+	cadre.reglages:SetPoint("RIGHT", cadre.reprendre, "LEFT", -6, 0)
+	Opus.Bulle(cadre.reglages, "Réglages de la guilde", "Restriction temporaire (réparations, or) et cotisation hebdomadaire volontaire.")
 	Opus.Bulle(cadre.reprendre, "Reprendre l'état du jeu", "Recale la grille sur les grades actuels de la guilde et leurs droits en jeu ; rôles, voies, essais, or et onglets sont gardés.")
 	cadre.phase = barre:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	cadre.phase:SetPoint("LEFT", 0, 0) cadre.phase:SetPoint("RIGHT", cadre.reprendre, "LEFT", -8, 0) cadre.phase:SetJustifyH("LEFT")
+	cadre.phase:SetPoint("LEFT", 0, 0) cadre.phase:SetPoint("RIGHT", cadre.reglages, "LEFT", -8, 0) cadre.phase:SetJustifyH("LEFT")
 
 	for c, col in ipairs(COLONNES) do
 		local h = cadre:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")

@@ -77,6 +77,11 @@ local function Rafraichir (cadre)
 			.. Opus.SemaineTexte()
 		or Opus.Rouge("jamais relevée : passe à la banque de guilde"))
 
+	-- l'aide suit le barème réglé par la guilde (Reglages.lua)
+	local bareme = Opus.BaremeTexte()
+	cadre.aide:SetText((bareme and ("La banque du cœur : une cotisation hebdomadaire entièrement volontaire, chacun donne s'il le peut et rien n'est exigé ; "
+		.. "elle finance les onglets de banque et les recettes rares. Repère par personnage : " .. bareme .. " ; semaine du mercredi. ") or "")
+		.. "Relevé à chaque ouverture de la banque de guilde et partagé avec les membres qui ont l'addon. Survole un membre pour le détail.")
 	local liste = Liste()
 	decalage = math.max(0, math.min(decalage, #liste - LIGNES))
 	local totaux = { orPlus = 0, orMoins = 0, rep = 0, objPlus = 0, objMoins = 0, dernier = 0 }
@@ -112,7 +117,7 @@ local function Rafraichir (cadre)
 		end
 	end
 	cadre.aide:SetPoint("TOPLEFT", 2, -ENTETE - math.max(n, 1) * HAUTEUR - (#liste > 0 and 30 or 8))
-	return ENTETE + math.max(n, 1) * HAUTEUR + (#liste > 0 and 30 or 8) + 30
+	return ENTETE + math.max(n, 1) * HAUTEUR + (#liste > 0 and 30 or 8) + 48
 end
 
 local function Cases (l)
@@ -182,12 +187,7 @@ local function Construire (cadre, barre)
 
 	cadre.aide = cadre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	cadre.aide:SetWidth(largeur - 4) cadre.aide:SetJustifyH("LEFT")
-	cadre.aide:SetText("La banque du cœur : une cotisation hebdomadaire entièrement volontaire, chacun donne s'il le peut et rien n'est exigé. "
-		.. "Elle finance les onglets de banque et les recettes rares. Repère par personnage selon "
-		.. "son niveau (exonéré jusqu'au 19, 50 pa de 20 à 39, 1 po de 40 à 59, 2 po au 60), plafonné à 3 po par joueur, semaine du mercredi. "
-		.. "Relevé à chaque ouverture de la banque de guilde et partagé avec les membres qui ont l'addon : il suffit que "
-		.. "l'un d'eux passe à la banque. Le jeu n'y garde que les dernières opérations, alors plus elle est ouverte souvent, "
-		.. "plus le bilan est complet. Survole un membre pour le détail.")
+	cadre.aide:SetText("")
 end
 
 Opus.Page("banque", "Banque", Construire, Rafraichir, function (_, d) decalage = decalage - d end)

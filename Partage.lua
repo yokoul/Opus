@@ -188,6 +188,11 @@ local function MessagesConfig (c)
 	local r = c.restriction
 	local entete = table.concat({ "C", c.version, #c.grades, Mot(c.par or "", 48), r and r.fin or "", table.concat(noms, ","), "" }, FS)
 	messages[1] = entete .. (r and Mot(r.texte, MAX_MSG - #entete) or "")
+	-- les réglages (« X ») : ce que coupe la restriction, et la cotisation ; envoyés avant les grades, donc reçus avant
+	local co, tranches = c.cotisation, {}
+	for _, t in ipairs(co and co.tranches or {}) do tranches[#tranches + 1] = t.min .. "-" .. t.max .. "-" .. t.montant end
+	messages[2] = table.concat({ "X", c.version, r and r.coupeRep == false and 0 or 1, r and r.coupeOr == false and 0 or 1,
+		co == nil and "" or (co.actif and 1 or 0), table.concat(tranches, ","), co and co.plafond or "" }, FS)
 	for i, g in ipairs(c.grades) do
 		local bits = 0
 		for cle, b in pairs(DRAPEAUX) do if g[cle] then bits = bits + b end end
@@ -216,7 +221,17 @@ local function RecevoirConfig (genre, champs, expediteur)
 	if not version then return end
 	local r = enCours[version] or { grades = {} }
 	enCours[version] = r
-	if genre == "C" then
+	if genre == "X" then
+		r.coupeRep, r.coupeOr = champs[3] ~= "0", champs[4] ~= "0"
+		if champs[5] == "0" or champs[5] == "1" then
+			local co = { actif = champs[5] == "1", tranches = {}, plafond = tonumber(champs[7]) }
+			for a, b, m in (champs[6] or ""):gmatch("(%d+)%-(%d+)%-(%d+)") do
+				co.tranches[#co.tranches + 1] = { min = tonumber(a), max = tonumber(b), montant = tonumber(m) }
+			end
+			r.cotisation = co
+		end
+		return
+	elseif genre == "C" then
 		local n, par, fin, noms, texte = tonumber(champs[3]), champs[4], tonumber(champs[5]), champs[6] or "", champs[7]
 		r.n, r.par = n, par ~= "" and par or nil
 		r.onglets = {}
@@ -248,7 +263,8 @@ local function RecevoirConfig (genre, champs, expediteur)
 	if not locale or version <= (locale.version or 0) then return end
 	local auteur = r.par and Opus.TrouverMembre(r.par)
 	if not auteur or not Opus.PeutConfigurer(auteur.grade) then return end
-	local c = { version = version, par = r.par, grades = r.grades, onglets = r.onglets or {}, restriction = r.restriction }
+	if r.restriction then r.restriction.coupeRep, r.restriction.coupeOr = r.coupeRep ~= false, r.coupeOr ~= false end
+	local c = { version = version, par = r.par, grades = r.grades, onglets = r.onglets or {}, restriction = r.restriction, cotisation = r.cotisation }
 	Opus.db.configs[GetGuildInfo("player")] = c
 	Opus.AppliquerConfig()
 	Opus.Msg(("grille de la guilde mise à jour (par %s)."):format(r.par))
@@ -364,7 +380,7 @@ local function Recevoir (texte, expediteur)
 	elseif genre == "A" then
 		RecevoirArrivees(enregistrements, expediteur)
 		return
-	elseif genre == "C" or genre == "G" then
+	elseif genre == "C" or genre == "G" or genre == "X" then
 		RecevoirConfig(genre, { strsplit(FS, entete) }, expediteur)
 		return
 	elseif genre == "K" then

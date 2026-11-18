@@ -120,8 +120,11 @@ function Opus.Attendu (rang)
 		reparer = g.reparer or false, retraitOr = (g.or_ or 0) > 0, or_ = g.or_ or 0,
 		onglets = g.onglets,
 	}
-	if Opus.Restriction() then
-		a.reparer, a.retraitOr, a.or_ = false, false, 0
+	-- une restriction coupe les réparations et/ou les retraits d'or (les deux, sauf réglage contraire)
+	local r = Opus.Restriction()
+	if r then
+		if r.coupeRep ~= false then a.reparer = false end
+		if r.coupeOr ~= false then a.retraitOr, a.or_ = false, 0 end
 	end
 	return a
 end
@@ -157,6 +160,7 @@ function Opus.ReprendreLeJeu ()
 	end
 	neuve.onglets = ancienne and ancienne.onglets or {}
 	neuve.restriction = ancienne and ancienne.restriction
+	neuve.cotisation = ancienne and ancienne.cotisation
 	Opus.EnregistrerConfig(neuve)
 end
 

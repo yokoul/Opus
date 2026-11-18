@@ -11,8 +11,9 @@ Opus.COTISATION_OPUS = {
 }
 
 function Opus.Cotisation ()
+	-- réglée dans la grille (Reglages.lua) : active ou non ; sinon, le barème d'Opus chez Opus
 	local c = Opus.Config()
-	if c and c.cotisation then return c.cotisation end
+	if c and c.cotisation then return c.cotisation.actif and c.cotisation or nil end
 	if GetGuildInfo("player") == "Opus" then return Opus.COTISATION_OPUS end
 	return nil
 end
@@ -82,6 +83,18 @@ end)
 ------------------------------------------------------------------------
 -- où en est chacun cette semaine
 ------------------------------------------------------------------------
+
+-- le barème en clair : « exonéré jusqu'au niveau 19, 50 pa de 20 à 39… plafonné à 3 po par joueur »
+function Opus.BaremeTexte ()
+	local c = Opus.Cotisation()
+	if not c then return nil end
+	local morceaux = {}
+	for _, t in ipairs(c.tranches) do
+		local niveaux = t.min == t.max and ("au " .. t.min) or ("de " .. t.min .. " à " .. t.max)
+		morceaux[#morceaux + 1] = (t.montant > 0 and Opus.Or(t.montant) or "exonéré") .. " " .. niveaux
+	end
+	return table.concat(morceaux, ", ") .. (c.plafond and (", plafonné à " .. Opus.Or(c.plafond) .. " par joueur") or "")
+end
 
 -- « · semaine : 12 po versés par 5 joueurs » pour l'en-tête de l'onglet Banque
 function Opus.SemaineTexte ()
