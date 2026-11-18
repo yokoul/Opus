@@ -1,7 +1,7 @@
 -- Opus.lua : socle de l'addon (base de données, liste de guilde, commandes)
 local ADDON, Opus = ...
 _G.Opus = Opus
-Opus.version = "0.10.0"
+Opus.version = "0.10.1"
 
 local DEFAUTS = {
 	dureeEssai = { Apprenti = 14, Aspirant = 14 },
@@ -84,6 +84,31 @@ function Opus.TrouverMembre (nom)
 		if m.nom == nom or m.complet == nom then return m end
 	end
 	return nil
+end
+
+-- Son propre nom tel que le roster l'écrit (« Prénom Nom » sur Forever) : UnitName ne donne pas toujours le nom de
+-- famille, alors on se retrouve par le GUID du personnage, le même dans le roster.
+function Opus.MonNom ()
+	local guid = UnitGUID("player")
+	for _, m in ipairs(Opus.Membres()) do
+		if guid and m.guid == guid then return m.nom end
+	end
+	return Opus.Court(UnitName("player"))
+end
+
+-- le membre qui a envoyé un message d'addon
+function Opus.TrouverExpediteur (expediteur)
+	for _, m in ipairs(Opus.Membres()) do
+		if Opus.EstMembre(m.nom, expediteur) then return m end
+	end
+	return nil
+end
+
+-- un expéditeur de message d'addon est-il ce membre ? (le jeu peut n'y mettre que le prénom, et un royaume)
+function Opus.EstMembre (nom, expediteur)
+	local court = Opus.Court(expediteur)
+	if not nom or not court then return false end
+	return nom == court or nom:sub(1, #court + 1) == court .. " "
 end
 
 ------------------------------------------------------------------------

@@ -290,7 +290,7 @@ end
 
 -- une date reçue : retenue si on n'en a pas ; celle d'un officier l'emporte (elle vient de la note)
 local function RecevoirArrivees (enregistrements, expediteur)
-	local auteur = Opus.TrouverMembre(Opus.Court(expediteur))
+	local auteur = Opus.TrouverExpediteur(expediteur)
 	local officier = auteur and Opus.PeutConfigurer(auteur.grade)
 	local maintenant, change = time(), false
 	for i = 2, #enregistrements do
@@ -328,7 +328,7 @@ end
 local function RecevoirSpe (champs, expediteur)
 	local nom, arbre, icone, points, t = champs[2], champs[3], tonumber(champs[4]), champs[5], tonumber(champs[6])
 	-- on n'annonce que sa propre spé
-	if not nom or nom ~= Opus.Court(expediteur) or not arbre or arbre == "" or not t then return end
+	if not Opus.EstMembre(nom, expediteur) or not arbre or arbre == "" or not t then return end
 	if Opus.RetenirSpe(nom, { arbre = arbre, icone = icone, points = points }, t) and Opus.Rafraichir then Opus.Rafraichir() end
 end
 

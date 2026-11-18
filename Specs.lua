@@ -58,7 +58,10 @@ local function Publier (forcer)
 	if not IsInGuild() or not Opus.db then return end
 	local s = Opus.MaSpe()
 	if not s then return end
-	local moi = Opus.Court(UnitName("player"))
+	local moi = Opus.MonNom()
+	-- (avant 0.10.1, la spé était rangée sous le seul prénom)
+	local prenom = Opus.Court(UnitName("player"))
+	if prenom ~= moi then Opus.db.spes[prenom] = nil end
 	Opus.RetenirSpe(moi, s)
 	local cle = s.arbre .. s.points
 	if (forcer or cle ~= envoyee) and Opus.PartagerSpe then

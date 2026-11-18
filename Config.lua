@@ -142,7 +142,7 @@ end
 function Opus.EnregistrerConfig (c)
 	if not Opus.PeutConfigurer() then Opus.Msg("seuls le chef et les officiers modifient la grille.") return end
 	c.version = time()
-	c.par = UnitName("player")
+	c.par = Opus.MonNom()
 	Opus.db.configs[NomGuilde()] = c
 	Opus.AppliquerConfig()
 	if Opus.PartagerConfig then Opus.PartagerConfig() end
