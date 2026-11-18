@@ -6,8 +6,9 @@ local _, Opus = ...
 
 Opus.LARGEUR = 720
 local MARGE = 10                -- marge intérieure de l'encart
-local HAUTEUR_CONTENU = 404     -- toutes les pages ont la même taille : la fenêtre ne bouge pas d'un onglet à l'autre
-local HAUT_ENCART, BAS_ENCART = 60, 26
+local HAUTEUR_MIN = 180         -- une page presque vide garde une fenêtre de taille raisonnable
+local HAUT_ENCART = 60
+local BAS_ENCART = PANEL_INSET_BOTTOM_OFFSET or 4   -- sans la barre de boutons du bas, dont Opus n'a pas l'usage
 local f
 local pages, ordre = {}, {}
 
@@ -71,6 +72,28 @@ function Opus.Menu (parent, largeur, choix, lire, ecrire)
 	return d
 end
 
+-- ascenseur natif (MinimalScrollBar) pour une liste paginée à la main : maj(decalage, total, visibles) le recale,
+-- defiler(nouveauDecalage) est appelé quand le joueur le tire
+function Opus.Ascenseur (parent, defiler)
+	local s = CreateFrame("EventFrame", nil, parent, "MinimalScrollBar")
+	local interne = false
+	s:RegisterCallback("OnScroll", function (_, pourcent)
+		if interne or not s.total or s.total <= s.visibles then return end
+		defiler(math.floor(pourcent * (s.total - s.visibles) + 0.5))
+	end, s)
+	function s:Recaler (decalage, total, visibles)
+		self.total, self.visibles = total, visibles
+		self:SetShown(total > visibles)
+		if total <= visibles then return end
+		interne = true
+		self:SetVisibleExtentPercentage(visibles / total)
+		self:SetPanExtentPercentage(1 / (total - visibles))
+		self:SetScrollPercentage(decalage / (total - visibles), true)
+		interne = false
+	end
+	return s
+end
+
 -- surbrillance native d'une ligne de liste au survol
 function Opus.Survol (ligne)
 	local h = ligne:CreateTexture(nil, "HIGHLIGHT")
@@ -104,8 +127,10 @@ end
 -- la page des essais porte des boutons sécurisés : rien ne bouge en combat
 local function Rafraichir ()
 	if not f or not f:IsShown() or InCombatLockdown() then return end
+	-- chaque page a sa hauteur ; la fenêtre est ancrée par le haut, donc seul le bas bouge d'un onglet à l'autre
 	local p = pages[Active()]
-	p.rafraichir(p.contenu)
+	local h = math.max(HAUTEUR_MIN, p.rafraichir(p.contenu) or HAUTEUR_MIN)
+	f:SetHeight(HAUT_ENCART + MARGE + h + MARGE + BAS_ENCART)
 end
 Opus.Rafraichir = Rafraichir
 
@@ -123,15 +148,24 @@ end
 
 local function Construire ()
 	f = CreateFrame("Frame", "OpusFenetre", UIParent, "ButtonFrameTemplate")
-	f:SetSize(Opus.LARGEUR, HAUT_ENCART + MARGE + HAUTEUR_CONTENU + MARGE + BAS_ENCART)
-	f:SetPoint("CENTER")
+	f:SetSize(Opus.LARGEUR, 400)
+	ButtonFrameTemplate_HideButtonBar(f)
+	-- ancrée par son coin haut gauche (position retenue) : changer de hauteur ne la fait pas sauter
+	local pos = Opus.db.fenetre
+	if pos.x then f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", pos.x, pos.y) else f:SetPoint("TOP", UIParent, "TOP", 0, -120) end
 	f:SetToplevel(true)
 	f:SetMovable(true)
 	f:EnableMouse(true)
 	f:SetClampedToScreen(true)
 	f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving)
-	f:SetScript("OnDragStop", f.StopMovingOrSizing)
+	f:SetScript("OnDragStop", function (self)
+		self:StopMovingOrSizing()
+		self:SetUserPlaced(false)
+		pos.x, pos.y = self:GetLeft(), self:GetTop()
+		self:ClearAllPoints()
+		self:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", pos.x, pos.y)
+	end)
 	f:SetFrameStrata("HIGH")
 	tinsert(UISpecialFrames, "OpusFenetre")
 	f:SetTitle(GetGuildInfo("player") or "Opus")

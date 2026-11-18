@@ -9,14 +9,14 @@ local TIRET = GRAY_FONT_COLOR:WrapTextInColorCode("–")
 
 -- colonnes : clé de tri, titre, x, largeur, alignement, texte d'une ligne
 local COLONNES = {
-	{ "nom",      "Membre",       2,   134, "LEFT" },
-	{ "grade",    "Grade",        140, 84,  "LEFT" },
-	{ "orPlus",   "Or déposé",    226, 78,  "RIGHT", function (p) return Opus.Or(p.orPlus) end },
-	{ "orMoins",  "Or retiré",    306, 74,  "RIGHT", function (p) return Opus.Or(p.orMoins) end },
-	{ "rep",      "Réparations",  382, 84,  "RIGHT", function (p) return Opus.Or(p.rep) end },
-	{ "objPlus",  "Obj. déposés", 468, 80,  "RIGHT", function (p) return p.objPlus > 0 and p.objPlus or TIRET end },
-	{ "objMoins", "Obj. retirés", 550, 78,  "RIGHT", function (p) return p.objMoins > 0 and p.objMoins or TIRET end },
-	{ "dernier",  "Dernière",     630, 60,  "RIGHT", function (p) return Opus.Depuis(p.dernier) end },
+	{ "nom",      "Membre",       2,   122, "LEFT" },
+	{ "grade",    "Grade",        128, 84,  "LEFT" },
+	{ "orPlus",   "Or déposé",    214, 78,  "RIGHT", function (p) return Opus.Or(p.orPlus) end },
+	{ "orMoins",  "Or retiré",    294, 74,  "RIGHT", function (p) return Opus.Or(p.orMoins) end },
+	{ "rep",      "Réparations",  370, 84,  "RIGHT", function (p) return Opus.Or(p.rep) end },
+	{ "objPlus",  "Obj. déposés", 456, 80,  "RIGHT", function (p) return p.objPlus > 0 and p.objPlus or TIRET end },
+	{ "objMoins", "Obj. retirés", 538, 78,  "RIGHT", function (p) return p.objMoins > 0 and p.objMoins or TIRET end },
+	{ "dernier",  "Dernière",     618, 60,  "RIGHT", function (p) return Opus.Depuis(p.dernier) end },
 }
 
 -- bilan de la période, avec le grade et la classe de ceux encore dans la guilde
@@ -79,6 +79,8 @@ local function Rafraichir (cadre)
 	end
 
 	local n = math.min(#liste, LIGNES)
+	cadre.ascenseur:SetHeight(math.max(n, 1) * HAUTEUR)
+	cadre.ascenseur:Recaler(decalage, #liste, LIGNES)
 	cadre.vide:SetShown(#liste == 0)
 	cadre.total:SetShown(#liste > 0)
 	cadre.total:SetPoint("TOPLEFT", 0, -ENTETE - n * HAUTEUR - 4)
@@ -145,6 +147,9 @@ local function Construire (cadre, barre)
 		Opus.Bulle(l, function (self) return Opus.Couleur(self.p.classe) .. self.p.nom .. "|r" end, Bulle)
 		lignes[i] = l
 	end
+
+	cadre.ascenseur = Opus.Ascenseur(cadre, function (d) decalage = d Opus.Rafraichir() end)
+	cadre.ascenseur:SetPoint("TOPRIGHT", -2, -ENTETE)
 
 	cadre.total = CreateFrame("Frame", nil, cadre)
 	cadre.total:SetSize(largeur, HAUTEUR)

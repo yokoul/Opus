@@ -129,6 +129,8 @@ local function Rafraichir (cadre)
 	cadre.resume:SetText(("%s à l'essai"):format(Opus.Blanc(n))
 		.. (echus > 0 and (" · " .. Opus.Vert(echus .. " à promouvoir")) or "")
 		.. (montees > 0 and (" · " .. Opus.Normal(montees .. " en route")) or ""))
+	cadre.ascenseur:SetHeight(math.min(#elements, LIGNES) * HAUTEUR)
+	cadre.ascenseur:Recaler(decalage, #elements, LIGNES)
 	return math.min(#elements, LIGNES) * HAUTEUR
 end
 
@@ -152,19 +154,21 @@ local function Construire (cadre, barre)
 		l.grade = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 		l.grade:SetPoint("LEFT", 146, 0) l.grade:SetWidth(80) l.grade:SetJustifyH("LEFT")
 		l.etat = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		l.etat:SetPoint("LEFT", 228, 0) l.etat:SetWidth(150) l.etat:SetJustifyH("LEFT")
+		l.etat:SetPoint("LEFT", 228, 0) l.etat:SetWidth(140) l.etat:SetJustifyH("LEFT")
 		l.dater = Opus.Bouton(l, "Dater", 66, function () Opus.Dater(l.m) end, true)
-		l.dater:SetPoint("LEFT", 384, 0)
+		l.dater:SetPoint("LEFT", 372, 0)
 		Opus.Bulle(l.dater, "Dater l'essai", "Retient la date (aujourd'hui si elle est inconnue) et prépare la note d'officier à coller.")
 		l.annuler = BoutonAnnuler(l)
-		l.annuler:SetPoint("LEFT", 384, 0)
+		l.annuler:SetPoint("LEFT", 372, 0)
 		l.promo = {}
 		for k = 1, 2 do
 			l.promo[k] = BoutonPromo(l)
-			l.promo[k]:SetPoint("LEFT", 456 + (k - 1) * 120, 0)
+			l.promo[k]:SetPoint("LEFT", 444 + (k - 1) * 120, 0)
 		end
 		lignes[i] = l
 	end
+	cadre.ascenseur = Opus.Ascenseur(cadre, function (d) decalage = d Opus.Rafraichir() end)
+	cadre.ascenseur:SetPoint("TOPRIGHT", -2, 0)
 end
 
 Opus.Page("essais", "Essais", Construire, Rafraichir, function (_, d) decalage = decalage - d end)

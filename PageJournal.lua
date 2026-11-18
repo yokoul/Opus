@@ -25,6 +25,9 @@ local function Rafraichir (cadre)
 		end
 	end
 	cadre.vide:SetShown(#liste == 0)
+	local visibles = math.min(#liste, LIGNES)
+	cadre.ascenseur:SetHeight(math.max(visibles, 1) * HAUTEUR)
+	cadre.ascenseur:Recaler(decalage, #liste, LIGNES)
 
 	local journal = Opus.db.journal
 	local plusAncien = liste[#liste]
@@ -32,7 +35,7 @@ local function Rafraichir (cadre)
 		and ("%d événement(s)%s · relevé il y a %s"):format(#liste,
 			plusAncien and (" depuis le " .. date("%d/%m", plusAncien.t * 3600)) or "", Opus.Depuis(math.floor(journal.releve / 3600)))
 		or Opus.Gris("pas encore relevé"))
-	return LIGNES * HAUTEUR
+	return math.max(visibles, 1) * HAUTEUR
 end
 
 local function Construire (cadre, barre)
@@ -54,11 +57,14 @@ local function Construire (cadre, barre)
 		l.quand = l:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 		l.quand:SetPoint("LEFT", 2, 0) l.quand:SetWidth(52) l.quand:SetJustifyH("RIGHT")
 		l.texte = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		l.texte:SetPoint("LEFT", 64, 0) l.texte:SetPoint("RIGHT", -2, 0) l.texte:SetJustifyH("LEFT") l.texte:SetWordWrap(false)
+		l.texte:SetPoint("LEFT", 64, 0) l.texte:SetPoint("RIGHT", -16, 0) l.texte:SetJustifyH("LEFT") l.texte:SetWordWrap(false)
 		-- la date approchée au survol (le jeu ne donne que « il y a N heures »)
 		Opus.Bulle(l, function (self) return date("Vers le %d/%m/%Y, %H h", self.e.t * 3600) end)
 		lignes[i] = l
 	end
+
+	cadre.ascenseur = Opus.Ascenseur(cadre, function (d) decalage = d Opus.Rafraichir() end)
+	cadre.ascenseur:SetPoint("TOPRIGHT", -2, 0)
 
 	cadre.vide = cadre:CreateFontString(nil, "OVERLAY", "GameFontDisable")
 	cadre.vide:SetPoint("TOPLEFT", 4, -4)

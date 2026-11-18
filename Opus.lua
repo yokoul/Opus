@@ -1,7 +1,7 @@
 -- Opus.lua : socle de l'addon (base de données, liste de guilde, commandes)
 local ADDON, Opus = ...
 _G.Opus = Opus
-Opus.version = "0.7.0"
+Opus.version = "0.7.1"
 
 local DEFAUTS = {
 	reglage = "phase",          -- préréglage de référence : "phase" (actuel) ou "raids"
@@ -12,6 +12,7 @@ local DEFAUTS = {
 	page = "essais",            -- dernier onglet ouvert de la fenêtre
 	journal = { evenements = {}, releve = 0 },  -- journal de guilde : arrivées, départs, grades (Journal.lua)
 	minimap = { angle = 200, cache = false },   -- bouton de la minimap (Minimap.lua)
+	fenetre = {},               -- position de la fenêtre (coin haut gauche)
 }
 
 function Opus.Msg (s)

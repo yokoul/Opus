@@ -10,9 +10,12 @@ local TYPES = { invite = true, join = true, promote = true, demote = true, remov
 local function Maintenant () return math.floor(time() / 3600) end
 local function IlYA (an, mois, jour, heure) return ((an or 0) * 365 + (mois or 0) * 30 + (jour or 0)) * 24 + (heure or 0) end
 
-local function Signature (e) return table.concat({ e.q, e.a or "", e.b or "", e.g or "" }, "|") end
+-- la signature laisse de côté le second nom : le jeu ne le donne pas toujours (« ? » tant que le client ne connaît pas
+-- ce joueur), et un relevé suivant peut l'apporter
+local function Signature (e) return table.concat({ e.q, e.a or "", e.g or "" }, "|") end
 
--- même fusion que pour la banque : un événement déjà vu (mêmes noms, même grade, à une heure près) ne revient pas
+-- même fusion que pour la banque : un événement déjà vu (même type, mêmes noms, même grade, à une heure près) ne
+-- revient pas ; s'il lui manquait le second nom et que ce relevé l'a, on le complète
 local function Fusionner (lus)
 	local evenements, index, pris, n = Opus.db.journal.evenements, {}, {}, 0
 	for _, e in ipairs(evenements) do
@@ -20,13 +23,20 @@ local function Fusionner (lus)
 		index[s] = index[s] or {}
 		table.insert(index[s], e)
 	end
-	for _, e in ipairs(lus) do
-		local s, trouve = Signature(e), nil
-		for _, v in ipairs(index[s] or {}) do
-			if not pris[v] and math.abs(v.t - e.t) <= 1 then trouve = v break end
+	local function Trouver (e, exact)
+		for _, v in ipairs(index[Signature(e)] or {}) do
+			if not pris[v] and math.abs(v.t - e.t) <= 1 then
+				if (exact and v.b == e.b) or (not exact and (v.b == nil or e.b == nil)) then return v end
+			end
 		end
-		if not trouve then
+	end
+	for _, e in ipairs(lus) do
+		local trouve = Trouver(e, true) or Trouver(e, false)
+		if trouve then
+			if not trouve.b and e.b then trouve.b = e.b n = n + 1 end
+		else
 			table.insert(evenements, e)
+			local s = Signature(e)
 			index[s] = index[s] or {}
 			table.insert(index[s], e)
 			trouve, n = e, n + 1
@@ -97,7 +107,7 @@ end
 
 -- un événement en clair ; nom(n) colore un nom (classe des membres encore là)
 function Opus.Phrase (e, nom)
-	local a, b = nom(e.a), e.b and nom(e.b) or "?"
+	local a, b = nom(e.a), e.b and nom(e.b) or Opus.Gris("(nom inconnu du jeu)")
 	if e.q == "join" then return Opus.Vert("Arrivée") .. " · " .. a .. " rejoint la guilde"
 	elseif e.q == "invite" then return Opus.Gris("Invitation") .. " · " .. b .. " invité par " .. a
 	elseif e.q == "promote" then return Opus.Normal("Promotion") .. " · " .. b .. " passe " .. Opus.Blanc(e.g or "?") .. ", par " .. a
