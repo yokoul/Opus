@@ -1,0 +1,124 @@
+-- Fenetre.lua : la fenêtre /opus (contrôle de la grille, membres à l'essai)
+local _, Opus = ...
+
+local LIGNES, HAUTEUR = 12, 24
+local f, lignes, decalage = nil, {}, 0
+
+local function Couleur (classe)
+	local c = classe and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classe]
+	return c and c.colorStr and ("|c" .. c.colorStr) or "|cffffffff"
+end
+
+local function Bouton (parent, texte, largeur, clic)
+	local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+	b:SetSize(largeur, 22)
+	b:SetText(texte)
+	b:SetScript("OnClick", clic)
+	return b
+end
+
+local function Rafraichir ()
+	if not f or not f:IsShown() then return end
+	f.reglage:SetText("Référence : |cffffd100" .. Opus.REGLAGES[Opus.db.reglage] .. "|r")
+	local chef = IsGuildLeader()
+	f.appPhase:SetEnabled(chef)
+	f.appRaids:SetEnabled(chef)
+
+	local liste = Opus.Essais()
+	f.vide:SetShown(#liste == 0)
+	decalage = math.max(0, math.min(decalage, #liste - LIGNES))
+	for i = 1, LIGNES do
+		local l, m = lignes[i], liste[i + decalage]
+		l:SetShown(m ~= nil)
+		if m then
+			l.m = m
+			l.nom:SetText(Couleur(m.classe) .. m.nom .. "|r")
+			l.grade:SetText(m.nomGrade)
+			if m.jours then
+				l.etat:SetText(("%d j sur %d"):format(m.jours, m.duree) .. (m.echu and "  |cffff6060échu|r" or "")
+					.. (m.source == "vu" and "  |cffaaaaaa(non noté)|r" or ""))
+			else
+				l.etat:SetText("|cffaaaaaadate inconnue|r")
+			end
+			l.dater:SetShown(m.source ~= "note")
+			local sorties = Opus.SORTIES[m.nomGrade] or {}
+			for k = 1, 2 do
+				local b, cible = l.promo[k], sorties[k]
+				b:SetShown(cible ~= nil)
+				if cible then
+					local crans = m.grade - Opus.RangDe(cible)
+					b.cible = cible
+					b:SetText("→ " .. cible .. (crans > 1 and (" (" .. crans .. ")") or ""))
+				end
+			end
+		end
+	end
+end
+Opus.Rafraichir = Rafraichir
+
+local function Construire ()
+	f = CreateFrame("Frame", "OpusFenetre", UIParent, "BasicFrameTemplateWithInset")
+	f:SetSize(620, 120 + LIGNES * HAUTEUR)
+	f:SetPoint("CENTER")
+	f:SetMovable(true)
+	f:EnableMouse(true)
+	f:RegisterForDrag("LeftButton")
+	f:SetScript("OnDragStart", f.StartMoving)
+	f:SetScript("OnDragStop", f.StopMovingOrSizing)
+	f:SetFrameStrata("DIALOG")
+	tinsert(UISpecialFrames, "OpusFenetre")
+	f.TitleText:SetText("Opus — guilde")
+
+	-- grille
+	f.reglage = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+	f.reglage:SetPoint("TOPLEFT", 16, -34)
+	local controle = Bouton(f, "Contrôler", 110, function () Opus.Rapport() end)
+	controle:SetPoint("TOPLEFT", 14, -54)
+	f.appPhase = Bouton(f, "Appliquer : phase", 150, function () Opus.DemanderAppliquer("phase") end)
+	f.appPhase:SetPoint("LEFT", controle, "RIGHT", 8, 0)
+	f.appRaids = Bouton(f, "Appliquer : raids", 150, function () Opus.DemanderAppliquer("raids") end)
+	f.appRaids:SetPoint("LEFT", f.appPhase, "RIGHT", 8, 0)
+
+	-- essais
+	local titre = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	titre:SetPoint("TOPLEFT", 16, -88)
+	titre:SetText("Membres à l'essai")
+	f.vide = f:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+	f.vide:SetPoint("TOPLEFT", 16, -112)
+	f.vide:SetText("Aucun Apprenti ni Aspirant pour l'instant.")
+
+	for i = 1, LIGNES do
+		local l = CreateFrame("Frame", nil, f)
+		l:SetSize(590, HAUTEUR)
+		l:SetPoint("TOPLEFT", 14, -104 - (i - 1) * HAUTEUR)
+		l.nom = l:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+		l.nom:SetPoint("LEFT", 2, 0) l.nom:SetWidth(110) l.nom:SetJustifyH("LEFT")
+		l.grade = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		l.grade:SetPoint("LEFT", 114, 0) l.grade:SetWidth(70) l.grade:SetJustifyH("LEFT")
+		l.etat = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		l.etat:SetPoint("LEFT", 186, 0) l.etat:SetWidth(150) l.etat:SetJustifyH("LEFT")
+		l.dater = Bouton(l, "Dater", 60, function () Opus.Dater(l.m) end)
+		l.dater:SetPoint("LEFT", 340, 0)
+		l.promo = {}
+		for k = 1, 2 do
+			local b = Bouton(l, "", 95, nil)
+			b:SetScript("OnClick", function (self) Opus.Promouvoir(l.m, self.cible) end)
+			b:SetPoint("LEFT", 404 + (k - 1) * 98, 0)
+			l.promo[k] = b
+		end
+		lignes[i] = l
+	end
+	f:EnableMouseWheel(true)
+	f:SetScript("OnMouseWheel", function (_, d) decalage = decalage - d Rafraichir() end)
+	f:SetScript("OnShow", function () Opus.DemanderListe() Rafraichir() end)
+	f:Hide()
+end
+
+function Opus.Fenetre ()
+	if not IsInGuild() then Opus.Msg("tu n'es pas en guilde.") return end
+	if not f then Construire() end
+	f:SetShown(not f:IsShown())
+	if f:IsShown() then Rafraichir() end
+end
+
+Opus.Ecoute("GUILD_ROSTER_UPDATE", Rafraichir)

@@ -1,0 +1,12 @@
+## Interface: 16001
+## Title: |cffd4af37Opus|r
+## Notes: Outils de la guilde Opus : grille des grades et droits, suivi des essais.
+## Author: Yan
+## Version: 0.1.0
+## SavedVariables: OpusDB
+
+Opus.lua
+Grille.lua
+Droits.lua
+Essais.lua
+Fenetre.lua
