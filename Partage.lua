@@ -316,11 +316,30 @@ local function DiffuserArrivees ()
 	if n > 0 then Opus.PartagerArrivees(dates) end
 end
 
+------------------------------------------------------------------------
+-- les spés (« S ») : chacun annonce la sienne (Specs.lua)
+------------------------------------------------------------------------
+
+function Opus.PartagerSpe (nom, s)
+	if not IsInGuild() then return end
+	file[#file + 1] = table.concat({ "S", Texte(nom), Mot(s.arbre, 40), s.icone or "", Mot(s.points, 20), s.t or time() }, FS)
+end
+
+local function RecevoirSpe (champs, expediteur)
+	local nom, arbre, icone, points, t = champs[2], champs[3], tonumber(champs[4]), champs[5], tonumber(champs[6])
+	-- on n'annonce que sa propre spé
+	if not nom or nom ~= Opus.Court(expediteur) or not arbre or arbre == "" or not t then return end
+	if Opus.RetenirSpe(nom, { arbre = arbre, icone = icone, points = points }, t) and Opus.Rafraichir then Opus.Rafraichir() end
+end
+
 local function Recevoir (texte, expediteur)
 	local enregistrements = { strsplit(RS, texte) }
 	local entete = enregistrements[1]
 	local genre, a, b, c = strsplit(FS, entete)
-	if genre == "A" then
+	if genre == "S" then
+		RecevoirSpe({ strsplit(FS, entete) }, expediteur)
+		return
+	elseif genre == "A" then
 		RecevoirArrivees(enregistrements, expediteur)
 		return
 	elseif genre == "C" or genre == "G" then
@@ -328,6 +347,7 @@ local function Recevoir (texte, expediteur)
 		return
 	elseif genre == "K" then
 		DemandeConfig(tonumber(a) or 0, b or "")
+		if Opus.PublierSpe then C_Timer.After(5 + math.random() * 20, function () Opus.PublierSpe(true) end) end
 		return
 	elseif genre == "Q" then
 		if c ~= maDemande then Demande(tonumber(a) or 0, tonumber(b) or 0, c) end
