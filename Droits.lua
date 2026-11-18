@@ -22,16 +22,12 @@ function Opus.Lire (rang)
 	return r
 end
 
--- les grades du jeu correspondent-ils à la grille ?
+-- la grille a-t-elle autant de grades que le jeu ? (les noms viennent du jeu : un grade renommé reste le même)
 function Opus.GradesConformes ()
-	local n = GuildControlGetNumRanks() or 0
-	local soucis = {}
-	if n ~= #Opus.GRADES then soucis[#soucis + 1] = ("%d grades en jeu, %d dans la grille"):format(n, #Opus.GRADES) end
-	for i = 1, math.min(n, #Opus.GRADES) do
-		local nom = GuildControlGetRankName(i)
-		if nom ~= Opus.GRADES[i].nom then soucis[#soucis + 1] = ("grade %d : « %s » en jeu, « %s » dans la grille"):format(i, tostring(nom), Opus.GRADES[i].nom) end
-	end
-	return #soucis == 0, soucis
+	local n, c = GuildControlGetNumRanks() or 0, Opus.Config()
+	local m = c and #c.grades or 0
+	if n ~= m then return false, { ("%d grades en jeu, %d dans la grille : reprends l'état du jeu pour la recaler"):format(n, m) } end
+	return true, {}
 end
 
 local function OuiNon (b) return b and "oui" or "non" end
@@ -61,7 +57,7 @@ function Opus.Rapport ()
 	end
 	local ecarts = Opus.Comparer()
 	if not ecarts then Msg("le jeu ne donne pas les droits des grades sur ce client.") return end
-	Msg("contrôle des droits" .. (Opus.AvantRaids() and (" (" .. Opus.RESTRICTION .. ")") or ""))
+	Msg("contrôle des droits" .. (Opus.Restriction() and (" (" .. Opus.Restriction().texte .. ")") or ""))
 	if #ecarts == 0 then
 		DEFAULT_CHAT_FRAME:AddMessage("  |cff60ff60droits conformes.|r")
 	else
@@ -88,7 +84,7 @@ local function Onglet (o)
 end
 
 function Opus.Fiche ()
-	Msg("fiche des grades (à régler dans Guilde > Paramètres de guilde)" .. (Opus.AvantRaids() and (", " .. Opus.RESTRICTION) or "") .. " :")
+	Msg("fiche des grades (à régler dans Guilde > Paramètres de guilde)" .. (Opus.Restriction() and (", " .. Opus.Restriction().texte) or "") .. " :")
 	for rang = 2, #Opus.GRADES do
 		local a, oui = Opus.Attendu(rang), {}
 		for _, d in ipairs(Opus.DROITS) do

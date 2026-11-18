@@ -3,7 +3,8 @@
 local _, Opus = ...
 
 local HAUTEUR, ENTETE = 30, 22
-local lignes = {}
+local MAX_GRADES = 10           -- le jeu permet jusqu'à 10 grades
+local lignes, entetesOnglets = {}, {}
 local function Oui () return Opus.Coche(14) end
 local function Non () return GRAY_FONT_COLOR:WrapTextInColorCode("–") end
 
@@ -17,16 +18,21 @@ local COLONNES = {
 	{ "Chantier", 490, 66 }, { "Matériaux", 558, 66 }, { "Réserve", 626, 62 },
 }
 
-local VOIES = { Tour = "voie du Tour", Atelier = "voie de l'Atelier" }
-
 local function Onglet (o)
+	if not o then return Opus.Gris("?") end
 	if not o.voir then return o.deposer and Opus.Gris("dépôt") or Non() end
 	return (o.deposer and "dépôt" or "voir") .. (o.retraits > 0 and (" · " .. o.retraits .. "/j") or "")
 end
 
 local function Rafraichir (cadre)
-	local avant = Opus.AvantRaids()
-	cadre.phase:SetText(avant and (Opus.Normal("Avant les raids : ") .. Opus.RESTRICTION .. ".") or Opus.Vert("Raids ouverts : grille complète."))
+	local restriction, c = Opus.Restriction(), Opus.Config()
+	local avant = restriction ~= nil
+	local editable = Opus.PeutConfigurer()
+	cadre.reprendre:SetShown(editable)
+	local version = c and c.version and c.version > 0 and ("grille du " .. date("%d/%m", c.version) .. (c.par and (" par " .. c.par) or "")) or "grille de départ"
+	cadre.phase:SetText((avant and (Opus.Normal("En ce moment : ") .. restriction.texte .. ". ") or "")
+		.. Opus.Gris(version .. (editable and " · clic sur un grade pour le modifier" or "")))
+	for t = 1, 3 do entetesOnglets[t]:SetText(Opus.ONGLETS[t] or ("Onglet " .. t)) end
 
 	-- écarts avec les droits réels, s'ils se lisent (grades conformes à la grille)
 	local ecarts, lisible = {}, false
@@ -39,11 +45,15 @@ local function Rafraichir (cadre)
 		end
 	end
 
-	for rang = 1, #Opus.GRADES do
+	for rang = 1, MAX_GRADES do
+		lignes[rang]:SetShown(Opus.GRADES[rang] ~= nil)
+	end
+	for rang = 1, math.min(#Opus.GRADES, MAX_GRADES) do
 		local l, g = lignes[rang], Opus.GRADES[rang]
-		l.grade = g
+		l.grade, l.rang = g, rang
 		l.nom:SetText(g.nom)
-		l.role:SetText(g.role .. (g.voie and (" · " .. VOIES[g.voie]) or ""))
+		local voie = Opus.NomVoie(g.voie)
+		l.role:SetText((g.role ~= "" and g.role or Opus.Gris("rôle à définir")) .. (voie and (" · " .. voie) or ""))
 		if rang == 1 then
 			l.cases[2]:SetText(Opus.Gris("tous les droits, non modifiables"))
 			for c = 3, #COLONNES do l.cases[c]:SetText("") end
@@ -62,7 +72,7 @@ local function Rafraichir (cadre)
 			else
 				l.cases[8]:SetText(a.or_ > 0 and (a.or_ .. " po") or Non())
 			end
-			for t = 1, 3 do l.cases[8 + t]:SetText(Onglet(a.onglets[t])) end
+			for t = 1, 3 do l.cases[8 + t]:SetText(Onglet(a.onglets and a.onglets[t])) end
 		end
 	end
 
@@ -77,39 +87,56 @@ local function Rafraichir (cadre)
 	else
 		cadre.etat:SetText(Opus.Rouge(("%d droit(s) différent(s) en jeu"):format(n)) .. ", en rouge : survole-les.")
 	end
-	return ENTETE + #Opus.GRADES * HAUTEUR + 64
+	local n = math.min(#Opus.GRADES, MAX_GRADES)
+	cadre.etat:SetPoint("TOPLEFT", 2, -ENTETE - n * HAUTEUR - 6)
+	cadre.note:SetPoint("TOPLEFT", 2, -ENTETE - n * HAUTEUR - 24)
+	return ENTETE + n * HAUTEUR + 64
 end
 
 local function Bulle (self)
 	local g, texte = self.grade, {}
-	texte[#texte + 1] = g.role .. (g.voie and (" · " .. VOIES[g.voie]) or "")
+	local voie = Opus.NomVoie(g.voie)
+	texte[#texte + 1] = (g.role ~= "" and g.role or "rôle à définir") .. (voie and (" · " .. voie) or "")
 	if g.desc then texte[#texte + 1] = g.desc end
 	local sorties = Opus.SORTIES[g.nom]
 	if sorties then
 		texte[#texte + 1] = ("Essai de %d jours, puis %s."):format(Opus.db.dureeEssai[g.nom] or 14, table.concat(sorties, " ou "))
 	end
+	if Opus.PeutConfigurer() then texte[#texte + 1] = Opus.Gris("Clic : modifier ce grade.") end
 	return texte
 end
+
+StaticPopupDialogs["OPUS_REPRENDRE"] = {
+	text = "Recaler la grille sur les grades et les droits actuels du jeu ?\nRôles, voies, essais, or et onglets sont conservés.",
+	button1 = YES, button2 = NO,
+	OnAccept = function () Opus.ReprendreLeJeu() end,
+	timeout = 0, whileDead = true, hideOnEscape = true,
+}
 
 local function Construire (cadre, barre)
 	local largeur = Opus.LARGEUR - 30
 
+	cadre.reprendre = Opus.Bouton(barre, "Reprendre l'état du jeu", 170, function () StaticPopup_Show("OPUS_REPRENDRE") end)
+	cadre.reprendre:SetPoint("RIGHT", 0, 0)
+	Opus.Bulle(cadre.reprendre, "Reprendre l'état du jeu", "Recale la grille sur les grades actuels de la guilde et leurs droits en jeu ; rôles, voies, essais, or et onglets sont gardés.")
 	cadre.phase = barre:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	cadre.phase:SetPoint("LEFT", 0, 0) cadre.phase:SetPoint("RIGHT", 0, 0) cadre.phase:SetJustifyH("LEFT")
+	cadre.phase:SetPoint("LEFT", 0, 0) cadre.phase:SetPoint("RIGHT", cadre.reprendre, "LEFT", -8, 0) cadre.phase:SetJustifyH("LEFT")
 
 	for c, col in ipairs(COLONNES) do
 		local h = cadre:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-		h:SetPoint("TOPLEFT", col[2], -4) h:SetWidth(col[3]) h:SetJustifyH(c == 1 and "LEFT" or "CENTER")
+		h:SetPoint("TOPLEFT", col[2], -4) h:SetWidth(col[3]) h:SetJustifyH(c == 1 and "LEFT" or "CENTER") h:SetWordWrap(false)
 		h:SetText(col[1])
+		if c >= 9 then entetesOnglets[c - 8] = h end
 	end
 
-	for rang = 1, #Opus.GRADES do
+	for rang = 1, MAX_GRADES do
 		local l = CreateFrame("Frame", nil, cadre)
 		l:SetSize(largeur, HAUTEUR)
 		l:SetPoint("TOPLEFT", 0, -ENTETE - (rang - 1) * HAUTEUR)
 		Opus.Survol(l)
 		l:EnableMouse(true)
 		Opus.Bulle(l, function (self) return self.grade.nom end, Bulle)
+		l:SetScript("OnMouseUp", function (self) if Opus.PeutConfigurer() then Opus.EditerGrade(self.rang) end end)
 		-- le grade sur deux lignes : son nom, puis son rôle et sa voie
 		l.nom = l:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 		l.nom:SetPoint("TOPLEFT", 2, -3) l.nom:SetJustifyH("LEFT")
@@ -135,6 +162,7 @@ local function Construire (cadre, barre)
 						GameTooltip:Show()
 					end)
 					case:SetScript("OnLeave", GameTooltip_Hide)
+					case:SetScript("OnMouseUp", function () if Opus.PeutConfigurer() then Opus.EditerGrade(l.rang) end end)
 				end
 				l.cases[c] = case
 			end
@@ -144,11 +172,11 @@ local function Construire (cadre, barre)
 	-- « tous les droits » du Magister s'étend sur la ligne
 	lignes[1].cases[2]:SetWidth(largeur - 160)
 
-	local bas = -ENTETE - #Opus.GRADES * HAUTEUR
 	cadre.etat = cadre:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	cadre.etat:SetPoint("TOPLEFT", 2, bas - 6) cadre.etat:SetWidth(largeur - 4) cadre.etat:SetJustifyH("LEFT")
+	cadre.etat:SetWidth(largeur - 4) cadre.etat:SetJustifyH("LEFT")
 	local note = cadre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	note:SetPoint("TOPLEFT", 2, bas - 24) note:SetWidth(largeur - 4) note:SetJustifyH("LEFT")
+	cadre.note = note
+	note:SetWidth(largeur - 4) note:SetJustifyH("LEFT")
 	note:SetText("Survole un grade pour son rôle. Seuls les droits se comparent : le plafond d'or et les onglets ne se lisent pas "
 		.. "pour un addon, et un addon ne modifie pas les grades : tout se règle dans Guilde > Paramètres de guilde (/opus fiche "
 		.. "l'écrit dans la discussion).")

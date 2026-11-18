@@ -43,9 +43,11 @@ local function EnTete (nom)
 	local g = Opus.GRADES[Opus.RangDe(nom)]
 	local vers = {}
 	for _, cible in ipairs(Opus.SORTIES[nom] or {}) do
-		vers[#vers + 1] = cible .. " (" .. Opus.GRADES[Opus.RangDe(cible)].role:lower() .. ")"
+		local role = Opus.GRADES[Opus.RangDe(cible)].role
+		vers[#vers + 1] = cible .. (role ~= "" and (" (" .. role:lower() .. ")") or "")
 	end
-	return nom .. "s · essai " .. g.essai, "voie de " .. (g.voie == "Tour" and "la Tour" or "l'" .. g.voie) .. " : vers " .. table.concat(vers, " ou ")
+	local voie = Opus.NomVoie(g.voie)
+	return nom .. " · essai " .. g.essai, (voie and (voie .. " : ") or "") .. (#vers > 0 and ("vers " .. table.concat(vers, " ou ")) or "sortie à définir dans Grades")
 end
 
 -- les lignes affichées : pour chaque bloc, son en-tête puis ses membres (ou « personne »)
@@ -62,18 +64,25 @@ local function Elements ()
 	return elements
 end
 
-local function LigneMembre (l, m)
+-- ce que le joueur a le droit de faire, en jeu : sans droit, la ligne ne montre que l'information
+local function Droits ()
+	local note = (C_GuildInfo and C_GuildInfo.CanEditOfficerNote) or CanEditOfficerNote
+	return { promouvoir = CanGuildPromote() and true or false, retrograder = CanGuildDemote() and true or false,
+		noter = note and note() and true or false }
+end
+
+local function LigneMembre (l, m, droits)
 	l.m = m
 	l.nom:SetText(Opus.Couleur(m.classe) .. m.nom .. "|r")
 	l.grade:SetText(m.montee and Opus.Normal(m.nomGrade) or m.nomGrade)
 	if m.jours then
 		l.etat:SetText(("%d j sur %d"):format(m.jours, m.duree) .. (m.echu and ("  " .. Opus.Rouge("échu")) or "")
-			.. (m.source == "vu" and ("  " .. Opus.Gris("(non noté)")) or ""))
+			.. (droits.noter and m.source ~= "note" and ("  " .. Opus.Gris("(non noté)")) or ""))
 	else
 		l.etat:SetText(Opus.Gris("date inconnue"))
 	end
-	l.dater:SetShown(m.source ~= "note" and not m.montee)
-	l.annuler:SetShown(m.montee ~= nil)
+	l.dater:SetShown(droits.noter and m.source ~= "note" and not m.montee)
+	l.annuler:SetShown(droits.retrograder and m.montee ~= nil)
 	if m.montee then
 		l.etat:SetText(Opus.Normal("en route vers " .. m.montee.cible))
 		l.annuler.depuis = m.montee.depuis
@@ -81,9 +90,14 @@ local function LigneMembre (l, m)
 	end
 	-- pendant une montée, seul le grade visé reste proposé
 	local sorties = m.montee and { m.montee.cible } or Opus.SORTIES[m.nomGrade] or {}
+	-- sans le droit de promouvoir : où mène l'essai, en texte
+	l.vers:SetShown(not droits.promouvoir and #sorties > 0)
+	if not droits.promouvoir then
+		l.vers:SetText((m.echu and Opus.Vert("à promouvoir : ") or Opus.Gris("puis ")) .. table.concat(sorties, " ou "))
+	end
 	for k = 1, 2 do
 		local b, cible = l.promo[k], sorties[k]
-		b:SetShown(cible ~= nil)
+		b:SetShown(droits.promouvoir and cible ~= nil)
 		if cible then
 			b.m, b.cible, b.crans = m, cible, m.grade - Opus.RangDe(cible)
 			b:SetText(m.echu and Opus.Vert(cible) or cible)
@@ -93,7 +107,9 @@ local function LigneMembre (l, m)
 end
 
 local function Rafraichir (cadre)
-	local elements = Elements()
+	local elements, droits = Elements(), Droits()
+	cadre.aide:SetText(droits.promouvoir and "Promotions : un clic = un grade" .. (droits.noter and " · Dater : prépare la note d'officier" or "")
+		or "Les promotions se font par les officiers")
 	decalage = math.max(0, math.min(decalage, #elements - LIGNES))
 	for i = 1, LIGNES do
 		local l, e = lignes[i], elements[i + decalage]
@@ -104,9 +120,9 @@ local function Rafraichir (cadre)
 			l.titre:SetShown(e.bloc ~= nil or e.vide)
 			l.voie:SetShown(e.bloc ~= nil)
 			if membre then
-				LigneMembre(l, e)
+				LigneMembre(l, e, droits)
 			else
-				l.dater:Hide() l.annuler:Hide() l.promo[1]:Hide() l.promo[2]:Hide()
+				l.dater:Hide() l.annuler:Hide() l.promo[1]:Hide() l.promo[2]:Hide() l.vers:Hide()
 				if e.bloc then
 					local titre, voie = EnTete(e.bloc)
 					l.titre:SetFontObject("GameFontNormal") l.titre:SetText(titre)
@@ -138,9 +154,8 @@ local function Construire (cadre, barre)
 	local largeur = Opus.LARGEUR - 30
 	cadre.resume = barre:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	cadre.resume:SetPoint("LEFT", 0, 0)
-	local aide = barre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	aide:SetPoint("RIGHT", 0, 0)
-	aide:SetText("Promotions : un clic = un grade · Dater : prépare la note d'officier")
+	cadre.aide = barre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	cadre.aide:SetPoint("RIGHT", 0, 0)
 	for i = 1, LIGNES do
 		local l = CreateFrame("Frame", nil, cadre)
 		l:SetSize(largeur, HAUTEUR)
@@ -158,6 +173,8 @@ local function Construire (cadre, barre)
 		l.dater = Opus.Bouton(l, "Dater", 66, function () Opus.Dater(l.m) end, true)
 		l.dater:SetPoint("LEFT", 372, 0)
 		Opus.Bulle(l.dater, "Dater l'essai", "Retient la date (aujourd'hui si elle est inconnue) et prépare la note d'officier à coller.")
+		l.vers = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		l.vers:SetPoint("LEFT", 444, 0) l.vers:SetPoint("RIGHT", -16, 0) l.vers:SetJustifyH("LEFT") l.vers:SetWordWrap(false)
 		l.annuler = BoutonAnnuler(l)
 		l.annuler:SetPoint("LEFT", 372, 0)
 		l.promo = {}

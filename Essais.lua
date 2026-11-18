@@ -14,15 +14,23 @@ local function LitDate (note)
 	return time({ year = 2000 + tonumber(a), month = tonumber(m), day = tonumber(j), hour = 12 })
 end
 
--- date d'entrée en essai : note d'officier, sinon arrivée vue en jeu
+-- Date d'entrée en essai : la note d'officier (seuls les officiers la lisent), sinon la date partagée par un officier
+-- (Opus.db.arrivees, synchronisée : Partage.lua), sinon l'arrivée relevée dans le journal de guilde.
 function Opus.DebutEssai (m)
 	local t = LitDate(m.noteOff)
 	if t then return t, "note" end
+	local partagee = Opus.db.arrivees[m.nom]
+	if partagee then return partagee, "partage" end
 	local arrivee = Opus.ArriveeJournal and Opus.ArriveeJournal(m.nom)
-	if arrivee then return arrivee, "vu" end
-	local vu = Opus.db.arrivees[m.nom]
-	if vu then return vu, "vu" end
+	if arrivee then return arrivee, "journal" end
 	return nil
+end
+
+-- retient une date d'essai et la partage aux membres (qui, sans être officiers, ne lisent pas les notes)
+function Opus.RetenirArrivee (nom, t)
+	if Opus.db.arrivees[nom] == t then return end
+	Opus.db.arrivees[nom] = t
+	if Opus.PartagerArrivees then Opus.PartagerArrivees({ [nom] = t }) end
 end
 
 -- Le jeu promeut d'un grade à la fois : d'Aspirant à Itinérant, on passe par Sédentaire. Une montée commencée est
@@ -55,6 +63,8 @@ function Opus.Essais ()
 		if g and g.essai and (g.nom == m.nomGrade or m.montee) then
 			local debut, source = Opus.DebutEssai(m)
 			m.debut, m.source = debut, source
+			-- un officier qui lit la date dans la note la transmet à ceux qui ne la voient pas
+			if source == "note" then Opus.RetenirArrivee(m.nom, debut) end
 			m.essai = g.nom          -- le grade d'essai d'origine, même en pleine montée
 			m.duree = Opus.db.dureeEssai[g.nom] or 14
 			m.jours = debut and math.floor((maintenant - debut) / 86400) or nil
@@ -97,12 +107,9 @@ StaticPopupDialogs["OPUS_NOTE"] = {
 }
 
 function Opus.Dater (m)
-	local debut = Opus.DebutEssai(m)
-	if not debut then
-		debut = time()
-		Opus.db.arrivees[m.nom] = debut
-		if Opus.Rafraichir then Opus.Rafraichir() end
-	end
+	local debut = Opus.DebutEssai(m) or time()
+	Opus.RetenirArrivee(m.nom, debut)
+	if Opus.Rafraichir then Opus.Rafraichir() end
 	local reste = (m.noteOff or ""):gsub(MOTIF, ""):gsub("^%s+", ""):gsub("%s+$", "")
 	local note = Formate(debut)
 	if reste ~= "" then note = note .. " " .. reste end

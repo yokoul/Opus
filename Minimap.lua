@@ -46,7 +46,7 @@ local function Bulle (self, ancre)
 	end
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddDoubleLine("Clic gauche", "Ouvrir", NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 1, 1, 1)
-	GameTooltip:AddDoubleLine("Clic droit", "Journal de guilde", NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 1, 1, 1)
+	GameTooltip:AddDoubleLine("Clic droit", "Tableau de la guilde", NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 1, 1, 1)
 	if self == bouton then
 		GameTooltip:AddDoubleLine("Glisser", "Déplacer", NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 1, 1, 1)
 	end
@@ -56,8 +56,7 @@ end
 local function Clic (bouton_souris)
 	if bouton_souris == "RightButton" then
 		Opus.DemanderJournal()
-		Opus.db.page = "journal"
-		Opus.Fenetre(true)
+		Opus.OuvrirGuilde("voies")
 	else
 		Opus.Fenetre()
 	end

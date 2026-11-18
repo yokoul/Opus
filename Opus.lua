@@ -1,7 +1,7 @@
 -- Opus.lua : socle de l'addon (base de données, liste de guilde, commandes)
 local ADDON, Opus = ...
 _G.Opus = Opus
-Opus.version = "0.8.0"
+Opus.version = "0.9.0"
 
 local DEFAUTS = {
 	dureeEssai = { Apprenti = 14, Aspirant = 14 },
@@ -9,6 +9,8 @@ local DEFAUTS = {
 	montees = {},               -- [nom] = { depuis = grade d'essai, cible = grade visé } : promotions en cours
 	banque = { evenements = {}, releve = 0, pairs = {} },   -- pairs : [membre] = dernier partage reçu de lui   -- opérations relevées dans les journaux de la banque (Banque.lua)
 	page = "essais",            -- dernier onglet ouvert de la fenêtre
+	configs = {},               -- [guilde] = grille de la guilde (Config.lua)
+	vus = {},                   -- [membre] = première fois que l'addon l'a vu dans la guilde
 	journal = { evenements = {}, releve = 0 },  -- journal de guilde : arrivées, départs, grades (Journal.lua)
 	minimap = { angle = 200, cache = false },   -- bouton de la minimap (Minimap.lua)
 	fenetre = {},               -- position de la fenêtre (coin haut gauche)
@@ -49,18 +51,28 @@ function Opus.DemanderListe ()
 	elseif GuildRoster then GuildRoster() end
 end
 
--- membres : { index, nom, complet, grade (1 = chef), nomGrade, niveau, classe, note, noteOff, enLigne, guid }
+-- membres : { index, nom, complet, grade (1 = chef), nomGrade, niveau, classe, zone, note, noteOff, enLigne, guid,
+-- absent (heures depuis la dernière connexion), vu (première fois que l'addon l'a vu dans la guilde) }
 function Opus.Membres ()
 	local liste = {}
 	local n = GetNumGuildMembers() or 0
 	for i = 1, n do
-		local complet, nomGrade, rangIndex, niveau, _, _, note, noteOff, enLigne, _, classe, _, _, _, _, _, guid = GetGuildRosterInfo(i)
+		local complet, nomGrade, rangIndex, niveau, _, zone, note, noteOff, enLigne, _, classe, _, _, _, _, _, guid = GetGuildRosterInfo(i)
 		if complet then
 			liste[#liste + 1] = {
 				index = i, complet = complet, nom = Opus.Court(complet),
 				grade = rangIndex + 1, nomGrade = nomGrade, niveau = niveau,
-				classe = classe, note = note or "", noteOff = noteOff or "", enLigne = enLigne, guid = guid,
+				classe = classe, zone = zone, note = note or "", noteOff = noteOff or "", enLigne = enLigne, guid = guid,
 			}
+			local m = liste[#liste]
+			if not enLigne and GetGuildRosterLastOnline then
+				local a, mo, j, h = GetGuildRosterLastOnline(i)
+				if a then m.absent = ((a * 365 + mo * 30 + j) * 24) + h end
+			end
+			if Opus.db then
+				Opus.db.vus[m.nom] = Opus.db.vus[m.nom] or time()
+				m.vu = Opus.db.vus[m.nom]
+			end
 		end
 	end
 	return liste

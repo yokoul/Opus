@@ -119,6 +119,5 @@ end
 
 Opus.Commande("journal", "journal", "ouvre la fenêtre sur le journal de guilde (arrivées, départs, grades)", function ()
 	Opus.DemanderJournal()
-	Opus.db.page = "journal"
-	Opus.Fenetre(true)
+	Opus.OuvrirGuilde("tout")
 end)

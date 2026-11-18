@@ -1,4 +1,5 @@
--- Grille.lua : la grille de référence « Guilde Opus — Grades et droits »
+-- Grille.lua : les droits que l'addon sait lire, et le préréglage de la guilde Opus (« Guilde Opus — Grades et droits »)
+-- La grille active est celle de la guilde du joueur (Config.lua) ; ce préréglage n'en est que le point de départ chez Opus.
 -- Sur Forever, la case « Est officier » (n° 22) regroupe canaux d'officiers, notes publiques et
 -- d'officiers, message du jour et infos de guilde : la grille les accorde à Magister et Architecte seuls.
 local _, Opus = ...
@@ -16,13 +17,13 @@ Opus.DROITS = {
 	{ id = 16, cle = "retraitOr",  nom = "Retrait d'or" },
 }
 
-Opus.ONGLETS = { "Chantier", "Matériaux", "Réserve" }
+local ONGLETS_OPUS = { "Chantier", "Matériaux", "Réserve" }
 
 -- onglet : { voir, déposer, retraits par jour }
 local function O (voir, deposer, retraits) return { voir = voir, deposer = deposer, retraits = retraits } end
 
 -- grades dans l'ordre du jeu (1 = Magister, non modifiable)
-Opus.GRADES = {
+local GRADES_OPUS = {
 	{ nom = "Magister",    role = "Maître de guilde", desc = "Tous les droits, non modifiables." },
 	{ nom = "Architecte",  role = "Officiers", desc = "Recrutent, promeuvent et rétrogradent ; canaux et notes d'officiers, message du jour. Seuls à voir la Réserve.",
 	  officier = true, inviter = true, promouvoir = true, retrograder = true, exclure = true,
@@ -47,39 +48,29 @@ Opus.GRADES = {
 	  onglets = { O(false, true, 0), O(false, true, 0), O(false, true, 0) } },
 }
 
--- les essais, dans l'ordre de la fenêtre : on entre par la guilde, on vise le raid ensuite
-Opus.BLOCS = { "Apprenti", "Aspirant" }
-
--- où mène chaque essai (le premier est la cible par défaut)
-Opus.SORTIES = {
+-- les sorties d'essai, par grade (le premier est la cible par défaut)
+local SORTIES_OPUS = {
 	Apprenti = { "Sédentaire" },
 	Aspirant = { "Itinérant", "Compagnon" },
 }
 
--- Une seule grille, celle des raids ouverts. Jusqu'à leur ouverture (9 décembre 2026, minuit à Paris), la feuille
--- coupe les réparations et les retraits d'or sauf pour le Magister : la caisse finance d'abord le premier onglet.
-Opus.OUVERTURE_RAIDS = 1796770800
-function Opus.AvantRaids () return time() < Opus.OUVERTURE_RAIDS end
-Opus.RESTRICTION = "réparations et retraits d'or coupés, sauf Magister, jusqu'à l'ouverture des raids le 9 décembre"
+-- Avant l'ouverture des raids (9 décembre 2026, minuit à Paris), la feuille coupe les réparations et les retraits d'or
+-- sauf pour le Magister : la caisse finance d'abord le premier onglet.
+local RESTRICTION_OPUS = {
+	fin = 1796770800,
+	texte = "réparations et retraits d'or coupés, sauf Magister, jusqu'à l'ouverture des raids le 9 décembre",
+}
 
--- ce qu'on attend d'un grade (2..8) aujourd'hui
-function Opus.Attendu (rang)
-	local g = Opus.GRADES[rang]
-	if not g or rang < 2 then return nil end
-	local a = {
-		ecouter = true, parler = true,
-		officier = g.officier or false, inviter = g.inviter or false,
-		promouvoir = g.promouvoir or false, retrograder = g.retrograder or false, exclure = g.exclure or false,
-		reparer = g.reparer or false, retraitOr = (g.or_ or 0) > 0, or_ = g.or_ or 0,
-		onglets = g.onglets,
-	}
-	if Opus.AvantRaids() then
-		a.reparer, a.retraitOr, a.or_ = false, false, 0
+-- le préréglage Opus, dans la forme d'une configuration de guilde (Config.lua) : sorties par numéro de grade
+function Opus.PreReglageOpus ()
+	local index = {}
+	for i, g in ipairs(GRADES_OPUS) do index[g.nom] = i end
+	local grades = {}
+	for i, g in ipairs(GRADES_OPUS) do
+		local c = CopyTable and CopyTable(g) or Opus.Copie(g)
+		c.sorties = {}
+		for _, s in ipairs(SORTIES_OPUS[g.nom] or {}) do c.sorties[#c.sorties + 1] = index[s] end
+		grades[i] = c
 	end
-	return a
-end
-
-function Opus.RangDe (nomGrade)
-	for i, g in ipairs(Opus.GRADES) do if g.nom == nomGrade then return i end end
-	return nil
+	return { version = 0, grades = grades, onglets = { ONGLETS_OPUS[1], ONGLETS_OPUS[2], ONGLETS_OPUS[3] }, restriction = RESTRICTION_OPUS }
 end
