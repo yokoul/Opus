@@ -333,11 +333,23 @@ local function RecevoirSpe (champs, expediteur)
 	if Opus.RetenirSpe(nom, { arbre = arbre, icone = icone, points = points, role = role }, t) and Opus.Rafraichir then Opus.Rafraichir() end
 end
 
+-- ses personnages (« M ») : pour plafonner la cotisation par joueur (Cotisation.lua)
+function Opus.PartagerPersos (noms)
+	local liste = {}
+	for _, n in ipairs(noms) do liste[#liste + 1] = (Texte(n):gsub(",", " ")) end
+	file[#file + 1] = "M" .. FS .. table.concat(liste, ",")
+end
+
 local function Recevoir (texte, expediteur)
 	local enregistrements = { strsplit(RS, texte) }
 	local entete = enregistrements[1]
 	local genre, a, b, c = strsplit(FS, entete)
-	if genre == "S" then
+	if genre == "M" then
+		local noms = {}
+		for n in (a or ""):gmatch("[^,]+") do if #noms < 12 then noms[#noms + 1] = n end end
+		if Opus.RecevoirPersos then Opus.RecevoirPersos(noms, expediteur) end
+		return
+	elseif genre == "S" then
 		RecevoirSpe({ strsplit(FS, entete) }, expediteur)
 		return
 	elseif genre == "J" then
@@ -358,6 +370,7 @@ local function Recevoir (texte, expediteur)
 	elseif genre == "K" then
 		DemandeConfig(tonumber(a) or 0, b or "")
 		if Opus.PublierSpe then C_Timer.After(5 + math.random() * 20, function () Opus.PublierSpe(true) end) end
+		if Opus.PublierPersos then C_Timer.After(10 + math.random() * 20, Opus.PublierPersos) end
 		return
 	elseif genre == "Q" then
 		if c ~= maDemande then Demande(tonumber(a) or 0, tonumber(b) or 0, c) end

@@ -9,14 +9,15 @@ local TIRET = GRAY_FONT_COLOR:WrapTextInColorCode("–")
 
 -- colonnes : clé de tri, titre, x, largeur, alignement, texte d'une ligne
 local COLONNES = {
-	{ "nom",      "Membre",       2,   122, "LEFT" },
-	{ "grade",    "Grade",        128, 84,  "LEFT" },
-	{ "orPlus",   "Or déposé",    214, 78,  "RIGHT", function (p) return Opus.Or(p.orPlus) end },
-	{ "orMoins",  "Or retiré",    294, 74,  "RIGHT", function (p) return Opus.Or(p.orMoins) end },
-	{ "rep",      "Réparations",  370, 84,  "RIGHT", function (p) return Opus.Or(p.rep) end },
-	{ "objPlus",  "Obj. déposés", 456, 80,  "RIGHT", function (p) return p.objPlus > 0 and p.objPlus or TIRET end },
-	{ "objMoins", "Obj. retirés", 538, 78,  "RIGHT", function (p) return p.objMoins > 0 and p.objMoins or TIRET end },
-	{ "dernier",  "Dernière",     618, 60,  "RIGHT", function (p) return Opus.Depuis(p.dernier) end },
+	{ "nom",      "Membre",       2,   112, "LEFT" },
+	{ "grade",    "Grade",        116, 76,  "LEFT" },
+	{ "orPlus",   "Or déposé",    194, 70,  "RIGHT", function (p) return Opus.Or(p.orPlus) end },
+	{ "orMoins",  "Or retiré",    266, 66,  "RIGHT", function (p) return Opus.Or(p.orMoins) end },
+	{ "rep",      "Réparations",  334, 74,  "RIGHT", function (p) return Opus.Or(p.rep) end },
+	{ "objPlus",  "Obj. dép.",    410, 58,  "RIGHT", function (p) return p.objPlus > 0 and p.objPlus or TIRET end },
+	{ "objMoins", "Obj. ret.",    470, 58,  "RIGHT", function (p) return p.objMoins > 0 and p.objMoins or TIRET end },
+	{ "cotis",    "Semaine",      530, 88,  "RIGHT", function (p) return p.cotisTexte or "" end },
+	{ "dernier",  "Dernière",     620, 58,  "RIGHT", function (p) return p.dernier > 0 and Opus.Depuis(p.dernier) or TIRET end },
 }
 
 -- bilan de la période, avec le grade et la classe de ceux encore dans la guilde
@@ -24,9 +25,27 @@ local function Liste ()
 	local membres = {}
 	for _, m in ipairs(Opus.Membres()) do membres[m.nom] = m end
 	local liste = Opus.Participation(periode)
+	local presents = {}
+	for _, p in ipairs(liste) do presents[p.nom] = true end
+	-- la cotisation de la semaine, par joueur (ses personnages ensemble) : affichée sur chacun de ses personnages
+	local etat = Opus.EtatCotisations()
+	if etat then
+		for nom, m in pairs(membres) do
+			local j = etat[Opus.Joueur(nom)]
+			if j and j.du > 0 and not presents[nom] then
+				liste[#liste + 1] = { nom = nom, orPlus = 0, orMoins = 0, rep = 0, objPlus = 0, objMoins = 0, dernier = 0, ev = {} }
+				presents[nom] = true
+			end
+		end
+	end
 	for _, p in ipairs(liste) do
 		local m = membres[p.nom]
 		p.grade, p.classe, p.parti = m and m.nomGrade or "", m and m.classe, m == nil
+		local j = etat and m and etat[Opus.Joueur(p.nom)]
+		if not j then p.cotis, p.cotisTexte = -1, ""
+		elseif j.du == 0 then p.cotis, p.cotisTexte = 0, Opus.Gris("exonéré")
+		elseif j.verse >= j.du then p.cotis, p.cotisTexte = 2, Opus.Coche(12) .. " " .. Opus.Or(j.du)
+		else p.cotis, p.cotisTexte = 1, Opus.Or(j.verse) .. " / " .. Opus.Or(j.du) end
 	end
 	table.sort(liste, function (a, b)
 		local x, y = a[tri], b[tri]
@@ -55,6 +74,7 @@ local function Rafraichir (cadre)
 	local banque = Opus.db.banque
 	cadre.info:SetText(banque.releve > 0
 		and ("relevé il y a %s · %d opérations · partagé avec %d membre(s)"):format(Opus.Depuis(math.floor(banque.releve / 3600)), #banque.evenements, Opus.Pairs())
+			.. Opus.SemaineTexte()
 		or Opus.Rouge("jamais relevée : passe à la banque de guilde"))
 
 	local liste = Liste()
@@ -162,7 +182,9 @@ local function Construire (cadre, barre)
 
 	cadre.aide = cadre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	cadre.aide:SetWidth(largeur - 4) cadre.aide:SetJustifyH("LEFT")
-	cadre.aide:SetText("Relevé à chaque ouverture de la banque de guilde et partagé avec les membres qui ont l'addon : il suffit que "
+	cadre.aide:SetText("La cotisation hebdomadaire, volontaire, finance les onglets de banque et les recettes rares : barème par personnage selon "
+		.. "son niveau (exonéré jusqu'au 19, 50 pa de 20 à 39, 1 po de 40 à 59, 2 po au 60), plafonné à 3 po par joueur, semaine du mercredi. "
+		.. "Relevé à chaque ouverture de la banque de guilde et partagé avec les membres qui ont l'addon : il suffit que "
 		.. "l'un d'eux passe à la banque. Le jeu n'y garde que les dernières opérations, alors plus elle est ouverte souvent, "
 		.. "plus le bilan est complet. Survole un membre pour le détail.")
 end
