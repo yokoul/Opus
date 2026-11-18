@@ -37,7 +37,8 @@ function Opus.Proposer (m)
 	local rid = ("%04x%04x"):format(math.random(0, 65535), math.random(0, 65535))
 	local role = Opus.RolePropose(m)
 	envoyees[rid] = { cible = m.nom, role = role }
-	Opus.EnvoyerVite(table.concat({ "J", rid, Texte(m.nom), Texte(donjon or ""), min, max, role, Places(), Texte(Opus.MonNom()) }, FS))
+	Opus.EnvoyerVite(table.concat({ "J", rid, Texte(m.nom), Texte(donjon or ""), min, max, role, Places(), Texte(Opus.MonNom()),
+		Opus.RisqueGris(m.niveau) and "gris" or "" }, FS))
 	Opus.Msg(("proposition envoyée à %s (%s)."):format(m.nom, NOMS_ROLES[role]))
 end
 
@@ -105,7 +106,8 @@ local function Proposition (p)
 	proposition.texte:SetText(("%s te propose une place dans son groupe :\n%s\n%s, places prises : %d / 5"):format(
 		demandeur and (Opus.Couleur(demandeur.classe) .. p.de .. "|r") or p.de,
 		Opus.Normal((p.donjon ~= "" and p.donjon or "Donjon") .. ("  (niv. %d-%d)"):format(p.min, p.max)),
-		"En " .. Opus.Blanc(NOMS_ROLES[p.role] or p.role), p.places))
+		"En " .. Opus.Blanc(NOMS_ROLES[p.role] or p.role), p.places)
+		.. (p.gris and ("\n" .. Opus.Rouge("Attention : trop haut pour ce donjon, le groupe ne gagnerait plus d'XP.")) or ""))
 	if p.minuteur then p.minuteur:Cancel() end
 	p.minuteur = C_Timer.NewTimer(DUREE, function () if proposition.p == p then proposition:Hide() end end)
 	Montrer(proposition)
@@ -141,6 +143,41 @@ local function Reponse (nom, role)
 end
 
 ------------------------------------------------------------------------
+-- changement de donjon (« D ») : prévenir les membres déjà placés
+------------------------------------------------------------------------
+
+function Opus.AnnoncerDonjon ()
+	local moi, cibles = Opus.MonNom(), {}
+	for i = 1, #Opus.PLACES do
+		local nom = Opus.groupe.places[i]
+		if nom and nom ~= moi and Opus.AAddon(nom) then cibles[#cibles + 1] = Texte(nom):gsub(",", " ") end
+	end
+	if #cibles == 0 then return end
+	local min, max, donjon = Opus.Tranche()
+	Opus.EnvoyerVite(table.concat({ "D", Texte(donjon or ""), min, max, Texte(moi), table.concat(cibles, ",") }, FS))
+	Opus.Msg("changement de donjon annoncé au groupe.")
+end
+
+local changement
+function Opus.RecevoirDonjon (champs, expediteur)
+	local donjon, min, max, de, cibles = champs[2], tonumber(champs[3]), tonumber(champs[4]), champs[5], champs[6] or ""
+	if not min or not Opus.EstMembre(de, expediteur) then return end
+	local pourMoi = false
+	for nom in cibles:gmatch("[^,]+") do if nom == Opus.MonNom() then pourMoi = true end end
+	if not pourMoi then return end
+	if not changement then
+		changement = Fenetre("OpusChangement")
+		changement:SetTitle("Groupe de guilde")
+		local ok = Opus.Bouton(changement.Inset, "D'accord", 150, function () changement:Hide() end)
+		ok:SetPoint("BOTTOMRIGHT", -12, 10)
+	end
+	local trop = UnitLevel("player") - max >= Opus.ECART_GRIS
+	changement.texte:SetText(("%s change de donjon :\n%s"):format(de, Opus.Normal((donjon ~= "" and donjon or "autour de son niveau") .. ("  (niv. %d-%d)"):format(min, max)))
+		.. (trop and ("\n" .. Opus.Rouge("Attention : tu es trop haut pour ce donjon, le groupe ne gagnerait plus d'XP.")) or ""))
+	Montrer(changement)
+end
+
+------------------------------------------------------------------------
 -- réception (Partage.lua passe les messages « J » et « R »)
 ------------------------------------------------------------------------
 
@@ -148,7 +185,7 @@ function Opus.RecevoirProposition (champs, expediteur)
 	local rid, cible, donjon, min, max, role, places, de = champs[2], champs[3], champs[4], tonumber(champs[5]), tonumber(champs[6]), champs[7], tonumber(champs[8]), champs[9]
 	if not rid or cible ~= Opus.MonNom() or not min or not max then return end
 	if not Opus.EstMembre(de, expediteur) then return end
-	Proposition({ rid = rid, de = de, donjon = donjon or "", min = min, max = max, role = role, places = places or 1 })
+	Proposition({ rid = rid, de = de, donjon = donjon or "", min = min, max = max, role = role, places = places or 1, gris = champs[10] == "gris" })
 end
 
 function Opus.RecevoirReponse (champs, expediteur)

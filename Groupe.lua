@@ -4,6 +4,9 @@
 local _, Opus = ...
 
 local ECART = 3
+-- Sur Forever (annonce de novembre 2026), si les monstres d'un donjon sont gris pour un joueur, plus personne du groupe
+-- ne gagne d'XP : on prévient dès 13 niveaux d'écart (au-dessus du maximum du donjon, ou entre membres sans donjon).
+Opus.ECART_GRIS = 13
 Opus.groupe = { donjon = nil, places = {} }     -- places[i] = nom du membre ; 1 tank, 2 soin, 3-5 dégâts
 Opus.PLACES = { "tank", "soin", "degats", "degats", "degats" }
 
@@ -63,6 +66,37 @@ end
 
 function Opus.ViderGroupe ()
 	Opus.groupe.places = {}
+	if Opus.Rafraichir then Opus.Rafraichir() end
+end
+
+-- ce joueur ferait-il perdre l'XP au groupe ? (un donjon choisi : son niveau au-dessus de son maximum ; sinon : face au
+-- plus bas du groupe)
+function Opus.RisqueGris (niveau)
+	local d = Opus.groupe.donjon
+	if d then return niveau - d.max >= Opus.ECART_GRIS end
+	local plusBas
+	for i = 1, #Opus.PLACES do
+		local m = Opus.groupe.places[i] and Opus.TrouverMembre(Opus.groupe.places[i])
+		if m then plusBas = math.min(plusBas or m.niveau, m.niveau) end
+	end
+	return plusBas ~= nil and niveau - plusBas >= Opus.ECART_GRIS
+end
+
+-- les membres du groupe pour qui les monstres seraient gris
+function Opus.AlerteNiveaux ()
+	local fautifs = {}
+	for i = 1, #Opus.PLACES do
+		local m = Opus.groupe.places[i] and Opus.TrouverMembre(Opus.groupe.places[i])
+		if m and Opus.RisqueGris(m.niveau) then fautifs[#fautifs + 1] = m.nom end
+	end
+	return fautifs
+end
+
+-- changer de donjon : les membres déjà placés qui ont l'addon en sont prévenus
+function Opus.ChoisirDonjon (d)
+	local avant = Opus.groupe.donjon
+	Opus.groupe.donjon = d
+	if (avant and avant.cle) ~= (d and d.cle) and Opus.AnnoncerDonjon then Opus.AnnoncerDonjon() end
 	if Opus.Rafraichir then Opus.Rafraichir() end
 end
 

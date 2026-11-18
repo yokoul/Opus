@@ -85,7 +85,9 @@ local function RafraichirGroupe (g)
 		p.retirer:SetShown(membre ~= nil and membre ~= Opus.MonNom())
 	end
 	local manque = Opus.Manque()
-	g.manque:SetText(manque == "" and Opus.Vert("Groupe complet !") or (Opus.Normal("Il manque : ") .. manque))
+	local fautifs = Opus.AlerteNiveaux()
+	g.manque:SetText((manque == "" and Opus.Vert("Groupe complet !") or (Opus.Normal("Il manque : ") .. manque))
+		.. (#fautifs > 0 and ("\n" .. Opus.Rouge(("Pas d'XP pour le groupe : monstres gris pour %s (%d niveaux d'écart ou plus)."):format(table.concat(fautifs, ", "), Opus.ECART_GRIS))) or ""))
 	local invitations, annonce = Opus.MacroInvitations(), Opus.MacroAnnonce()
 	g.inviter:SetAttribute("macrotext", invitations)
 	g.inviter:SetEnabled(invitations ~= "")
@@ -162,7 +164,7 @@ local function Rafraichir (cadre)
 			l.m = m
 			l.cases.role:SetText(IconeRole(m.role))
 			l.cases.nom:SetText(Opus.Couleur(m.classe) .. m.nom .. "|r")
-			l.cases.niveau:SetText(m.niveau)
+			l.cases.niveau:SetText(groupe and Opus.RisqueGris(m.niveau) and Opus.Rouge(m.niveau) or m.niveau)
 			l.cases.spe:SetText(m.spe and (m.spe.arbre .. Opus.Gris("  " .. m.spe.points)) or Opus.Gris("inconnue"))
 			l.cases.grade:SetText(groupe and (m.zone or "") or m.nomGrade)
 			l.cases.statut:SetText(groupe and (Opus.DansLeGroupe(m.nom) and Opus.Vert("groupé") or "") or (m.enLigne and Opus.Vert("en ligne") or ""))
@@ -249,8 +251,16 @@ local function Construire (cadre, barre)
 			if not self.m then return end
 			if filtre == "groupe" then Opus.AjouterAuGroupe(self.m) else Opus.OuvrirGuilde(nil, self.m.nom) end
 		end)
-		Opus.Bulle(l, function (self) return self.m and self.m.nom end, function ()
-			return { Opus.Gris(filtre == "groupe" and "Clic : l'ajouter au groupe." or "Clic : ouvrir sa fiche.") }
+		Opus.Bulle(l, function (self) return self.m and self.m.nom end, function (self)
+			local texte = {}
+			if filtre == "groupe" and self.m then
+				if self.m.zone then texte[#texte + 1] = self.m.zone end
+				if Opus.RisqueGris(self.m.niveau) then
+					texte[#texte + 1] = Opus.Rouge(("Les monstres seraient gris pour lui (%d niveaux d'écart ou plus) : plus personne ne gagnerait d'XP."):format(Opus.ECART_GRIS))
+				end
+			end
+			texte[#texte + 1] = Opus.Gris(filtre == "groupe" and "Clic : l'ajouter au groupe." or "Clic : ouvrir sa fiche.")
+			return texte
 		end)
 		-- chuchoter : la ligne de discussion du jeu s'ouvre avec la proposition déjà écrite, à envoyer ou retoucher
 		l.ecrire = Opus.Bouton(l, "Écrire", 52, function (self)
@@ -289,7 +299,7 @@ local function Construire (cadre, barre)
 	g.donjon:SetPoint("TOPLEFT", 0, 0)
 	g.donjon:SetupMenu(function (_, racine)
 		local function Choisi (d) return (Opus.groupe.donjon and Opus.groupe.donjon.cle) == (d and d.cle) end
-		local function Choisir (d) Opus.groupe.donjon = d decalage = 0 Opus.Rafraichir() end
+		local function Choisir (d) decalage = 0 Opus.ChoisirDonjon(d) end
 		racine:CreateRadio("Autour de mon niveau (±3)", function () return Opus.groupe.donjon == nil end, function () Choisir(nil) end)
 		local n = UnitLevel("player")
 		for _, d in ipairs(Opus.Donjons()) do

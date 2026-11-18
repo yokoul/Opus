@@ -346,6 +346,9 @@ local function Recevoir (texte, expediteur)
 	elseif genre == "R" then
 		if Opus.RecevoirReponse then Opus.RecevoirReponse({ strsplit(FS, entete) }, expediteur) end
 		return
+	elseif genre == "D" then
+		if Opus.RecevoirDonjon then Opus.RecevoirDonjon({ strsplit(FS, entete) }, expediteur) end
+		return
 	elseif genre == "A" then
 		RecevoirArrivees(enregistrements, expediteur)
 		return
