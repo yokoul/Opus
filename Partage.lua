@@ -340,6 +340,12 @@ local function Recevoir (texte, expediteur)
 	if genre == "S" then
 		RecevoirSpe({ strsplit(FS, entete) }, expediteur)
 		return
+	elseif genre == "J" then
+		if Opus.RecevoirProposition then Opus.RecevoirProposition({ strsplit(FS, entete) }, expediteur) end
+		return
+	elseif genre == "R" then
+		if Opus.RecevoirReponse then Opus.RecevoirReponse({ strsplit(FS, entete) }, expediteur) end
+		return
 	elseif genre == "A" then
 		RecevoirArrivees(enregistrements, expediteur)
 		return
@@ -385,7 +391,9 @@ Opus.Ecoute("CHAT_MSG_ADDON", function (prefixe, texte, canal, expediteur)
 		if GetTime() - envoye < 120 then partage.moi = expediteur return end
 	end
 	if expediteur == partage.moi then return end
-	Opus.db.banque.pairs[Opus.Court(expediteur)] = time()
+	-- les membres qui ont l'addon, sous leur nom du roster (l'expéditeur n'a parfois que le prénom)
+	local membre = Opus.TrouverExpediteur(expediteur)
+	Opus.db.banque.pairs[membre and membre.nom or Opus.Court(expediteur)] = time()
 	Recevoir(texte, expediteur)
 end)
 
@@ -399,6 +407,15 @@ Opus.Ecoute("PLAYER_ENTERING_WORLD", function ()
 	C_Timer.After(25, Opus.DemanderConfig)
 	C_Timer.After(35, DiffuserArrivees)
 end)
+
+-- ce membre a-t-il l'addon ? (il s'est manifesté ces 7 derniers jours)
+function Opus.AAddon (nom)
+	local t = Opus.db.banque.pairs[nom]
+	return t and t >= time() - 7 * 86400
+end
+
+-- un message prioritaire (proposition de groupe et sa réponse) : en tête de file
+function Opus.EnvoyerVite (message) table.insert(file, 1, message) end
 
 -- les membres dont l'addon s'est manifesté ces 7 derniers jours
 function Opus.Pairs ()

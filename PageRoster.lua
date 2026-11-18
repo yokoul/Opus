@@ -99,7 +99,7 @@ local function Rafraichir (cadre)
 	for _, b in ipairs(boutons) do b:SetShown(not groupe) end
 	cadre.groupe:SetShown(groupe)
 	cadre.roles:SetShown(not groupe)
-	entetes[5].texte:SetText(groupe and "Zone" or "Grade")
+	entetes[5].texte:SetText(groupe and "" or "Grade")
 	entetes[6].texte:SetText(groupe and "" or "Statut")
 	if groupe then
 		-- on est soi-même dans son groupe, à la place de son rôle
@@ -166,7 +166,11 @@ local function Rafraichir (cadre)
 			l.cases.spe:SetText(m.spe and (m.spe.arbre .. Opus.Gris("  " .. m.spe.points)) or Opus.Gris("inconnue"))
 			l.cases.grade:SetText(groupe and (m.zone or "") or m.nomGrade)
 			l.cases.statut:SetText(groupe and (Opus.DansLeGroupe(m.nom) and Opus.Vert("groupé") or "") or (m.enLigne and Opus.Vert("en ligne") or ""))
-			l.ecrire:SetShown(groupe and not Opus.DansLeGroupe(m.nom))
+			-- dans la vue groupe : écrire (message tout prêt), et proposer par l'addon à qui l'a
+			local libre = groupe and not Opus.DansLeGroupe(m.nom)
+			l.ecrire:SetShown(libre)
+			l.proposer:SetShown(libre and Opus.AAddon(m.nom))
+			if groupe then l.cases.grade:SetText("") end
 		end
 	end
 	local visibles = math.min(#liste, LIGNES)
@@ -248,16 +252,26 @@ local function Construire (cadre, barre)
 		Opus.Bulle(l, function (self) return self.m and self.m.nom end, function ()
 			return { Opus.Gris(filtre == "groupe" and "Clic : l'ajouter au groupe." or "Clic : ouvrir sa fiche.") }
 		end)
-		-- chuchoter : la ligne de discussion du jeu s'ouvre, prête pour un message
+		-- chuchoter : la ligne de discussion du jeu s'ouvre avec la proposition déjà écrite, à envoyer ou retoucher
 		l.ecrire = Opus.Bouton(l, "Écrire", 52, function (self)
 			local m = self:GetParent().m
-			local tell = (ChatFrameUtil and ChatFrameUtil.SendTell) or ChatFrame_SendTell
-			if m and tell then
-				if securecall then securecall(tell, m.nom) else tell(m.nom) end
-			end
+			if not m then return end
+			local avecMessage = ChatFrameUtil and ChatFrameUtil.SendTellWithMessage
+			local seul = (ChatFrameUtil and ChatFrameUtil.SendTell) or ChatFrame_SendTell
+			local appel = avecMessage and function () avecMessage(m.nom, Opus.MessageProposition(m)) end or function () seul(m.nom) end
+			if securecall then securecall(appel) else appel() end
 		end, true)
 		l.ecrire:SetPoint("RIGHT", -2, 0)
 		l.ecrire:Hide()
+		Opus.Bulle(l.ecrire, "Écrire", function (self) return self:GetParent().m and Opus.MessageProposition(self:GetParent().m) end)
+		-- proposer : une fenêtre s'ouvre chez lui (s'il a l'addon), sa réponse revient ici
+		l.proposer = Opus.Bouton(l, "Proposer", 70, function (self)
+			local m = self:GetParent().m
+			if m then Opus.Proposer(m) end
+		end, true)
+		l.proposer:SetPoint("RIGHT", l.ecrire, "LEFT", -4, 0)
+		l.proposer:Hide()
+		Opus.Bulle(l.proposer, "Proposer par l'addon", "Une fenêtre s'ouvre chez lui pour accepter ou refuser ; s'il accepte, il rejoint ton groupe et tu n'as plus qu'à l'inviter.")
 		lignes[i] = l
 	end
 	cadre.ascenseur = Opus.Ascenseur(cadre, function (d) decalage = d Opus.Rafraichir() end)
