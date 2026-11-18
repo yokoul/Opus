@@ -41,7 +41,7 @@ local function Composition ()
 		local c = m.classe and parClasse[m.classe]
 		if c and Garder(m) then
 			local s = Opus.db.spes[m.nom]
-			m.spe, m.role = s, s and Opus.RoleDeSpe(s.arbre)
+			m.spe, m.role = s, Opus.RoleDe(s)
 			membres[#membres + 1] = m
 			c.n = c.n + 1
 			if s then

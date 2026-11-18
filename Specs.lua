@@ -19,6 +19,12 @@ function Opus.RoleDeSpe (arbre)
 	return "degats"
 end
 
+-- le rôle d'une spé connue : celui que le joueur a déclaré (/opus role), sinon celui que son arbre laisse supposer
+function Opus.RoleDe (s)
+	if not s then return nil end
+	return s.role or Opus.RoleDeSpe(s.arbre)
+end
+
 -- la spé du joueur : { arbre, icone, points = "31/20/0" } ; nil tant qu'aucun point n'est placé ou que l'API manque
 function Opus.MaSpe ()
 	if not (C_ClassTalents and C_ClassTalents.GetActiveConfigID and C_Traits and C_Traits.GetConfigInfo) then return nil end
@@ -49,7 +55,7 @@ end
 function Opus.RetenirSpe (nom, s, t)
 	local actuelle = Opus.db.spes[nom]
 	if actuelle and actuelle.t and t and actuelle.t > t then return false end
-	Opus.db.spes[nom] = { arbre = s.arbre, icone = s.icone, points = s.points, t = t or time() }
+	Opus.db.spes[nom] = { arbre = s.arbre, icone = s.icone, points = s.points, role = s.role, t = t or time() }
 	return true
 end
 
@@ -58,12 +64,13 @@ local function Publier (forcer)
 	if not IsInGuild() or not Opus.db then return end
 	local s = Opus.MaSpe()
 	if not s then return end
+	s.role = Opus.db.monRole
 	local moi = Opus.MonNom()
 	-- (avant 0.10.1, la spé était rangée sous le seul prénom)
 	local prenom = Opus.Court(UnitName("player"))
 	if prenom ~= moi then Opus.db.spes[prenom] = nil end
 	Opus.RetenirSpe(moi, s)
-	local cle = s.arbre .. s.points
+	local cle = s.arbre .. s.points .. (s.role or "")
 	if (forcer or cle ~= envoyee) and Opus.PartagerSpe then
 		envoyee = cle
 		Opus.PartagerSpe(moi, Opus.db.spes[moi])
@@ -85,6 +92,23 @@ Opus.Ecoute("PLAYER_ENTERING_WORLD", function ()
 	if Opus.speLancee then return end
 	Opus.speLancee = true
 	C_Timer.After(40, function () Publier(true) end)
+end)
+
+local NOMS_ROLES = { tank = "tank", soin = "soigneur", degats = "dégâts" }
+Opus.Commande("role", "role tank|soin|degats|auto", "ton rôle quand ta spé ne le dit pas (druide farouche…), partagé avec ta spé", function (s)
+	s = (s or ""):lower():gsub("é", "e"):gsub("â", "a")
+	if s == "soigneur" or s == "heal" then s = "soin" elseif s == "dps" or s == "degat" then s = "degats" end
+	if s == "auto" then
+		Opus.db.monRole = nil
+		Opus.Msg("rôle : déduit de ta spé.")
+	elseif NOMS_ROLES[s] then
+		Opus.db.monRole = s
+		Opus.Msg("rôle déclaré : " .. NOMS_ROLES[s] .. ".")
+	else
+		Opus.Msg("exemple : /opus role tank (ou soin, degats, auto).")
+		return
+	end
+	Publier(true)
 end)
 
 Opus.Commande("diagspe", "diagspe", "la spécialisation que l'addon lit pour ton personnage", function ()

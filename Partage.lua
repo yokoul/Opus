@@ -322,14 +322,15 @@ end
 
 function Opus.PartagerSpe (nom, s)
 	if not IsInGuild() then return end
-	file[#file + 1] = table.concat({ "S", Texte(nom), Mot(s.arbre, 40), s.icone or "", Mot(s.points, 20), s.t or time() }, FS)
+	file[#file + 1] = table.concat({ "S", Texte(nom), Mot(s.arbre, 40), s.icone or "", Mot(s.points, 20), s.t or time(), s.role or "" }, FS)
 end
 
 local function RecevoirSpe (champs, expediteur)
 	local nom, arbre, icone, points, t = champs[2], champs[3], tonumber(champs[4]), champs[5], tonumber(champs[6])
+	local role = (champs[7] == "tank" or champs[7] == "soin" or champs[7] == "degats") and champs[7] or nil
 	-- on n'annonce que sa propre spé
 	if not Opus.EstMembre(nom, expediteur) or not arbre or arbre == "" or not t then return end
-	if Opus.RetenirSpe(nom, { arbre = arbre, icone = icone, points = points }, t) and Opus.Rafraichir then Opus.Rafraichir() end
+	if Opus.RetenirSpe(nom, { arbre = arbre, icone = icone, points = points, role = role }, t) and Opus.Rafraichir then Opus.Rafraichir() end
 end
 
 local function Recevoir (texte, expediteur)
