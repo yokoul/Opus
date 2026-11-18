@@ -1,16 +1,27 @@
--- PageRoster.lua : la composition de la guilde. Les rôles en un coup d'œil, puis une carte par classe : combien, quelles
--- spés (celles annoncées par l'addon de chacun), quels niveaux ; au survol, les membres de la classe.
+-- PageRoster.lua : la composition de la guilde. À gauche les classes (effectif, spés, rôles), à droite les membres de la
+-- classe choisie (ou de toutes), triables par colonne ; un clic sur un membre ouvre sa fiche (onglet Guilde). Les spés
+-- sont celles qu'annonce l'addon de chacun (Specs.lua).
 local _, Opus = ...
 
 local CLASSES = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID" }
-local COLONNES, LARGEUR_CARTE, HAUTEUR_CARTE, ECART, HAUT = 3, 224, 96, 9, 30
 local NIVEAU_MAX = 60
-local cartes, filtre = {}, "tous"
+local GAUCHE, HAUT = 226, 26                 -- largeur du panneau des classes, hauteur de la ligne des rôles
+local HAUTEUR_CLASSE, HAUTEUR, LIGNES = 36, 20, 16
+local filtre, classe, tri, croissant, decalage = "tous", nil, "role", true, 0
+local boutons, lignes, entetes = {}, {}, {}
 
 local FILTRES = { { "tous", "Tous les membres" }, { "max", "Niveau " .. NIVEAU_MAX }, { "raid", "Raiders (voie du Tour)" }, { "enligne", "En ligne" } }
-local ROLES = { tank = "roleicon-tiny-tank", soin = "roleicon-tiny-healer", degats = "roleicon-tiny-dps" }
+local ATLAS_ROLES = { tank = "roleicon-tiny-tank", soin = "roleicon-tiny-healer", degats = "roleicon-tiny-dps" }
+local ORDRE_ROLES = { tank = 1, soin = 2, degats = 3 }
 
-local function IconeRole (role, taille) return CreateAtlasMarkup(ROLES[role], taille or 14, taille or 14) end
+local function IconeRole (role, taille) return role and CreateAtlasMarkup(ATLAS_ROLES[role], taille or 14, taille or 14) or "" end
+local function NomClasse (c) return (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[c]) or c end
+
+-- colonnes de la liste : clé de tri, titre, x (depuis le panneau de droite), largeur, alignement
+local COLONNES = {
+	{ "role", "Rôle", 0, 30, "CENTER" }, { "nom", "Membre", 34, 132, "LEFT" }, { "niveau", "Niv.", 168, 28, "RIGHT" },
+	{ "spe", "Spé", 204, 110, "LEFT" }, { "grade", "Grade", 318, 70, "LEFT" }, { "statut", "", 390, 46, "LEFT" },
+}
 
 local function Garder (m)
 	if filtre == "max" then return m.niveau >= NIVEAU_MAX end
@@ -22,121 +33,174 @@ local function Garder (m)
 	return true
 end
 
--- par classe : les membres, leurs spés connues, leurs rôles
+-- les membres retenus, avec leur spé et leur rôle ; et par classe, l'effectif et les spés
 local function Composition ()
-	local parClasse, roles, connues, total = {}, { tank = 0, soin = 0, degats = 0, inconnu = 0 }, 0, 0
-	for _, c in ipairs(CLASSES) do parClasse[c] = { membres = {}, spes = {}, roles = { tank = 0, soin = 0, degats = 0 }, inconnues = 0, niveaux = 0, max = 0 } end
+	local membres, parClasse, roles = {}, {}, { tank = 0, soin = 0, degats = 0, inconnu = 0 }
+	for _, c in ipairs(CLASSES) do parClasse[c] = { n = 0, spes = {}, inconnues = 0 } end
 	for _, m in ipairs(Opus.Membres()) do
 		local c = m.classe and parClasse[m.classe]
 		if c and Garder(m) then
-			total = total + 1
-			c.membres[#c.membres + 1] = m
-			c.niveaux = c.niveaux + m.niveau
-			if m.niveau >= NIVEAU_MAX then c.max = c.max + 1 end
 			local s = Opus.db.spes[m.nom]
-			m.spe = s
-			if s then
-				connues = connues + 1
-				c.spes[s.arbre] = (c.spes[s.arbre] or 0) + 1
-				local r = Opus.RoleDeSpe(s.arbre)
-				if r then c.roles[r] = c.roles[r] + 1 roles[r] = roles[r] + 1 else roles.inconnu = roles.inconnu + 1 end
-			else
-				c.inconnues = c.inconnues + 1
-				roles.inconnu = roles.inconnu + 1
-			end
+			m.spe, m.role = s, s and Opus.RoleDeSpe(s.arbre)
+			membres[#membres + 1] = m
+			c.n = c.n + 1
+			if s then c.spes[s.arbre] = (c.spes[s.arbre] or 0) + 1 else c.inconnues = c.inconnues + 1 end
+			roles[m.role or "inconnu"] = roles[m.role or "inconnu"] + 1
 		end
 	end
-	return parClasse, roles, connues, total
+	return membres, parClasse, roles
+end
+
+local function Valeur (m, cle)
+	if cle == "role" then return ORDRE_ROLES[m.role] or 9 end
+	if cle == "spe" then return m.spe and m.spe.arbre or "~" end
+	if cle == "grade" then return m.grade end
+	if cle == "statut" then return m.enLigne and 0 or 1 end
+	return m[cle]
 end
 
 local function Rafraichir (cadre)
 	cadre.filtre:GenerateMenu()
-	local parClasse, roles, connues, total = Composition()
-	cadre.info:SetText(("%d membres · %d spé(s) connue(s)"):format(total, connues))
-	cadre.roles:SetText(("%s %s tanks     %s %s soigneurs     %s %s dégâts     %s"):format(
+	local membres, parClasse, roles = Composition()
+	local connues = #membres - roles.inconnu
+	cadre.info:SetText(("%d membres · %d spé(s) connue(s)"):format(#membres, connues))
+	cadre.roles:SetText(("%s %s tanks    %s %s soigneurs    %s %s dégâts    %s"):format(
 		IconeRole("tank", 16), Opus.Blanc(roles.tank), IconeRole("soin", 16), Opus.Blanc(roles.soin),
 		IconeRole("degats", 16), Opus.Blanc(roles.degats), Opus.Gris(roles.inconnu .. " sans spé connue")))
 
-	for i, classe in ipairs(CLASSES) do
-		local carte, c = cartes[i], parClasse[classe]
-		local n = #c.membres
-		local nomClasse = (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[classe]) or classe
-		carte.c = c
-		carte.icone:SetText(CreateAtlasMarkup(GetClassAtlas(classe:lower()), 28, 28))
-		carte.icone:SetAlpha(n > 0 and 1 or 0.35)
-		carte.nom:SetText(n > 0 and (Opus.Couleur(classe) .. nomClasse .. "|r") or Opus.Gris(nomClasse))
-		carte.nombre:SetText(n > 0 and Opus.Blanc(n) or Opus.Gris("0"))
-		-- les spés, de la plus jouée à la moins jouée, puis les inconnues
+	-- le panneau des classes : « Toutes », puis une ligne par classe
+	boutons[1].nom:SetText(Opus.Normal("Toutes les classes"))
+	boutons[1].nombre:SetText(Opus.Blanc(#membres))
+	boutons[1].spes:SetText(Opus.Gris(connues .. " spé(s) connue(s)"))
+	for i, c in ipairs(CLASSES) do
+		local b, pc = boutons[i + 1], parClasse[c]
+		b.icone:SetText(CreateAtlasMarkup(GetClassAtlas(c:lower()), 22, 22))
+		b.icone:SetAlpha(pc.n > 0 and 1 or 0.35)
+		b.nom:SetText(pc.n > 0 and (Opus.Couleur(c) .. NomClasse(c) .. "|r") or Opus.Gris(NomClasse(c)))
+		b.nombre:SetText(pc.n > 0 and Opus.Blanc(pc.n) or Opus.Gris("0"))
 		local liste = {}
-		for arbre, k in pairs(c.spes) do liste[#liste + 1] = { arbre = arbre, k = k } end
-		table.sort(liste, function (a, b) return a.k > b.k end)
+		for arbre, k in pairs(pc.spes) do liste[#liste + 1] = { arbre = arbre, k = k } end
+		table.sort(liste, function (x, y) return x.k > y.k end)
 		local morceaux = {}
-		for _, s in ipairs(liste) do morceaux[#morceaux + 1] = s.arbre .. " " .. Opus.Blanc(s.k) end
-		if c.inconnues > 0 then morceaux[#morceaux + 1] = Opus.Gris(c.inconnues .. " ?") end
-		carte.spes:SetText(n > 0 and table.concat(morceaux, " · ") or Opus.Gris("personne"))
-		local r = {}
-		for _, role in ipairs { "tank", "soin", "degats" } do
-			if c.roles[role] > 0 then r[#r + 1] = IconeRole(role) .. " " .. c.roles[role] end
-		end
-		carte.roles:SetText(table.concat(r, "   "))
-		carte.niveaux:SetText(n > 0 and Opus.Gris(("niv. moyen %d · %d au %d"):format(math.floor(c.niveaux / n + 0.5), c.max, NIVEAU_MAX)) or "")
+		for _, s in ipairs(liste) do morceaux[#morceaux + 1] = s.arbre .. " " .. s.k end
+		if pc.inconnues > 0 then morceaux[#morceaux + 1] = Opus.Gris(pc.inconnues .. " ?") end
+		b.spes:SetText(table.concat(morceaux, " · "))
 	end
-	return HAUT + math.ceil(#CLASSES / COLONNES) * (HAUTEUR_CARTE + ECART) + 16
-end
+	for i, b in ipairs(boutons) do
+		if (i == 1 and classe == nil) or CLASSES[i - 1] == classe then b:LockHighlight() else b:UnlockHighlight() end
+	end
 
--- au survol d'une carte : ses membres, avec leur spé
-local function Bulle (self)
-	local c, lignes = self.c, {}
-	if not c or #c.membres == 0 then return nil end
-	table.sort(c.membres, function (a, b)
-		if a.niveau ~= b.niveau then return a.niveau > b.niveau end
-		return a.nom < b.nom
-	end)
-	for i, m in ipairs(c.membres) do
-		if i > 20 then lignes[#lignes + 1] = Opus.Gris(("… et %d autre(s)"):format(#c.membres - 20)) break end
-		local s = m.spe
-		local role = s and Opus.RoleDeSpe(s.arbre)
-		lignes[#lignes + 1] = ("%s%s  %s  %s%s"):format(role and (IconeRole(role) .. " ") or "", Opus.Blanc(m.nom), Opus.Gris("niv. " .. m.niveau),
-			s and (s.arbre .. Opus.Gris(" (" .. s.points .. ")")) or Opus.Gris("spé inconnue"), m.enLigne and ("  " .. Opus.Vert("en ligne")) or "")
+	-- la liste des membres de la classe choisie
+	local liste = {}
+	for _, m in ipairs(membres) do
+		if not classe or m.classe == classe then liste[#liste + 1] = m end
 	end
-	return lignes
+	table.sort(liste, function (a, b)
+		local x, y = Valeur(a, tri), Valeur(b, tri)
+		if x == y then
+			if a.niveau ~= b.niveau then return a.niveau > b.niveau end
+			return a.nom < b.nom
+		end
+		if croissant then return x < y end
+		return x > y
+	end)
+	for _, h in ipairs(entetes) do
+		h.fleche:SetShown(h.cle == tri)
+		if croissant then h.fleche:SetTexCoord(0, 1, 1, 0) else h.fleche:SetTexCoord(0, 1, 0, 1) end
+	end
+	decalage = math.max(0, math.min(decalage, #liste - LIGNES))
+	for i = 1, LIGNES do
+		local l, m = lignes[i], liste[i + decalage]
+		l:SetShown(m ~= nil)
+		if m then
+			l.m = m
+			l.cases.role:SetText(IconeRole(m.role))
+			l.cases.nom:SetText(Opus.Couleur(m.classe) .. m.nom .. "|r")
+			l.cases.niveau:SetText(m.niveau)
+			l.cases.spe:SetText(m.spe and (m.spe.arbre .. Opus.Gris("  " .. m.spe.points)) or Opus.Gris("inconnue"))
+			l.cases.grade:SetText(m.nomGrade)
+			l.cases.statut:SetText(m.enLigne and Opus.Vert("en ligne") or "")
+		end
+	end
+	local visibles = math.min(#liste, LIGNES)
+	cadre.ascenseur:SetHeight(math.max(visibles, 1) * HAUTEUR)
+	cadre.ascenseur:Recaler(decalage, #liste, LIGNES)
+	cadre.vide:SetShown(#liste == 0)
+	return math.max(HAUT + (#CLASSES + 1) * HAUTEUR_CLASSE, HAUT + 22 + visibles * HAUTEUR)
 end
 
 local function Construire (cadre, barre)
-	cadre.filtre = Opus.Menu(barre, 200, FILTRES, function () return filtre end, function (v) filtre = v Opus.Rafraichir() end)
+	local largeur = Opus.LARGEUR - 30
+	cadre.filtre = Opus.Menu(barre, 200, FILTRES, function () return filtre end, function (v) filtre, decalage = v, 0 Opus.Rafraichir() end)
 	cadre.filtre:SetPoint("LEFT", 0, 0)
 	cadre.info = barre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	cadre.info:SetPoint("RIGHT", 0, 0)
-
 	cadre.roles = cadre:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 	cadre.roles:SetPoint("TOPLEFT", 4, -4)
 
-	for i = 1, #CLASSES do
-		local col, ligne = (i - 1) % COLONNES, math.floor((i - 1) / COLONNES)
-		-- une carte = un encart natif du client
-		local carte = CreateFrame("Frame", nil, cadre, "InsetFrameTemplate")
-		carte:SetSize(LARGEUR_CARTE, HAUTEUR_CARTE)
-		carte:SetPoint("TOPLEFT", col * (LARGEUR_CARTE + ECART), -HAUT - ligne * (HAUTEUR_CARTE + ECART))
-		carte:EnableMouse(true)
-		Opus.Bulle(carte, function (self)
-			local c = self.c
-			return c and #c.membres > 0 and self.nom:GetText() or nil
-		end, Bulle)
+	-- les classes
+	for i = 1, #CLASSES + 1 do
+		local b = CreateFrame("Button", nil, cadre)
+		b:SetSize(GAUCHE, HAUTEUR_CLASSE - 2)
+		b:SetPoint("TOPLEFT", 0, -HAUT - (i - 1) * HAUTEUR_CLASSE)
+		-- la surbrillance du bouton marque aussi la classe choisie (LockHighlight)
+		b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
 		local function Texte (police, ...)
-			local t = carte:CreateFontString(nil, "OVERLAY", police)
-			t:SetPoint(...) t:SetJustifyH("LEFT")
+			local t = b:CreateFontString(nil, "OVERLAY", police)
+			t:SetPoint(...) t:SetJustifyH("LEFT") t:SetWordWrap(false)
 			return t
 		end
-		carte.icone = Texte("GameFontHighlight", "TOPLEFT", 8, -8)
-		carte.nom = Texte("GameFontNormalLarge", "TOPLEFT", 44, -10)
-		carte.nombre = Texte("GameFontHighlightLarge", "TOPRIGHT", -10, -10)
-		carte.spes = Texte("GameFontHighlightSmall", "TOPLEFT", 10, -44)
-		carte.spes:SetWidth(LARGEUR_CARTE - 20) carte.spes:SetWordWrap(true) carte.spes:SetMaxLines(2)
-		carte.roles = Texte("GameFontHighlightSmall", "BOTTOMLEFT", 10, 10)
-		carte.niveaux = Texte("GameFontDisableSmall", "BOTTOMRIGHT", -10, 10)
-		carte.niveaux:SetJustifyH("RIGHT")
-		cartes[i] = carte
+		b.icone = Texte("GameFontHighlight", "LEFT", 4, 0)
+		b.nom = Texte("GameFontNormal", "TOPLEFT", 32, -4)
+		b.nombre = Texte("GameFontHighlight", "TOPRIGHT", -6, -4)
+		b.spes = Texte("GameFontHighlightSmall", "BOTTOMLEFT", 32, 4)
+		b.spes:SetWidth(GAUCHE - 38)
+		b:SetScript("OnClick", function ()
+			classe, decalage = i > 1 and CLASSES[i - 1] or nil, 0
+			Opus.Rafraichir()
+		end)
+		boutons[i] = b
 	end
+
+	-- la liste des membres, à droite
+	local x0, droite = GAUCHE + 14, largeur - GAUCHE - 14
+	for c, col in ipairs(COLONNES) do
+		local h = CreateFrame("Button", nil, cadre)
+		h:SetSize(col[4], 18)
+		h:SetPoint("TOPLEFT", x0 + col[3], -HAUT)
+		h.texte = h:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+		h.texte:SetPoint(col[5]) h.texte:SetText(col[2])
+		h.fleche = h:CreateTexture(nil, "OVERLAY")
+		h.fleche:SetAtlas("auctionhouse-ui-sortarrow", true)
+		if col[5] == "RIGHT" then h.fleche:SetPoint("RIGHT", h.texte, "LEFT", -3, 0) else h.fleche:SetPoint("LEFT", h.texte, "RIGHT", 3, 0) end
+		h.cle = col[1]
+		h:SetScript("OnClick", function (self)
+			if tri == self.cle then croissant = not croissant else tri, croissant = self.cle, true end
+			Opus.Rafraichir()
+		end)
+		Opus.Survol(h)
+		entetes[c] = h
+	end
+	for i = 1, LIGNES do
+		local l = CreateFrame("Button", nil, cadre)
+		l:SetSize(droite - 14, HAUTEUR)
+		l:SetPoint("TOPLEFT", x0, -HAUT - 22 - (i - 1) * HAUTEUR)
+		Opus.Survol(l)
+		l.cases = {}
+		for _, col in ipairs(COLONNES) do
+			local t = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+			t:SetPoint("LEFT", col[3], 0) t:SetWidth(col[4]) t:SetJustifyH(col[5]) t:SetWordWrap(false)
+			l.cases[col[1]] = t
+		end
+		l:SetScript("OnClick", function (self) if self.m then Opus.OuvrirGuilde(nil, self.m.nom) end end)
+		Opus.Bulle(l, function (self) return self.m and self.m.nom end, function () return { Opus.Gris("Clic : ouvrir sa fiche.") } end)
+		lignes[i] = l
+	end
+	cadre.ascenseur = Opus.Ascenseur(cadre, function (d) decalage = d Opus.Rafraichir() end)
+	cadre.ascenseur:SetPoint("TOPRIGHT", -2, -HAUT - 22)
+	cadre.vide = cadre:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+	cadre.vide:SetPoint("TOPLEFT", x0 + 4, -HAUT - 26)
+	cadre.vide:SetText("Personne avec ce filtre.")
 end
 
-Opus.Page("roster", "Roster", Construire, Rafraichir)
+Opus.Page("roster", "Roster", Construire, Rafraichir, function (_, d) decalage = decalage - d * 2 end)
