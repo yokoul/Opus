@@ -182,7 +182,8 @@ local function Construire (cadre, barre)
 
 	cadre.aide = cadre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	cadre.aide:SetWidth(largeur - 4) cadre.aide:SetJustifyH("LEFT")
-	cadre.aide:SetText("La cotisation hebdomadaire, volontaire, finance les onglets de banque et les recettes rares : barème par personnage selon "
+	cadre.aide:SetText("La banque du cœur : une cotisation hebdomadaire entièrement volontaire, chacun donne s'il le peut et rien n'est exigé. "
+		.. "Elle finance les onglets de banque et les recettes rares. Repère par personnage selon "
 		.. "son niveau (exonéré jusqu'au 19, 50 pa de 20 à 39, 1 po de 40 à 59, 2 po au 60), plafonné à 3 po par joueur, semaine du mercredi. "
 		.. "Relevé à chaque ouverture de la banque de guilde et partagé avec les membres qui ont l'addon : il suffit que "
 		.. "l'un d'eux passe à la banque. Le jeu n'y garde que les dernières opérations, alors plus elle est ouverte souvent, "
