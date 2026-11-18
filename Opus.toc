@@ -2,7 +2,7 @@
 ## Title: |cffd4af37Opus|r
 ## Notes: Outils de la guilde Opus : essais et promotions, participation à la banque, grille des grades et droits.
 ## Author: Yan
-## Version: 0.6.0
+## Version: 0.6.1
 ## IconTexture: Interface\AddOns\Opus\Media\Icone
 ## SavedVariables: OpusDB
 

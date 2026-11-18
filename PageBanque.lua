@@ -9,14 +9,14 @@ local TIRET = GRAY_FONT_COLOR:WrapTextInColorCode("–")
 
 -- colonnes : clé de tri, titre, x, largeur, alignement, texte d'une ligne
 local COLONNES = {
-	{ "nom",      "Membre",       2,   150, "LEFT" },
-	{ "grade",    "Grade",        154, 80,  "LEFT" },
-	{ "orPlus",   "Or déposé",    236, 78,  "RIGHT", function (p) return Opus.Or(p.orPlus) end },
-	{ "orMoins",  "Or retiré",    316, 78,  "RIGHT", function (p) return Opus.Or(p.orMoins) end },
-	{ "rep",      "Réparations",  396, 82,  "RIGHT", function (p) return Opus.Or(p.rep) end },
-	{ "objPlus",  "Obj. déposés", 480, 66,  "RIGHT", function (p) return p.objPlus > 0 and p.objPlus or TIRET end },
-	{ "objMoins", "Obj. retirés", 548, 66,  "RIGHT", function (p) return p.objMoins > 0 and p.objMoins or TIRET end },
-	{ "dernier",  "Dernière",     616, 74,  "RIGHT", function (p) return Opus.Depuis(p.dernier) end },
+	{ "nom",      "Membre",       2,   134, "LEFT" },
+	{ "grade",    "Grade",        140, 84,  "LEFT" },
+	{ "orPlus",   "Or déposé",    226, 78,  "RIGHT", function (p) return Opus.Or(p.orPlus) end },
+	{ "orMoins",  "Or retiré",    306, 74,  "RIGHT", function (p) return Opus.Or(p.orMoins) end },
+	{ "rep",      "Réparations",  382, 84,  "RIGHT", function (p) return Opus.Or(p.rep) end },
+	{ "objPlus",  "Obj. déposés", 468, 80,  "RIGHT", function (p) return p.objPlus > 0 and p.objPlus or TIRET end },
+	{ "objMoins", "Obj. retirés", 550, 78,  "RIGHT", function (p) return p.objMoins > 0 and p.objMoins or TIRET end },
+	{ "dernier",  "Dernière",     630, 60,  "RIGHT", function (p) return Opus.Depuis(p.dernier) end },
 }
 
 -- bilan de la période, avec le grade et la classe de ceux encore dans la guilde
@@ -49,7 +49,8 @@ end
 local function Rafraichir (cadre)
 	cadre.periode:GenerateMenu()
 	for _, h in ipairs(entetes) do
-		h.texte:SetText(h.titre .. (h.cle == tri and (croissant and " ^" or " v") or ""))
+		h.fleche:SetShown(h.cle == tri)
+		if croissant then h.fleche:SetTexCoord(0, 1, 1, 0) else h.fleche:SetTexCoord(0, 1, 0, 1) end
 	end
 	local banque = Opus.db.banque
 	cadre.info:SetText(banque.releve > 0
@@ -118,8 +119,13 @@ local function Construire (cadre, barre)
 		h:SetSize(col[4], 18)
 		h:SetPoint("TOPLEFT", col[3], 0)
 		h.texte = h:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-		h.texte:SetAllPoints() h.texte:SetJustifyH(col[5])
-		h.cle, h.titre = col[1], col[2]
+		h.texte:SetPoint(col[5]) h.texte:SetText(col[2])
+		-- la flèche se met du côté libre du titre
+		h.fleche = h:CreateTexture(nil, "OVERLAY")
+		h.fleche:SetAtlas("auctionhouse-ui-sortarrow", true)
+		if col[5] == "LEFT" then h.fleche:SetPoint("LEFT", h.texte, "RIGHT", 3, 0)
+		else h.fleche:SetPoint("RIGHT", h.texte, "LEFT", -3, 0) end
+		h.cle = col[1]
 		h:SetScript("OnClick", function (self)
 			if tri == self.cle then croissant = not croissant
 			else tri, croissant = self.cle, (self.cle == "nom" or self.cle == "grade") end

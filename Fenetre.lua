@@ -133,7 +133,7 @@ local function Construire ()
 	f:SetScript("OnDragStop", f.StopMovingOrSizing)
 	f:SetFrameStrata("HIGH")
 	tinsert(UISpecialFrames, "OpusFenetre")
-	f:SetTitle("Opus — " .. (GetGuildInfo("player") or "guilde"))
+	f:SetTitle(GetGuildInfo("player") or "Opus")
 	f:SetPortraitToAsset("Interface\\AddOns\\Opus\\Media\\Embleme")
 
 	for i, cle in ipairs(ordre) do

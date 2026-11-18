@@ -165,13 +165,14 @@ end
 -- montant compact pour un tableau : l'unité la plus grosse seulement (le détail est dans l'infobulle)
 function Opus.Or (cuivre)
 	if not cuivre or cuivre == 0 then return GRAY_FONT_COLOR:WrapTextInColorCode("–") end
-	-- arrondi à l'unité la plus grosse, puis les pièces du client (GetCoinTextureString)
+	-- arrondi à l'unité la plus grosse, puis les pièces du client (GetMoneyString : Forever n'a pas GetCoinTextureString)
 	local unite = cuivre >= 10000 and 10000 or (cuivre >= 100 and 100 or 1)
-	local arrondi = math.floor(cuivre / unite + 0.5) * unite
-	return GetCoinTextureString and GetCoinTextureString(arrondi) or tostring(arrondi)
+	return Opus.OrDetail(math.floor(cuivre / unite + 0.5) * unite)
 end
 function Opus.OrDetail (cuivre)
-	return GetCoinTextureString and GetCoinTextureString(cuivre) or Opus.Or(cuivre)
+	if GetMoneyString then return GetMoneyString(cuivre, true) end
+	if GetCoinTextureString then return GetCoinTextureString(cuivre) end
+	return ("%d po %d pa %d pc"):format(cuivre / 10000, cuivre / 100 % 100, cuivre % 100)
 end
 
 -- une opération en clair, pour les infobulles
