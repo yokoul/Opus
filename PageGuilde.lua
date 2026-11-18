@@ -25,10 +25,26 @@ local function Duree (secondes)
 end
 
 -- depuis quand un membre est dans la guilde : son arrivée au journal, sinon la première fois que l'addon l'a vu
+-- Depuis quand un membre est dans la guilde : son arrivée au journal ; sinon il est arrivé avant le journal relevé :
+-- chez Opus, on le compte depuis la création de la guilde ; ailleurs, « avant » le premier du mois du plus ancien relevé.
+-- Renvoie t, et "exact", "creation" ou "avant".
+Opus.CREATION_OPUS = time({ year = 2026, month = 11, day = 5, hour = 0 })
 local function Anciennete (m)
 	local t = Opus.ArriveeJournal(m.nom)
-	if t then return t, false end
-	return m.vu, true
+	if t then return t, "exact" end
+	if GetGuildInfo("player") == "Opus" then return Opus.CREATION_OPUS, "creation" end
+	local plusAncien
+	for _, e in ipairs(Opus.db.journal.evenements) do plusAncien = math.min(plusAncien or e.t, e.t) end
+	if not plusAncien then return nil end
+	local d = date("*t", plusAncien * 3600)
+	return time({ year = d.year, month = d.month, day = 1, hour = 0 }), "avant"
+end
+
+local function TexteAnciennete (t, sorte)
+	if not t then return "" end
+	if sorte == "creation" then return Opus.Gris(date("%d/%m", t) .. " (création)") end
+	if sorte == "avant" then return Opus.Gris("avant le " .. date("%d/%m", t)) end
+	return Duree(time() - t)
 end
 
 local function Statut (m)
@@ -77,12 +93,13 @@ local function Elements ()
 end
 
 local function LigneMembre (l, m)
-	l.icone:SetText(Icone(m.classe, 18))
+	local atlas = m.classe and GetClassAtlas and GetClassAtlas(m.classe:lower())
+	if atlas then l.icone:SetAtlas(atlas) end
+	l.icone:SetShown(atlas ~= nil)
 	l.nom:SetText(Opus.Couleur(m.classe) .. m.nom .. "|r")
 	l.grade:SetText(m.nomGrade)
 	l.niveau:SetText(m.niveau)
-	local t, approx = Anciennete(m)
-	l.depuis:SetText(t and ((approx and "≥ " or "") .. Duree(time() - t)) or "")
+	l.depuis:SetText(TexteAnciennete(Anciennete(m)))
 	local b = m.banque
 	l.banque:SetText(b and (b.orPlus > 0 or b.objPlus > 0) and
 		((b.orPlus > 0 and Opus.Or(b.orPlus) or "") .. (b.objPlus > 0 and ((b.orPlus > 0 and " · " or "") .. b.objPlus .. " obj.") or "")) or Opus.Gris("–"))
@@ -105,8 +122,12 @@ local function Fiche (cadre)
 
 	local infos = {}
 	if m then
-		local t, approx = Anciennete(m)
-		if t then infos[#infos + 1] = Opus.Normal("Dans la guilde : ") .. (approx and "au moins depuis le " or "depuis le ") .. date("%d/%m/%Y", t) .. " (" .. Duree(time() - t) .. ")" end
+		local t, sorte = Anciennete(m)
+		if t then
+			infos[#infos + 1] = Opus.Normal("Dans la guilde : ") .. (sorte == "creation" and ("depuis la création de la guilde (" .. date("%d/%m/%Y", t) .. ")")
+				or sorte == "avant" and ("arrivé avant le " .. date("%d/%m/%Y", t) .. ", début du journal relevé")
+				or ("depuis le " .. date("%d/%m/%Y", t) .. " (" .. Duree(time() - t) .. ")"))
+		end
 		if m.note ~= "" then infos[#infos + 1] = Opus.Normal("Note : ") .. m.note end
 		if m.noteOff ~= "" then infos[#infos + 1] = Opus.Normal("Note d'officier : ") .. m.noteOff end
 	end
@@ -222,7 +243,8 @@ local function Construire (cadre, barre)
 			return t
 		end
 		l.titre = Texte("GameFontNormal", 2)
-		l.icone = Texte("GameFontHighlight", 4, 20, "CENTER")
+		l.icone = l:CreateTexture(nil, "ARTWORK")
+		l.icone:SetSize(18, 18) l.icone:SetPoint("LEFT", 5, 0)
 		l.nom = Texte("GameFontHighlight", 28, 150)
 		l.grade = Texte("GameFontHighlightSmall", 182, 90)
 		l.niveau = Texte("GameFontHighlightSmall", 274, 26, "RIGHT")
@@ -245,7 +267,7 @@ local function Construire (cadre, barre)
 		end, function (self)
 			local e = self.e
 			if not e or JOURNAL[vue] or e.titre then return nil end
-			return { "Ancienneté : depuis l'arrivée au journal de guilde (≥ : première fois vu par l'addon).",
+			return { "Ancienneté : depuis l'arrivée relevée au journal de guilde ; en gris, arrivé avant le début du journal.",
 				"Banque : dépôts des 30 derniers jours.", Opus.Gris("Clic : ouvrir sa fiche.") }
 		end)
 		lignes[i] = l

@@ -117,7 +117,9 @@ local function Rafraichir (cadre)
 		end
 	end
 	cadre.aide:SetPoint("TOPLEFT", 2, -ENTETE - math.max(n, 1) * HAUTEUR - (#liste > 0 and 30 or 8))
-	return ENTETE + math.max(n, 1) * HAUTEUR + (#liste > 0 and 30 or 8) + 48
+	local hAide = cadre.aide:GetStringHeight()
+	if type(hAide) ~= "number" then hAide = 36 end
+	return ENTETE + math.max(n, 1) * HAUTEUR + (#liste > 0 and 30 or 8) + math.ceil(hAide) + 8
 end
 
 local function Cases (l)
