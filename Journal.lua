@@ -91,6 +91,15 @@ function Opus.ArriveeJournal (nom)
 	return t and t * 3600
 end
 
+-- quand un membre est passé à ce grade (promotion ou rétrogradation la plus récente vers lui), en secondes
+function Opus.PassageJournal (nom, grade)
+	local t
+	for _, e in ipairs(Opus.db.journal.evenements) do
+		if (e.q == "promote" or e.q == "demote") and e.b == nom and e.g == grade and (not t or e.t > t) then t = e.t end
+	end
+	return t and t * 3600
+end
+
 -- les événements, du plus récent au plus ancien ; filtre : "tout", "mouvements" (arrivées, départs) ou "grades"
 local FILTRES = {
 	mouvements = { invite = true, join = true, remove = true, quit = true },

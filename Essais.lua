@@ -15,12 +15,16 @@ local function LitDate (note)
 end
 
 -- Date d'entrée en essai : la note d'officier (seuls les officiers la lisent), sinon la date partagée par un officier
--- (Opus.db.arrivees, synchronisée : Partage.lua), sinon l'arrivée relevée dans le journal de guilde.
+-- (Opus.db.arrivees, synchronisée : Partage.lua), sinon le journal de guilde : le passage au grade d'essai, ou l'arrivée.
 function Opus.DebutEssai (m)
 	local t = LitDate(m.noteOff)
 	if t then return t, "note" end
 	local partagee = Opus.db.arrivees[m.nom]
 	if partagee then return partagee, "partage" end
+	-- le journal : son passage au grade d'essai (un Aspirant y a été promu), sinon son arrivée dans la guilde
+	local grade = m.montee and m.montee.depuis or m.nomGrade
+	local passage = Opus.PassageJournal and Opus.PassageJournal(m.nom, grade)
+	if passage then return passage, "journal" end
 	local arrivee = Opus.ArriveeJournal and Opus.ArriveeJournal(m.nom)
 	if arrivee then return arrivee, "journal" end
 	return nil
