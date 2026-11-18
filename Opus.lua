@@ -1,7 +1,7 @@
 -- Opus.lua : socle de l'addon (base de données, liste de guilde, commandes)
 local ADDON, Opus = ...
 _G.Opus = Opus
-Opus.version = "0.17.2"
+Opus.version = "0.18.0"
 
 local DEFAUTS = {
 	dureeEssai = { Apprenti = 14, Aspirant = 14 },
@@ -12,6 +12,8 @@ local DEFAUTS = {
 	configs = {},               -- [guilde] = grille de la guilde (Config.lua)
 	vus = {},                   -- [membre] = première fois que l'addon l'a vu dans la guilde
 	alts = {},                  -- [personnage] = son joueur (le premier de ses personnages) : Cotisation.lua
+	discord = {},               -- [guilde] = qui joue quels personnages, importé du bot Discord (Lien.lua)
+	notes = {},                 -- [guilde] = { pub, off } : notes publiques et d'officier de l'addon (Notes.lua)
 	mesPersos = {},             -- [guilde] = { [personnage] = true } : nos personnages, vus sur ce compte
 	spes = {},                  -- [membre] = { arbre, icone, points, t } : sa spé, annoncée par son addon (Specs.lua)
 	journal = { evenements = {}, releve = 0 },  -- journal de guilde : arrivées, départs, grades (Journal.lua)

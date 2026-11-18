@@ -39,9 +39,19 @@ end
 -- les personnages d'un même joueur
 ------------------------------------------------------------------------
 
--- le joueur d'un personnage : le premier de ses personnages par ordre alphabétique (ou lui-même, seul)
+-- le joueur d'un personnage : son compte Discord s'il est relié (Lien.lua), y compris par un autre personnage du
+-- même compte de jeu ; sinon le premier de ses personnages par ordre alphabétique (ou lui-même, seul)
 function Opus.Joueur (nom)
-	return Opus.db.alts[nom] or nom
+	local id = Opus.DiscordId and Opus.DiscordId(nom)
+	if id then return "d:" .. id end
+	local premier = Opus.db.alts[nom]
+	if premier and Opus.DiscordId then
+		for n, p in pairs(Opus.db.alts) do
+			id = p == premier and Opus.DiscordId(n)
+			if id then return "d:" .. id end
+		end
+	end
+	return premier or nom
 end
 
 local function Lier (noms)

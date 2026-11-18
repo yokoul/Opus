@@ -67,8 +67,8 @@ end
 -- envoi
 ------------------------------------------------------------------------
 
-local function Envoyer (texte)
-	local ok, res = pcall(C_ChatInfo.SendAddonMessage, PREFIXE, texte, "GUILD")
+local function Envoyer (texte, canal)
+	local ok, res = pcall(C_ChatInfo.SendAddonMessage, PREFIXE, texte, canal or "GUILD")
 	if not ok then return "echec" end
 	partage.dernierResultat = res
 	if res == nil or res == true or res == OK then
@@ -83,7 +83,10 @@ end
 
 C_Timer.NewTicker(INTERVALLE, function ()
 	if #file == 0 or GetTime() < pauseJusqua or not IsInGuild() or Restreint() then return end
-	if Envoyer(file[1]) ~= "attendre" then table.remove(file, 1) end
+	-- un message est un texte (canal de guilde) ou { texte, canal } (« OFFICER » : seuls les officiers le reçoivent)
+	local m = file[1]
+	local r = type(m) == "table" and Envoyer(m[1], m[2]) or Envoyer(m)
+	if r ~= "attendre" then table.remove(file, 1) end
 end)
 
 -- des opérations, en autant de messages que nécessaire, derrière un en-tête (« E » ou « Z;demande »)
@@ -356,11 +359,19 @@ function Opus.PartagerPersos (noms)
 	file[#file + 1] = "M" .. FS .. table.concat(liste, ",")
 end
 
-local function Recevoir (texte, expediteur)
+-- les genres de message des autres modules (Lien.lua, Notes.lua) : [genre] = f(enregistrements, champs, expediteur, canal)
+Opus.recepteurs = {}
+
+local function Recevoir (texte, expediteur, canal)
 	local enregistrements = { strsplit(RS, texte) }
 	local entete = enregistrements[1]
 	local genre, a, b, c = strsplit(FS, entete)
-	if genre == "M" then
+	if Opus.recepteurs[genre] then
+		if Accepter(expediteur, #enregistrements) then Opus.recepteurs[genre](enregistrements, { strsplit(FS, entete) }, expediteur, canal) end
+		return
+	elseif canal ~= "GUILD" and genre ~= "P" then
+		return
+	elseif genre == "M" then
 		local noms = {}
 		for n in (a or ""):gmatch("[^,]+") do if #noms < 12 then noms[#noms + 1] = n end end
 		if Opus.RecevoirPersos then Opus.RecevoirPersos(noms, expediteur) end
@@ -414,7 +425,7 @@ end
 
 Opus.Ecoute("CHAT_MSG_ADDON", function (prefixe, texte, canal, expediteur)
 	prefixe, texte, canal, expediteur = Propre(prefixe), Propre(texte), Propre(canal), Propre(expediteur)
-	if prefixe ~= PREFIXE or canal ~= "GUILD" or not texte or not expediteur or not Opus.db then return end
+	if prefixe ~= PREFIXE or (canal ~= "GUILD" and canal ~= "OFFICER") or not texte or not expediteur or not Opus.db then return end
 	-- nos propres messages reviennent aussi : on les reconnaît à leur texte, et on apprend au passage sous quel nom
 	-- les autres nous voient
 	local envoye = envoyesRecents[texte]
@@ -426,7 +437,7 @@ Opus.Ecoute("CHAT_MSG_ADDON", function (prefixe, texte, canal, expediteur)
 	-- les membres qui ont l'addon, sous leur nom du roster (l'expéditeur n'a parfois que le prénom)
 	local membre = Opus.TrouverExpediteur(expediteur)
 	Opus.db.banque.pairs[membre and membre.nom or Opus.Court(expediteur)] = time()
-	Recevoir(texte, expediteur)
+	Recevoir(texte, expediteur, canal)
 end)
 
 if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then C_ChatInfo.RegisterAddonMessagePrefix(PREFIXE) end
@@ -448,6 +459,31 @@ end
 
 -- un message prioritaire (proposition de groupe et sa réponse) : en tête de file
 function Opus.EnvoyerVite (message) table.insert(file, 1, message) end
+
+------------------------------------------------------------------------
+-- pour les autres modules : envoyer, se proposer pour répondre à une demande, encoder un texte
+------------------------------------------------------------------------
+
+Opus.MAX_MSG, Opus.FS, Opus.RS = MAX_MSG, FS, RS
+Opus.CoupeMsg, Opus.MotMsg = Coupe, Mot
+
+-- un message en fin de file, sur le canal de guilde ou des officiers
+function Opus.Envoyer (message, canal)
+	file[#file + 1] = canal and canal ~= "GUILD" and { message, canal } or message
+end
+
+-- une demande entendue (identifiant rid) : on répond après un délai au hasard, sauf si quelqu'un se propose avant
+-- (« P;rid ») ; repondre() met ses messages en file, la proposition « P » part sur le même canal
+function Opus.Repondre (rid, canal, repondre)
+	if not rid or rid == "" or propositions[rid] then return end
+	propositions[rid] = C_Timer.NewTimer(3 + math.random() * 7, function ()
+		propositions[rid] = nil
+		Opus.Envoyer(table.concat({ "P", rid }, FS), canal)
+		repondre()
+	end)
+end
+
+function Opus.NouvelId () return ("%04x%04x"):format(math.random(0, 65535), math.random(0, 65535)) end
 
 -- les membres dont l'addon s'est manifesté ces 7 derniers jours
 function Opus.Pairs ()

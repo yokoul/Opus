@@ -128,8 +128,19 @@ local function Fiche (cadre)
 				or sorte == "avant" and ("arrivé avant le " .. date("%d/%m/%Y", t) .. ", début du journal relevé")
 				or ("depuis le " .. date("%d/%m/%Y", t) .. " (" .. Duree(time() - t) .. ")"))
 		end
-		if m.note ~= "" then infos[#infos + 1] = Opus.Normal("Note : ") .. m.note end
-		if m.noteOff ~= "" then infos[#infos + 1] = Opus.Normal("Note d'officier : ") .. m.noteOff end
+		-- son joueur : Discord (Lien.lua) et personnages vus sur le même compte
+		local j = Opus.Discord(m.nom)
+		local autres = {}
+		for _, p in ipairs(Opus.PersosDuJoueur(m.nom)) do
+			if p.nom ~= m.nom then autres[#autres + 1] = nom(p.nom) .. (p.main and " ⭐" or "") end
+		end
+		local _, _, main = Opus.Discord(m.nom)
+		if j then
+			infos[#infos + 1] = Opus.Normal("Discord : ") .. Opus.Blanc(j.pseudo) .. (main and Opus.Gris(" · son main ⭐") or Opus.Gris(" · reroll"))
+		end
+		if #autres > 0 then infos[#infos + 1] = Opus.Normal("Ses autres persos : ") .. table.concat(autres, ", ") end
+		if m.note ~= "" then infos[#infos + 1] = Opus.Normal("Note du jeu : ") .. m.note end
+		if m.noteOff ~= "" then infos[#infos + 1] = Opus.Normal("Note d'officier du jeu : ") .. m.noteOff end
 	end
 	-- sa banque : sur 30 jours et depuis le début
 	local tout, mois
@@ -149,6 +160,16 @@ local function Fiche (cadre)
 	infos[#infos + 1] = Opus.Normal("Banque, depuis le début : ") .. Bilan(tout)
 	c.infos:SetText(table.concat(infos, "\n"))
 
+	-- les notes de l'addon (Notes.lua), sans limite de longueur
+	local notes = {}
+	local function Texte (note) return (note.x:gsub("|", "||")) .. Opus.Gris(("  — %s, %s"):format(note.par or "?", date("%d/%m/%Y", note.t))) end
+	local pub, off = Opus.Note("p", fiche), Opus.Note("o", fiche)
+	if pub then notes[#notes + 1] = Opus.Normal("Publique : ") .. Texte(pub) end
+	if off then notes[#notes + 1] = Opus.Normal("Officiers : ") .. Texte(off) end
+	c.notes:SetText(#notes > 0 and table.concat(notes, "\n\n") or Opus.Gris("Aucune note."))
+	c.notePub:SetShown(m ~= nil and Opus.PeutNoter("p", fiche))
+	c.noteOff:SetShown(m ~= nil and Opus.PeutNoter("o", fiche))
+
 	-- son histoire : le journal de guilde où il apparaît
 	local histoire = {}
 	for _, e in ipairs(Opus.Evenements("tout")) do
@@ -158,7 +179,10 @@ local function Fiche (cadre)
 		end
 	end
 	c.histoire:SetText(#histoire > 0 and table.concat(histoire, "\n") or Opus.Gris("Rien au journal de guilde pour l'instant."))
-	return 360
+	local function H (t) local h = t:GetStringHeight() return type(h) == "number" and h or 14 end
+	local hauteur = 60 + H(c.infos) + 16 + 20 + 6 + H(c.notes) + 16 + 22 + H(c.histoire) + 8
+	c:SetHeight(hauteur)
+	return math.max(hauteur, 240)
 end
 
 ------------------------------------------------------------------------
@@ -294,11 +318,21 @@ local function Construire (cadre, barre)
 	f.infos = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	f.infos:SetPoint("TOPLEFT", 4, -60) f.infos:SetWidth(largeur - 8)
 	f.infos:SetJustifyH("LEFT") f.infos:SetSpacing(4)
+	local n = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	n:SetPoint("TOPLEFT", f.infos, "BOTTOMLEFT", 0, -16)
+	n:SetText("Notes")
+	f.noteOff = Opus.Bouton(f, "Note d'officier", 120, function () Opus.EditerNote("o", fiche) end, true)
+	f.noteOff:SetPoint("RIGHT", f, "RIGHT", -4, 0) f.noteOff:SetPoint("TOP", n, "TOP", 0, 3)
+	f.notePub = Opus.Bouton(f, "Note publique", 120, function () Opus.EditerNote("p", fiche) end, true)
+	f.notePub:SetPoint("RIGHT", f.noteOff, "LEFT", -6, 0)
+	f.notes = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	f.notes:SetPoint("TOPLEFT", n, "BOTTOMLEFT", 0, -6) f.notes:SetWidth(largeur - 8)
+	f.notes:SetJustifyH("LEFT") f.notes:SetSpacing(3)
 	local h = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	h:SetPoint("TOPLEFT", 4, -170)
+	h:SetPoint("TOPLEFT", f.notes, "BOTTOMLEFT", 0, -16)
 	h:SetText("Son histoire dans la guilde")
 	f.histoire = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	f.histoire:SetPoint("TOPLEFT", 4, -192) f.histoire:SetWidth(largeur - 8)
+	f.histoire:SetPoint("TOPLEFT", h, "BOTTOMLEFT", 0, -6) f.histoire:SetWidth(largeur - 8)
 	f.histoire:SetJustifyH("LEFT") f.histoire:SetSpacing(4)
 	f:Hide()
 end
