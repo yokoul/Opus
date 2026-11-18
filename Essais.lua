@@ -4,6 +4,7 @@ local _, Opus = ...
 local Msg = Opus.Msg
 
 local MOTIF = "Essai (%d%d?)/(%d%d?)/(%d%d)"
+local NOTE_MAX = 31   -- longueur maximale d'une note de guilde
 
 local function Formate (t) return date("Essai %d/%m/%y", t) end
 
@@ -42,12 +43,28 @@ end
 
 -- Écrire une note d'officier est réservé à l'interface de Blizzard (C_GuildInfo.SetNote est protégée) : l'addon
 -- retient la date de son côté et prépare le texte de la note, à copier puis coller dans la fiche du membre.
+
+-- longueur en caractères (un « é » compte pour un, pas pour deux octets)
+local function Longueur (t) return strlenutf8 and strlenutf8(t) or #t end
+
 StaticPopupDialogs["OPUS_NOTE"] = {
 	text = "Note d'officier de |cffffd100%s|r :\nCtrl+C, puis colle-la dans sa fiche (Guilde > clic sur le membre).",
-	button1 = OKAY, hasEditBox = true, editBoxWidth = 220,
-	OnShow = function (self, note)
+	button1 = OKAY, hasEditBox = true, editBoxWidth = 260,
+	OnShow = function (self, d)
 		local boite = self.editBox or self.EditBox
-		boite:SetText(note) boite:HighlightText() boite:SetFocus()
+		boite:SetText(d.note)
+		local trop = Longueur(d.note) - NOTE_MAX
+		if trop > 0 then
+			Msg(("note de %s trop longue de %d caractère(s) : raccourcis la remarque dans la boîte avant de copier."):format(d.nom, trop))
+		end
+		boite:HighlightText() boite:SetFocus()
+	end,
+	-- le bouton compte les caractères restants (la note d'officier en tient 31)
+	EditBoxOnTextChanged = function (self)
+		local popup = self:GetParent()
+		local bouton = popup.button1 or (popup.ButtonContainer and popup.ButtonContainer.Button1)
+		local reste = NOTE_MAX - Longueur(self:GetText())
+		if bouton then bouton:SetText(reste >= 0 and (OKAY .. " (" .. reste .. ")") or ("|cffff6060" .. -reste .. " de trop|r")) end
 	end,
 	EditBoxOnEnterPressed = function (self) self:GetParent():Hide() end,
 	EditBoxOnEscapePressed = function (self) self:GetParent():Hide() end,
@@ -63,19 +80,8 @@ function Opus.Dater (m)
 	end
 	local reste = (m.noteOff or ""):gsub(MOTIF, ""):gsub("^%s+", ""):gsub("%s+$", "")
 	local note = Formate(debut)
-	if reste ~= "" then note = (note .. " " .. reste):sub(1, 31) end
-	StaticPopup_Show("OPUS_NOTE", m.nom, nil, note)
-end
-
--- un cran vers le grade visé (le jeu ne promeut que d'un grade à la fois)
-function Opus.Promouvoir (m, cible)
-	local rangCible = Opus.RangDe(cible)
-	if not rangCible or m.grade <= rangCible then return end
-	if not CanGuildPromote() then Msg("ton grade ne permet pas de promouvoir.") return end
-	C_GuildInfo.Promote(m.complet)
-	local reste = m.grade - 1 - rangCible
-	Msg(("%s monte d'un grade%s."):format(m.nom, reste > 0 and (" ; encore " .. reste .. " pour « " .. cible .. " »") or (" : « " .. cible .. " » atteint")))
-	Opus.DemanderListe()
+	if reste ~= "" then note = note .. " " .. reste end
+	StaticPopup_Show("OPUS_NOTE", m.nom, nil, { nom = m.nom, note = note })
 end
 
 ------------------------------------------------------------------------

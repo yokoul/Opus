@@ -40,15 +40,13 @@ local function Rafraichir ()
 				l.etat:SetText("|cffaaaaaadate inconnue|r")
 			end
 			l.dater:SetShown(m.source ~= "note")
-			local sorties = Opus.SORTIES[m.nomGrade] or {}
-			for k = 1, 2 do
-				local b, cible = l.promo[k], sorties[k]
-				b:SetShown(cible ~= nil)
-				if cible then
-					b.cible, b.crans = cible, m.grade - Opus.RangDe(cible)
-					b:SetText(cible)
-				end
+			-- la promotion se fait à la main (clic droit sur le membre) : on indique seulement vers où, et quand
+			local vers = {}
+			for _, cible in ipairs(Opus.SORTIES[m.nomGrade] or {}) do
+				local crans = m.grade - Opus.RangDe(cible)
+				vers[#vers + 1] = cible .. (crans > 1 and (" (" .. crans .. " crans)") or "")
 			end
+			l.vers:SetText(#vers > 0 and ((m.echu and "|cff60ff60à promouvoir|r : " or "puis : ") .. table.concat(vers, " ou ")) or "")
 		end
 	end
 end
@@ -104,20 +102,8 @@ local function Construire ()
 			GameTooltip:Show()
 		end)
 		l.dater:SetScript("OnLeave", GameTooltip_Hide)
-		l.promo = {}
-		for k = 1, 2 do
-			local b = Bouton(l, "", 118, nil)
-			b:SetScript("OnClick", function (self) Opus.Promouvoir(l.m, self.cible) end)
-			b:SetScript("OnEnter", function (self)
-				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-				GameTooltip:SetText("Promouvoir vers " .. self.cible)
-				GameTooltip:AddLine(("Un clic fait monter d'un grade (le jeu ne va pas plus vite) : %d clic(s) pour atteindre %s."):format(self.crans, self.cible), 1, 1, 1, true)
-				GameTooltip:Show()
-			end)
-			b:SetScript("OnLeave", GameTooltip_Hide)
-			b:SetPoint("LEFT", 406 + (k - 1) * 122, 0)
-			l.promo[k] = b
-		end
+		l.vers = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		l.vers:SetPoint("LEFT", 408, 0) l.vers:SetWidth(LARGEUR - 30 - 410) l.vers:SetJustifyH("LEFT")
 		lignes[i] = l
 	end
 	f:EnableMouseWheel(true)
