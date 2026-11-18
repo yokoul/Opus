@@ -40,26 +40,31 @@ function Opus.Essais ()
 	return liste
 end
 
--- inscrit la date dans la note d'officier, en gardant le reste de la note (31 caractères au plus)
+-- Écrire une note d'officier est réservé à l'interface de Blizzard (C_GuildInfo.SetNote est protégée) : l'addon
+-- retient la date de son côté et prépare le texte de la note, à copier puis coller dans la fiche du membre.
+StaticPopupDialogs["OPUS_NOTE"] = {
+	text = "Note d'officier de |cffffd100%s|r :\nCtrl+C, puis colle-la dans sa fiche (Guilde > clic sur le membre).",
+	button1 = OKAY, hasEditBox = true, editBoxWidth = 220,
+	OnShow = function (self, note)
+		local boite = self.editBox or self.EditBox
+		boite:SetText(note) boite:HighlightText() boite:SetFocus()
+	end,
+	EditBoxOnEnterPressed = function (self) self:GetParent():Hide() end,
+	EditBoxOnEscapePressed = function (self) self:GetParent():Hide() end,
+	timeout = 0, whileDead = true, hideOnEscape = true,
+}
+
 function Opus.Dater (m)
-	local peut = (C_GuildInfo and C_GuildInfo.CanEditOfficerNote) or CanEditOfficerNote
-	if not (peut and peut()) then
-		Msg("ton grade ne permet pas d'écrire les notes d'officier.") return
+	local debut = Opus.DebutEssai(m)
+	if not debut then
+		debut = time()
+		Opus.db.arrivees[m.nom] = debut
+		if Opus.Rafraichir then Opus.Rafraichir() end
 	end
-	local debut = Opus.DebutEssai(m) or time()
 	local reste = (m.noteOff or ""):gsub(MOTIF, ""):gsub("^%s+", ""):gsub("%s+$", "")
 	local note = Formate(debut)
 	if reste ~= "" then note = (note .. " " .. reste):sub(1, 31) end
-	-- GuildRosterSetOfficerNote n'existe plus sur ce client : C_GuildInfo.SetNote, par le GUID du membre
-	if C_GuildInfo and C_GuildInfo.SetNote and m.guid then
-		C_GuildInfo.SetNote(m.guid, note, false)
-	elseif GuildRosterSetOfficerNote then
-		GuildRosterSetOfficerNote(m.index, note)
-	else
-		Msg("impossible d'écrire la note d'officier sur ce client.") return
-	end
-	Msg(m.nom .. " : note d'officier « " .. note .. " ».")
-	Opus.DemanderListe()
+	StaticPopup_Show("OPUS_NOTE", m.nom, nil, note)
 end
 
 -- un cran vers le grade visé (le jeu ne promeut que d'un grade à la fois)

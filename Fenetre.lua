@@ -2,6 +2,7 @@
 local _, Opus = ...
 
 local LIGNES, HAUTEUR = 12, 24
+local LARGEUR = 680
 local f, lignes, decalage = nil, {}, 0
 
 local function Couleur (classe)
@@ -23,6 +24,7 @@ local function Rafraichir ()
 
 	local liste = Opus.Essais()
 	f.vide:SetShown(#liste == 0)
+	f:SetHeight(130 + math.max(1, math.min(#liste, LIGNES)) * HAUTEUR)
 	decalage = math.max(0, math.min(decalage, #liste - LIGNES))
 	for i = 1, LIGNES do
 		local l, m = lignes[i], liste[i + decalage]
@@ -43,9 +45,8 @@ local function Rafraichir ()
 				local b, cible = l.promo[k], sorties[k]
 				b:SetShown(cible ~= nil)
 				if cible then
-					local crans = m.grade - Opus.RangDe(cible)
-					b.cible = cible
-					b:SetText("→ " .. cible .. (crans > 1 and (" (" .. crans .. ")") or ""))
+					b.cible, b.crans = cible, m.grade - Opus.RangDe(cible)
+					b:SetText(cible)
 				end
 			end
 		end
@@ -55,7 +56,7 @@ Opus.Rafraichir = Rafraichir
 
 local function Construire ()
 	f = CreateFrame("Frame", "OpusFenetre", UIParent, "BasicFrameTemplateWithInset")
-	f:SetSize(620, 120 + LIGNES * HAUTEUR)
+	f:SetSize(LARGEUR, 130 + HAUTEUR)
 	f:SetPoint("CENTER")
 	f:SetMovable(true)
 	f:EnableMouse(true)
@@ -86,7 +87,7 @@ local function Construire ()
 
 	for i = 1, LIGNES do
 		local l = CreateFrame("Frame", nil, f)
-		l:SetSize(590, HAUTEUR)
+		l:SetSize(LARGEUR - 30, HAUTEUR)
 		l:SetPoint("TOPLEFT", 14, -104 - (i - 1) * HAUTEUR)
 		l.nom = l:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 		l.nom:SetPoint("LEFT", 2, 0) l.nom:SetWidth(110) l.nom:SetJustifyH("LEFT")
@@ -96,11 +97,25 @@ local function Construire ()
 		l.etat:SetPoint("LEFT", 186, 0) l.etat:SetWidth(150) l.etat:SetJustifyH("LEFT")
 		l.dater = Bouton(l, "Dater", 60, function () Opus.Dater(l.m) end)
 		l.dater:SetPoint("LEFT", 340, 0)
+		l.dater:SetScript("OnEnter", function (self)
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+			GameTooltip:SetText("Dater l'essai")
+			GameTooltip:AddLine("Retient la date (aujourd'hui si elle est inconnue) et prépare la note d'officier à coller.", 1, 1, 1, true)
+			GameTooltip:Show()
+		end)
+		l.dater:SetScript("OnLeave", GameTooltip_Hide)
 		l.promo = {}
 		for k = 1, 2 do
-			local b = Bouton(l, "", 95, nil)
+			local b = Bouton(l, "", 118, nil)
 			b:SetScript("OnClick", function (self) Opus.Promouvoir(l.m, self.cible) end)
-			b:SetPoint("LEFT", 404 + (k - 1) * 98, 0)
+			b:SetScript("OnEnter", function (self)
+				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+				GameTooltip:SetText("Promouvoir vers " .. self.cible)
+				GameTooltip:AddLine(("Un clic fait monter d'un grade (le jeu ne va pas plus vite) : %d clic(s) pour atteindre %s."):format(self.crans, self.cible), 1, 1, 1, true)
+				GameTooltip:Show()
+			end)
+			b:SetScript("OnLeave", GameTooltip_Hide)
+			b:SetPoint("LEFT", 406 + (k - 1) * 122, 0)
 			l.promo[k] = b
 		end
 		lignes[i] = l
