@@ -6,6 +6,7 @@ local _, Opus = ...
 
 Opus.LARGEUR = 720
 local MARGE = 10                -- marge intérieure de l'encart
+local HAUTEUR_CONTENU = 404     -- toutes les pages ont la même taille : la fenêtre ne bouge pas d'un onglet à l'autre
 local HAUT_ENCART, BAS_ENCART = 60, 26
 local f
 local pages, ordre = {}, {}
@@ -104,7 +105,7 @@ end
 local function Rafraichir ()
 	if not f or not f:IsShown() or InCombatLockdown() then return end
 	local p = pages[Active()]
-	f:SetHeight(HAUT_ENCART + MARGE + (p.rafraichir(p.contenu) or 200) + MARGE + BAS_ENCART)
+	p.rafraichir(p.contenu)
 end
 Opus.Rafraichir = Rafraichir
 
@@ -122,7 +123,7 @@ end
 
 local function Construire ()
 	f = CreateFrame("Frame", "OpusFenetre", UIParent, "ButtonFrameTemplate")
-	f:SetSize(Opus.LARGEUR, 300)
+	f:SetSize(Opus.LARGEUR, HAUT_ENCART + MARGE + HAUTEUR_CONTENU + MARGE + BAS_ENCART)
 	f:SetPoint("CENTER")
 	f:SetToplevel(true)
 	f:SetMovable(true)

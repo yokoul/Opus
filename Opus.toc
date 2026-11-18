@@ -1,10 +1,13 @@
 ## Interface: 16001
 ## Title: |cffd4af37Opus|r
-## Notes: Outils de la guilde Opus : essais et promotions, participation à la banque, grille des grades et droits.
+## Notes: Outils de la guilde Opus : essais et promotions, participation à la banque, journal de guilde, grille des grades et droits.
 ## Author: Yan
-## Version: 0.6.1
+## Version: 0.7.0
 ## IconTexture: Interface\AddOns\Opus\Media\Icone
 ## SavedVariables: OpusDB
+## AddonCompartmentFunc: Opus_Compartiment
+## AddonCompartmentFuncOnEnter: Opus_CompartimentSurvol
+## AddonCompartmentFuncOnLeave: Opus_CompartimentSortie
 
 Opus.lua
 Grille.lua
@@ -12,7 +15,10 @@ Droits.lua
 Essais.lua
 Banque.lua
 Partage.lua
+Journal.lua
 Fenetre.lua
 PageEssais.lua
 PageBanque.lua
+PageJournal.lua
 PageGrades.lua
+Minimap.lua

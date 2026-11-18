@@ -18,6 +18,8 @@ end
 function Opus.DebutEssai (m)
 	local t = LitDate(m.noteOff)
 	if t then return t, "note" end
+	local arrivee = Opus.ArriveeJournal and Opus.ArriveeJournal(m.nom)
+	if arrivee then return arrivee, "vu" end
 	local vu = Opus.db.arrivees[m.nom]
 	if vu then return vu, "vu" end
 	return nil
