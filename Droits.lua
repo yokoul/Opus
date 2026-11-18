@@ -44,7 +44,7 @@ function Opus.Comparer (reglage)
 		if not r then return nil end
 		for _, d in ipairs(Opus.DROITS) do
 			if a[d.cle] ~= r[d.cle] then
-				ecarts[#ecarts + 1] = { rang = rang, quoi = d.nom, attendu = OuiNon(a[d.cle]), reel = OuiNon(r[d.cle]) }
+				ecarts[#ecarts + 1] = { rang = rang, cle = d.cle, quoi = d.nom, attendu = OuiNon(a[d.cle]), reel = OuiNon(r[d.cle]) }
 			end
 		end
 	end

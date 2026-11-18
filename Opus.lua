@@ -1,13 +1,15 @@
 -- Opus.lua : socle de l'addon (base de données, liste de guilde, commandes)
 local ADDON, Opus = ...
 _G.Opus = Opus
-Opus.version = "0.3.0"
+Opus.version = "0.4.0"
 
 local DEFAUTS = {
 	reglage = "phase",          -- préréglage de référence : "phase" (actuel) ou "raids"
 	dureeEssai = { Apprenti = 14, Aspirant = 14 },
 	arrivees = {},              -- [nom] = time() de l'arrivée vue en jeu
 	montees = {},               -- [nom] = { depuis = grade d'essai, cible = grade visé } : promotions en cours
+	banque = { evenements = {}, releve = 0 },   -- opérations relevées dans les journaux de la banque (Banque.lua)
+	page = "essais",            -- dernier onglet ouvert de la fenêtre
 }
 
 function Opus.Msg (s)
@@ -78,7 +80,8 @@ local abonnes = {}               -- [événement] = { fonctions }
 function Opus.Ecoute (evenement, f)
 	abonnes[evenement] = abonnes[evenement] or {}
 	table.insert(abonnes[evenement], f)
-	Opus.cadre:RegisterEvent(evenement)
+	-- un événement inconnu de ce client (Forever n'a pas tout) est ignoré au lieu de lever une erreur
+	pcall(Opus.cadre.RegisterEvent, Opus.cadre, evenement)
 end
 
 Opus.cadre = CreateFrame("Frame")
@@ -98,6 +101,8 @@ local GUILDBANKER = Enum and Enum.PlayerInteractionType and Enum.PlayerInteracti
 Opus.Ecoute("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", function (t)
 	if t == GUILDBANKER then Opus.banqueOuverte = true end
 end)
+Opus.Ecoute("GUILDBANKFRAME_OPENED", function () Opus.banqueOuverte = true end)
+Opus.Ecoute("GUILDBANKFRAME_CLOSED", function () Opus.banqueOuverte = false end)
 Opus.Ecoute("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", function (t)
 	if t == GUILDBANKER then Opus.banqueOuverte = false end
 end)
