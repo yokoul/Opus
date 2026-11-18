@@ -37,10 +37,10 @@ end
 local function OuiNon (b) return b and "oui" or "non" end
 
 -- écarts : { rang, quoi, attendu, reel } ; nil si les droits ne se lisent pas
-function Opus.Comparer (reglage)
+function Opus.Comparer ()
 	local ecarts = {}
 	for rang = 2, math.min(GuildControlGetNumRanks() or 0, #Opus.GRADES) do
-		local a, r = Opus.Attendu(rang, reglage), Opus.Lire(rang)
+		local a, r = Opus.Attendu(rang), Opus.Lire(rang)
 		if not r then return nil end
 		for _, d in ipairs(Opus.DROITS) do
 			if a[d.cle] ~= r[d.cle] then
@@ -51,8 +51,7 @@ function Opus.Comparer (reglage)
 	return ecarts
 end
 
-function Opus.Rapport (reglage)
-	reglage = reglage or Opus.db.reglage
+function Opus.Rapport ()
 	if not IsInGuild() then Msg("tu n'es pas en guilde.") return end
 	local ok, soucis = Opus.GradesConformes()
 	if not ok then
@@ -60,9 +59,9 @@ function Opus.Rapport (reglage)
 		for _, s in ipairs(soucis) do DEFAULT_CHAT_FRAME:AddMessage("  " .. s) end
 		return
 	end
-	local ecarts = Opus.Comparer(reglage)
+	local ecarts = Opus.Comparer()
 	if not ecarts then Msg("le jeu ne donne pas les droits des grades sur ce client.") return end
-	Msg("contrôle des droits, « " .. Opus.REGLAGES[reglage] .. " »")
+	Msg("contrôle des droits" .. (Opus.AvantRaids() and (" (" .. Opus.RESTRICTION .. ")") or ""))
 	if #ecarts == 0 then
 		DEFAULT_CHAT_FRAME:AddMessage("  |cff60ff60droits conformes.|r")
 	else
@@ -88,10 +87,10 @@ local function Onglet (o)
 	return "fermé"
 end
 
-function Opus.Fiche (reglage)
-	Msg("fiche « " .. Opus.REGLAGES[reglage] .. " » (à régler dans Guilde > Contrôle de guilde) :")
+function Opus.Fiche ()
+	Msg("fiche des grades (à régler dans Guilde > Paramètres de guilde)" .. (Opus.AvantRaids() and (", " .. Opus.RESTRICTION) or "") .. " :")
 	for rang = 2, #Opus.GRADES do
-		local a, oui = Opus.Attendu(rang, reglage), {}
+		local a, oui = Opus.Attendu(rang), {}
 		for _, d in ipairs(Opus.DROITS) do
 			if a[d.cle] and d.cle ~= "ecouter" and d.cle ~= "parler" and d.cle ~= "retraitOr" then oui[#oui + 1] = d.nom end
 		end
@@ -101,29 +100,14 @@ function Opus.Fiche (reglage)
 		for t, o in ipairs(a.onglets) do onglets[#onglets + 1] = Opus.ONGLETS[t] .. " " .. Onglet(o) end
 		DEFAULT_CHAT_FRAME:AddMessage("    |cffaaaaaa" .. table.concat(onglets, " · ") .. "|r")
 	end
-	Opus.db.reglage = reglage
-	if Opus.Rafraichir then Opus.Rafraichir() end
 end
 
 ------------------------------------------------------------------------
 -- commandes
 ------------------------------------------------------------------------
 
-local function Reglage (s)
-	s = (s or ""):lower()
-	if s == "raids" or s == "raid" then return "raids" elseif s == "phase" then return "phase" end
-	return nil
-end
-
-Opus.Commande("controle", "controle [phase|raids]", "compare les droits réels à la grille", function (s)
-	Opus.Rapport(Reglage(s) or Opus.db.reglage)
-end)
-
-Opus.Commande("fiche", "fiche phase|raids", "ce qu'il faut régler à la main pour un préréglage (en devient la référence)", function (s)
-	local r = Reglage(s)
-	if not r then Msg("préciser « phase » ou « raids ».") return end
-	Opus.Fiche(r)
-end)
+Opus.Commande("controle", "controle", "compare les droits réels à la grille", function () Opus.Rapport() end)
+Opus.Commande("fiche", "fiche", "ce qu'il faut régler à la main, grade par grade", function () Opus.Fiche() end)
 
 -- relevé brut de tous les droits, pour vérifier les numéros
 Opus.Commande("diag", "diag", "relevé brut des droits de chaque grade", function ()

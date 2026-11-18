@@ -23,26 +23,26 @@ local function O (voir, deposer, retraits) return { voir = voir, deposer = depos
 
 -- grades dans l'ordre du jeu (1 = Magister, non modifiable)
 Opus.GRADES = {
-	{ nom = "Magister",    role = "Maître de guilde" },
-	{ nom = "Architecte",  role = "Officiers",
+	{ nom = "Magister",    role = "Maître de guilde", desc = "Tous les droits, non modifiables." },
+	{ nom = "Architecte",  role = "Officiers", desc = "Recrutent, promeuvent et rétrogradent ; canaux et notes d'officiers, message du jour. Seuls à voir la Réserve.",
 	  officier = true, inviter = true, promouvoir = true, retrograder = true, exclure = true,
 	  reparer = true, or_ = 10, onglets = { O(true, true, 10), O(true, true, 10), O(true, true, 0) } },
-	{ nom = "Compagnon",   role = "Raiders titulaires", voie = "Tour",
+	{ nom = "Compagnon",   role = "Raiders titulaires", voie = "Tour", desc = "Le cœur du raid : réparations guilde, peuvent inviter.",
 	  inviter = true, reparer = true, or_ = 5,
 	  onglets = { O(true, true, 5), O(true, true, 5), O(false, true, 0) } },
-	{ nom = "Itinérant",   role = "Raiders en rotation", voie = "Tour",
+	{ nom = "Itinérant",   role = "Raiders en rotation", voie = "Tour", desc = "Raident selon les places : réparations guilde.",
 	  reparer = true, or_ = 5,
 	  onglets = { O(true, true, 5), O(true, true, 2), O(false, true, 0) } },
-	{ nom = "Sédentaire",  role = "Membres hors raid", voie = "Atelier",
+	{ nom = "Sédentaire",  role = "Membres hors raid", voie = "Atelier", desc = "Les métiers et la vie de guilde : peuvent inviter, puisent dans les Matériaux.",
 	  inviter = true, or_ = 0,
 	  onglets = { O(true, true, 0), O(true, true, 5), O(false, true, 0) } },
-	{ nom = "Aspirant",    role = "Raiders à l'essai", voie = "Tour", essai = "raid",
+	{ nom = "Aspirant",    role = "Raiders à l'essai", voie = "Tour", essai = "raid", desc = "Essai raid, puis Itinérant ou Compagnon : réparations guilde, petit accès au Chantier.",
 	  reparer = true, or_ = 3,
 	  onglets = { O(true, true, 3), O(true, true, 0), O(false, true, 0) } },
-	{ nom = "Pierre brute", role = "Alts / rerolls",
+	{ nom = "Pierre brute", role = "Alts / rerolls", desc = "Les personnages secondaires : déposent, ne retirent rien.",
 	  or_ = 0,
 	  onglets = { O(true, true, 0), O(true, true, 0), O(false, true, 0) } },
-	{ nom = "Apprenti",    role = "Nouvelles recrues", voie = "Atelier", essai = "guilde",
+	{ nom = "Apprenti",    role = "Nouvelles recrues", voie = "Atelier", essai = "guilde", desc = "Essai guilde, puis Sédentaire : déposent dans la banque sans la voir.",
 	  or_ = 0,
 	  onglets = { O(false, true, 0), O(false, true, 0), O(false, true, 0) } },
 }
@@ -56,13 +56,14 @@ Opus.SORTIES = {
 	Aspirant = { "Itinérant", "Compagnon" },
 }
 
-Opus.REGLAGES = {
-	raids = "Raids ouverts (grille complète)",
-	phase = "Phase actuelle (réparations et retraits d'or coupés sauf Magister)",
-}
+-- Une seule grille, celle des raids ouverts. Jusqu'à leur ouverture (9 décembre 2026, minuit à Paris), la feuille
+-- coupe les réparations et les retraits d'or sauf pour le Magister : la caisse finance d'abord le premier onglet.
+Opus.OUVERTURE_RAIDS = 1796770800
+function Opus.AvantRaids () return time() < Opus.OUVERTURE_RAIDS end
+Opus.RESTRICTION = "réparations et retraits d'or coupés, sauf Magister, jusqu'à l'ouverture des raids le 9 décembre"
 
--- ce qu'on attend d'un grade (2..8) pour un préréglage
-function Opus.Attendu (rang, reglage)
+-- ce qu'on attend d'un grade (2..8) aujourd'hui
+function Opus.Attendu (rang)
 	local g = Opus.GRADES[rang]
 	if not g or rang < 2 then return nil end
 	local a = {
@@ -72,7 +73,7 @@ function Opus.Attendu (rang, reglage)
 		reparer = g.reparer or false, retraitOr = (g.or_ or 0) > 0, or_ = g.or_ or 0,
 		onglets = g.onglets,
 	}
-	if reglage == "phase" then
+	if Opus.AvantRaids() then
 		a.reparer, a.retraitOr, a.or_ = false, false, 0
 	end
 	return a
