@@ -3,6 +3,9 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.18.2
+- Guilde : dans la fiche, note publique et note d'officier côte à côte, chacune avec son bouton « Modifier » et sa boîte qui défile ; sans les droits d'officier, la note publique prend toute la largeur.
+
 ## 0.18.1
 - Guilde : les notes longues restent dans une boîte de hauteur limitée de la fiche, qui défile à la molette (avec ascenseur), au lieu d'agrandir la fenêtre au-delà de l'écran.
 

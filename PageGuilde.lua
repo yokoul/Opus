@@ -112,6 +112,53 @@ end
 -- la fiche d'un membre
 ------------------------------------------------------------------------
 
+-- une colonne de note : titre, bouton « Modifier », et une boîte de hauteur limitée qui défile à la molette
+local function ColonneNote (f, titre, genre)
+	local col = {}
+	col.titre = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	col.titre:SetText(titre)
+	col.bouton = Opus.Bouton(f, "Modifier", 80, function () Opus.EditerNote(genre, fiche) end, true)
+	col.boite = CreateFrame("ScrollFrame", nil, f)
+	col.boite:SetPoint("TOPLEFT", col.titre, "BOTTOMLEFT", 0, -6)
+	col.dedans = CreateFrame("Frame", nil, col.boite)
+	col.boite:SetScrollChild(col.dedans)
+	col.texte = col.dedans:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	col.texte:SetPoint("TOPLEFT") col.texte:SetJustifyH("LEFT") col.texte:SetSpacing(3)
+	local total, visibles = 0, 0
+	function col.Defiler (y)
+		y = math.max(0, math.min(math.max(0, total - visibles), y))
+		col.boite:SetVerticalScroll(y)
+		col.ascenseur:Recaler(y, total, visibles)
+	end
+	col.ascenseur = Opus.Ascenseur(f, col.Defiler)
+	col.ascenseur:SetPoint("TOPRIGHT", col.boite, "TOPRIGHT")
+	col.ascenseur:SetPoint("BOTTOMRIGHT", col.boite, "BOTTOMRIGHT")
+	col.boite:EnableMouseWheel(true)
+	col.boite:SetScript("OnMouseWheel", function (self, d) col.Defiler((tonumber(self:GetVerticalScroll()) or 0) - d * 30) end)
+	-- largeur de la colonne, à partir de x ; renvoie la hauteur du texte
+	function col.Placer (x, largeur, texte)
+		col.titre:SetShown(true)
+		col.bouton:ClearAllPoints()
+		col.bouton:SetPoint("TOP", col.titre, "TOP", 0, 3)
+		col.bouton:SetPoint("RIGHT", f, "LEFT", x + largeur, 0)
+		col.boite:SetWidth(largeur) col.dedans:SetWidth(largeur - 16) col.texte:SetWidth(largeur - 16)
+		col.texte:SetText(texte)
+		local h = col.texte:GetStringHeight()
+		return math.ceil(type(h) == "number" and h or 14)
+	end
+	-- hauteur de la boîte (la même pour les deux colonnes) ; revient en haut quand la fiche change
+	function col.Hauteur (texte, boite, nouvelle)
+		total, visibles = texte, boite
+		col.boite:SetHeight(boite) col.dedans:SetHeight(texte)
+		col.Defiler(nouvelle and 0 or (tonumber(col.boite:GetVerticalScroll()) or 0))
+	end
+	function col.Montrer (oui, peut)
+		for _, w in ipairs { col.titre, col.boite, col.ascenseur } do w:SetShown(oui) end
+		col.bouton:SetShown(oui and peut)
+	end
+	return col
+end
+
 local function Fiche (cadre)
 	local m = Opus.TrouverMembre(fiche)
 	local c = cadre.fiche
@@ -162,15 +209,20 @@ local function Fiche (cadre)
 	infos[#infos + 1] = Opus.Normal("Banque, depuis le début : ") .. Bilan(tout)
 	c.infos:SetText(table.concat(infos, "\n"))
 
-	-- les notes de l'addon (Notes.lua), sans limite de longueur
-	local notes = {}
-	local function Texte (note) return (note.x:gsub("|", "||")) .. Opus.Gris(("  — %s, %s"):format(note.par or "?", date("%d/%m/%Y", note.t))) end
-	local pub, off = Opus.Note("p", fiche), Opus.Note("o", fiche)
-	if pub then notes[#notes + 1] = Opus.Normal("Publique : ") .. Texte(pub) end
-	if off then notes[#notes + 1] = Opus.Normal("Officiers : ") .. Texte(off) end
-	c.notes:SetText(#notes > 0 and table.concat(notes, "\n\n") or Opus.Gris("Aucune note."))
-	c.notePub:SetShown(m ~= nil and Opus.PeutNoter("p", fiche))
-	c.noteOff:SetShown(m ~= nil and Opus.PeutNoter("o", fiche))
+	-- les notes de l'addon (Notes.lua), sans limite de longueur : publique | officiers
+	local function Texte (note)
+		if not note then return Opus.Gris("Aucune note.") end
+		return (note.x:gsub("|", "||")) .. "\n" .. Opus.Gris(("— %s, %s"):format(note.par or "?", date("%d/%m/%Y", note.t)))
+	end
+	local officier = Opus.PeutConfigurer()
+	local largeurCol = officier and math.floor((c.largeurNotes - 16) / 2) or c.largeurNotes
+	local hPub = c.colPub.Placer(4, largeurCol, Texte(Opus.Note("p", fiche)))
+	local hOff = officier and c.colOff.Placer(4 + largeurCol + 16, largeurCol, Texte(Opus.Note("o", fiche))) or 0
+	c.colOff.titre:ClearAllPoints()
+	c.colOff.titre:SetPoint("TOP", c.colPub.titre, "TOP")
+	c.colOff.titre:SetPoint("LEFT", c, "LEFT", 4 + largeurCol + 16, 0)
+	c.colPub.Montrer(true, m ~= nil and Opus.PeutNoter("p", fiche))
+	c.colOff.Montrer(officier, m ~= nil and Opus.PeutNoter("o", fiche))
 
 	-- son histoire : le journal de guilde où il apparaît
 	local histoire = {}
@@ -182,12 +234,12 @@ local function Fiche (cadre)
 	end
 	c.histoire:SetText(#histoire > 0 and table.concat(histoire, "\n") or Opus.Gris("Rien au journal de guilde pour l'instant."))
 	local function H (t) local h = t:GetStringHeight() return type(h) == "number" and h or 14 end
-	-- la boîte des notes : à la taille du texte, jusqu'à NOTES_MAX ; au-delà, on défile dedans
-	local texte = math.ceil(H(c.notes))
-	local boite = math.min(texte, NOTES_MAX)
-	c.boite.total, c.boite.visibles = texte, boite
-	c.boite:SetHeight(boite) c.dedans:SetHeight(texte)
-	if c.boite.pour ~= fiche then c.boite.pour = fiche c.boite.Defiler(0) else c.boite.Defiler(tonumber(c.boite:GetVerticalScroll()) or 0) end
+	-- les boîtes des notes : à la taille du plus long texte, jusqu'à NOTES_MAX ; au-delà, on défile dedans
+	local boite = math.min(math.max(hPub, hOff), NOTES_MAX)
+	local nouvelle = c.pour ~= fiche
+	c.pour = fiche
+	c.colPub.Hauteur(hPub, boite, nouvelle)
+	if officier then c.colOff.Hauteur(hOff, boite, nouvelle) end
 	local hauteur = 60 + H(c.infos) + 16 + 20 + 6 + boite + 16 + 22 + H(c.histoire) + 8
 	c:SetHeight(hauteur)
 	return math.max(hauteur, 240)
@@ -326,37 +378,14 @@ local function Construire (cadre, barre)
 	f.infos = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	f.infos:SetPoint("TOPLEFT", 4, -60) f.infos:SetWidth(largeur - 8)
 	f.infos:SetJustifyH("LEFT") f.infos:SetSpacing(4)
-	local n = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	n:SetPoint("TOPLEFT", f.infos, "BOTTOMLEFT", 0, -16)
-	n:SetText("Notes")
-	f.noteOff = Opus.Bouton(f, "Note d'officier", 120, function () Opus.EditerNote("o", fiche) end, true)
-	f.noteOff:SetPoint("RIGHT", f, "RIGHT", -4, 0) f.noteOff:SetPoint("TOP", n, "TOP", 0, 3)
-	f.notePub = Opus.Bouton(f, "Note publique", 120, function () Opus.EditerNote("p", fiche) end, true)
-	f.notePub:SetPoint("RIGHT", f.noteOff, "LEFT", -6, 0)
-	-- les notes peuvent être longues : une boîte de hauteur limitée, qui défile à la molette
-	f.boite = CreateFrame("ScrollFrame", nil, f)
-	f.boite:SetPoint("TOPLEFT", n, "BOTTOMLEFT", 0, -6) f.boite:SetSize(largeur - 8, 20)
-	local dedans = CreateFrame("Frame", nil, f.boite)
-	dedans:SetSize(largeur - 24, 20)
-	f.boite:SetScrollChild(dedans)
-	f.dedans = dedans
-	f.notes = dedans:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	f.notes:SetPoint("TOPLEFT") f.notes:SetWidth(largeur - 24)
-	f.notes:SetJustifyH("LEFT") f.notes:SetSpacing(3)
-	local function Defiler (y)
-		local max = math.max(0, (f.boite.total or 0) - (f.boite.visibles or 0))
-		y = math.max(0, math.min(max, y))
-		f.boite:SetVerticalScroll(y)
-		f.ascNotes:Recaler(y, f.boite.total or 0, f.boite.visibles or 0)
-	end
-	f.ascNotes = Opus.Ascenseur(f, Defiler)
-	f.ascNotes:SetPoint("TOPRIGHT", f.boite, "TOPRIGHT", 0, 0)
-	f.ascNotes:SetPoint("BOTTOMRIGHT", f.boite, "BOTTOMRIGHT", 0, 0)
-	f.boite:EnableMouseWheel(true)
-	f.boite:SetScript("OnMouseWheel", function (self, d) Defiler((tonumber(self:GetVerticalScroll()) or 0) - d * 30) end)
-	f.boite.Defiler = Defiler
+	-- les notes : publique | officiers, côte à côte (la publique seule prend toute la largeur)
+	f.colPub = ColonneNote(f, "Note publique", "p")
+	f.colOff = ColonneNote(f, "Note d'officier", "o")
+	f.colPub.titre:SetPoint("TOPLEFT", f.infos, "BOTTOMLEFT", 0, -16)
+	f.colOff.titre:SetPoint("TOP", f.colPub.titre, "TOP")
+	f.largeurNotes = largeur - 8
 	local h = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	h:SetPoint("TOPLEFT", f.boite, "BOTTOMLEFT", 0, -16)
+	h:SetPoint("TOPLEFT", f.colPub.boite, "BOTTOMLEFT", 0, -16)
 	h:SetText("Son histoire dans la guilde")
 	f.histoire = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	f.histoire:SetPoint("TOPLEFT", h, "BOTTOMLEFT", 0, -6) f.histoire:SetWidth(largeur - 8)
