@@ -18,8 +18,26 @@ local function Bouton (parent, texte, largeur, clic)
 	return b
 end
 
+-- Promouvoir est réservé à l'interface de Blizzard, mais pas la commande /gpromote : un bouton sécurisé qui
+-- l'exécute comme une macro, sur un vrai clic, passe. Un cadre sécurisé ne se modifie pas en combat : la fenêtre
+-- se ferme quand il commence, et ne se met pas à jour pendant.
+local function BoutonPromo (parent)
+	local b = CreateFrame("Button", nil, parent, "SecureActionButtonTemplate, UIPanelButtonTemplate")
+	b:SetSize(118, 22)
+	b:RegisterForClicks("AnyUp", "AnyDown")   -- le modèle ne retient que le sens réglé par ActionButtonUseKeyDown
+	b:SetAttribute("type", "macro")
+	b:SetScript("OnEnter", function (self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText("Promouvoir vers " .. self.cible)
+		GameTooltip:AddLine(("Un clic fait monter d'un grade (/gpromote) : %d clic(s) pour atteindre %s."):format(self.crans, self.cible), 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	b:SetScript("OnLeave", GameTooltip_Hide)
+	return b
+end
+
 local function Rafraichir ()
-	if not f or not f:IsShown() then return end
+	if not f or not f:IsShown() or InCombatLockdown() then return end
 	f.reglage:SetText("Référence : |cffffd100" .. Opus.REGLAGES[Opus.db.reglage] .. "|r")
 
 	local liste = Opus.Essais()
@@ -40,13 +58,16 @@ local function Rafraichir ()
 				l.etat:SetText("|cffaaaaaadate inconnue|r")
 			end
 			l.dater:SetShown(m.source ~= "note")
-			-- la promotion se fait à la main (clic droit sur le membre) : on indique seulement vers où, et quand
-			local vers = {}
-			for _, cible in ipairs(Opus.SORTIES[m.nomGrade] or {}) do
-				local crans = m.grade - Opus.RangDe(cible)
-				vers[#vers + 1] = cible .. (crans > 1 and (" (" .. crans .. " crans)") or "")
+			local sorties = Opus.SORTIES[m.nomGrade] or {}
+			for k = 1, 2 do
+				local b, cible = l.promo[k], sorties[k]
+				b:SetShown(cible ~= nil)
+				if cible then
+					b.cible, b.crans = cible, m.grade - Opus.RangDe(cible)
+					b:SetText((m.echu and "|cff60ff60" or "") .. cible)
+					b:SetAttribute("macrotext", "/gpromote " .. m.complet)
+				end
 			end
-			l.vers:SetText(#vers > 0 and ((m.echu and "|cff60ff60à promouvoir|r : " or "puis : ") .. table.concat(vers, " ou ")) or "")
 		end
 	end
 end
@@ -102,8 +123,11 @@ local function Construire ()
 			GameTooltip:Show()
 		end)
 		l.dater:SetScript("OnLeave", GameTooltip_Hide)
-		l.vers = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		l.vers:SetPoint("LEFT", 408, 0) l.vers:SetWidth(LARGEUR - 30 - 410) l.vers:SetJustifyH("LEFT")
+		l.promo = {}
+		for k = 1, 2 do
+			l.promo[k] = BoutonPromo(l)
+			l.promo[k]:SetPoint("LEFT", 406 + (k - 1) * 122, 0)
+		end
 		lignes[i] = l
 	end
 	f:EnableMouseWheel(true)
@@ -114,9 +138,12 @@ end
 
 function Opus.Fenetre ()
 	if not IsInGuild() then Opus.Msg("tu n'es pas en guilde.") return end
+	if InCombatLockdown() then Opus.Msg("pas en combat.") return end
 	if not f then Construire() end
 	f:SetShown(not f:IsShown())
 	if f:IsShown() then Rafraichir() end
 end
 
 Opus.Ecoute("GUILD_ROSTER_UPDATE", Rafraichir)
+-- l'entrée en combat laisse encore modifier les cadres sécurisés : c'est le moment de fermer
+Opus.Ecoute("PLAYER_REGEN_DISABLED", function () if f then f:Hide() end end)
