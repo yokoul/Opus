@@ -13,6 +13,8 @@ local VUES = {
 }
 local JOURNAL = { tout = true, mouvements = true, grades = true }
 
+local NOTES_MAX = 130         -- hauteur de la boîte des notes dans la fiche, au-delà on défile dedans
+
 local function Icone (classe, taille)
 	local atlas = classe and GetClassAtlas and GetClassAtlas(classe:lower())
 	return atlas and CreateAtlasMarkup(atlas, taille or 16, taille or 16) or ""
@@ -180,7 +182,13 @@ local function Fiche (cadre)
 	end
 	c.histoire:SetText(#histoire > 0 and table.concat(histoire, "\n") or Opus.Gris("Rien au journal de guilde pour l'instant."))
 	local function H (t) local h = t:GetStringHeight() return type(h) == "number" and h or 14 end
-	local hauteur = 60 + H(c.infos) + 16 + 20 + 6 + H(c.notes) + 16 + 22 + H(c.histoire) + 8
+	-- la boîte des notes : à la taille du texte, jusqu'à NOTES_MAX ; au-delà, on défile dedans
+	local texte = math.ceil(H(c.notes))
+	local boite = math.min(texte, NOTES_MAX)
+	c.boite.total, c.boite.visibles = texte, boite
+	c.boite:SetHeight(boite) c.dedans:SetHeight(texte)
+	if c.boite.pour ~= fiche then c.boite.pour = fiche c.boite.Defiler(0) else c.boite.Defiler(tonumber(c.boite:GetVerticalScroll()) or 0) end
+	local hauteur = 60 + H(c.infos) + 16 + 20 + 6 + boite + 16 + 22 + H(c.histoire) + 8
 	c:SetHeight(hauteur)
 	return math.max(hauteur, 240)
 end
@@ -325,11 +333,30 @@ local function Construire (cadre, barre)
 	f.noteOff:SetPoint("RIGHT", f, "RIGHT", -4, 0) f.noteOff:SetPoint("TOP", n, "TOP", 0, 3)
 	f.notePub = Opus.Bouton(f, "Note publique", 120, function () Opus.EditerNote("p", fiche) end, true)
 	f.notePub:SetPoint("RIGHT", f.noteOff, "LEFT", -6, 0)
-	f.notes = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	f.notes:SetPoint("TOPLEFT", n, "BOTTOMLEFT", 0, -6) f.notes:SetWidth(largeur - 8)
+	-- les notes peuvent être longues : une boîte de hauteur limitée, qui défile à la molette
+	f.boite = CreateFrame("ScrollFrame", nil, f)
+	f.boite:SetPoint("TOPLEFT", n, "BOTTOMLEFT", 0, -6) f.boite:SetSize(largeur - 8, 20)
+	local dedans = CreateFrame("Frame", nil, f.boite)
+	dedans:SetSize(largeur - 24, 20)
+	f.boite:SetScrollChild(dedans)
+	f.dedans = dedans
+	f.notes = dedans:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	f.notes:SetPoint("TOPLEFT") f.notes:SetWidth(largeur - 24)
 	f.notes:SetJustifyH("LEFT") f.notes:SetSpacing(3)
+	local function Defiler (y)
+		local max = math.max(0, (f.boite.total or 0) - (f.boite.visibles or 0))
+		y = math.max(0, math.min(max, y))
+		f.boite:SetVerticalScroll(y)
+		f.ascNotes:Recaler(y, f.boite.total or 0, f.boite.visibles or 0)
+	end
+	f.ascNotes = Opus.Ascenseur(f, Defiler)
+	f.ascNotes:SetPoint("TOPRIGHT", f.boite, "TOPRIGHT", 0, 0)
+	f.ascNotes:SetPoint("BOTTOMRIGHT", f.boite, "BOTTOMRIGHT", 0, 0)
+	f.boite:EnableMouseWheel(true)
+	f.boite:SetScript("OnMouseWheel", function (self, d) Defiler((tonumber(self:GetVerticalScroll()) or 0) - d * 30) end)
+	f.boite.Defiler = Defiler
 	local h = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	h:SetPoint("TOPLEFT", f.notes, "BOTTOMLEFT", 0, -16)
+	h:SetPoint("TOPLEFT", f.boite, "BOTTOMLEFT", 0, -16)
 	h:SetText("Son histoire dans la guilde")
 	f.histoire = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	f.histoire:SetPoint("TOPLEFT", h, "BOTTOMLEFT", 0, -6) f.histoire:SetWidth(largeur - 8)
