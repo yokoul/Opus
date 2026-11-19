@@ -3,6 +3,13 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.25.0
+- Banque : l'onglet a trois vues, « Participation », « Prêts » et « Remises » (menu en haut à gauche).
+- Prêts : le chef et les officiers notent un prêt dans un sens ou dans l'autre, « la guilde lui doit » (un joueur a avancé de l'or) ou « il doit à la guilde ». Le dépôt qui fait le prêt est retrouvé à la banque et y est relié : il ne compte pas comme cotisation. Chaque remboursement s'ajoute au prêt, avec le reste dû. L'addon propose comme remboursements les dépôts d'un débiteur et les retraits d'un créancier (clic sur le prêt pour les confirmer), et demande à un officier qui envoie de l'or à un créancier, par courrier ou par échange, s'il faut le compter.
+- Remises : un objet retiré de la banque puis envoyé par courrier ou par échange est noté tout seul, avec qui l'a donné, à qui et comment, un autre de ses personnages compris. Tes retraits pas encore remis restent affichés deux semaines, avec « Remis à… » (en main propre) et « Gardé ».
+- Prêts et remises sont visibles de toute la guilde, partagés entre les addons, avec rattrapage à la connexion.
+- Banque : les journaux sont redemandés après chaque retrait, pour que l'objet soit connu avant d'être envoyé.
+
 ## 0.24.9
 - Envies : rôle, créneau et retrait se règlent donjon par donjon. Une envie qui couvre plusieurs donjons est découpée quand tu la modifies depuis une carte : seul ce donjon change, les autres gardent l'envie d'origine.
 

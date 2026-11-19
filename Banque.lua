@@ -111,6 +111,14 @@ Opus.Ecoute("GUILDBANKLOG_UPDATE", function ()
 	end)
 end)
 
+-- un objet retiré (ou rangé) : on redemande les journaux, pour qu'un retrait soit connu avant d'être remis (Registre.lua)
+local relance
+Opus.Ecoute("GUILDBANKBAGSLOTS_CHANGED", function ()
+	if not Opus.banqueOuverte or not Opus.db then return end
+	if relance then relance:Cancel() end
+	relance = C_Timer.NewTimer(2, function () relance = nil Demander() end)
+end)
+
 local function Ouverte ()
 	nouveaux = 0
 	C_Timer.After(0.5, Demander)

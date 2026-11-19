@@ -4,6 +4,7 @@ local _, Opus = ...
 local LIGNES, HAUTEUR, ENTETE = 16, 20, 22
 local lignes, decalage = {}, 0
 local periode, tri, croissant = 7, "orPlus", false
+local vue = "participation"         -- ou « prets », « remises » (PageRegistre.lua)
 local entetes = {}
 local TIRET = GRAY_FONT_COLOR:WrapTextInColorCode("–")
 
@@ -66,6 +67,11 @@ local function Bulle (l)
 end
 
 local function Rafraichir (cadre)
+	cadre.vue:GenerateMenu()
+	cadre.vp:SetShown(vue == "participation")
+	cadre.periode:SetShown(vue == "participation")
+	cadre.registre:SetShown(vue ~= "participation")
+	if vue ~= "participation" then return Opus.RafraichirRegistre(cadre.registre, vue, cadre.info) end
 	cadre.periode:GenerateMenu()
 	for _, h in ipairs(entetes) do
 		h.fleche:SetShown(h.cle == tri)
@@ -134,17 +140,28 @@ end
 local function Construire (cadre, barre)
 	local largeur = Opus.LARGEUR - 30
 
+	-- la vue : participation de chacun, prêts, remises d'objets
+	cadre.vue = Opus.Menu(barre, 130, { { "participation", "Participation" }, { "prets", "Prêts" }, { "remises", "Remises" } },
+		function () return vue end,
+		function (v) vue = v Opus.Rafraichir() end)
+	cadre.vue:SetPoint("LEFT", 0, 0)
 	-- la période, en menu du client ; « Tout » vaut 0 (le menu ne garde pas nil)
 	cadre.periode = Opus.Menu(barre, 130, { { 7, "7 derniers jours" }, { 30, "30 derniers jours" }, { 0, "Depuis le début" } },
 		function () return periode or 0 end,
 		function (v) periode = v > 0 and v or nil Opus.Rafraichir() end)
-	cadre.periode:SetPoint("LEFT", 0, 0)
+	cadre.periode:SetPoint("LEFT", cadre.vue, "RIGHT", 8, 0)
 	cadre.info = barre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	cadre.info:SetPoint("RIGHT", 0, 0)
+	cadre.registre = Opus.ConstruireRegistre(cadre, largeur)
+
+	-- la participation, dans son propre cadre pour être masquée d'un bloc
+	local vp = CreateFrame("Frame", nil, cadre)
+	vp:SetPoint("TOPLEFT") vp:SetPoint("TOPRIGHT") vp:SetHeight(1)
+	cadre.vp = vp
 
 	-- en-têtes cliquables : un clic trie, un second inverse
 	for c, col in ipairs(COLONNES) do
-		local h = CreateFrame("Button", nil, cadre)
+		local h = CreateFrame("Button", nil, vp)
 		h:SetSize(col[4], 18)
 		h:SetPoint("TOPLEFT", col[3], 0)
 		h.texte = h:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -165,7 +182,7 @@ local function Construire (cadre, barre)
 	end
 
 	for i = 1, LIGNES do
-		local l = CreateFrame("Frame", nil, cadre)
+		local l = CreateFrame("Frame", nil, vp)
 		l:SetSize(largeur, HAUTEUR)
 		l:SetPoint("TOPLEFT", 0, -ENTETE - (i - 1) * HAUTEUR)
 		l:EnableMouse(true)
@@ -175,21 +192,23 @@ local function Construire (cadre, barre)
 		lignes[i] = l
 	end
 
-	cadre.ascenseur = Opus.Ascenseur(cadre, function (d) decalage = d Opus.Rafraichir() end)
+	cadre.ascenseur = Opus.Ascenseur(vp, function (d) decalage = d Opus.Rafraichir() end)
 	cadre.ascenseur:SetPoint("TOPRIGHT", -2, -ENTETE)
 
-	cadre.total = CreateFrame("Frame", nil, cadre)
+	cadre.total = CreateFrame("Frame", nil, vp)
 	cadre.total:SetSize(largeur, HAUTEUR)
 	Cases(cadre.total)
 	for _, t in ipairs(cadre.total.cases) do t:SetFontObject("GameFontNormalSmall") end
 
-	cadre.vide = cadre:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+	cadre.vide = vp:CreateFontString(nil, "OVERLAY", "GameFontDisable")
 	cadre.vide:SetPoint("TOPLEFT", 4, -ENTETE - 3)
 	cadre.vide:SetText("Rien sur cette période.")
 
-	cadre.aide = cadre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	cadre.aide = vp:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	cadre.aide:SetWidth(largeur - 4) cadre.aide:SetJustifyH("LEFT")
 	cadre.aide:SetText("")
 end
 
-Opus.Page("banque", "Banque", Construire, Rafraichir, function (_, d) decalage = decalage - d end)
+Opus.Page("banque", "Banque", Construire, Rafraichir, function (_, d)
+	if vue == "participation" then decalage = decalage - d else Opus.MoletteRegistre(vue, d) end
+end)

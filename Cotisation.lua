@@ -128,8 +128,10 @@ function Opus.EtatCotisations ()
 		joueurs[j].du = joueurs[j].du + Opus.DuPerso(m.niveau)
 		joueurs[j].persos[#joueurs[j].persos + 1] = m.nom
 	end
+	-- un dépôt qui fait un prêt à la guilde, ou en rembourse un, n'est pas une cotisation (Registre.lua)
+	local liees = Opus.OperationsLiees and Opus.OperationsLiees() or {}
 	for _, e in ipairs(Opus.db.banque.evenements) do
-		if e.q == "or+" and e.t >= debut then
+		if e.q == "or+" and e.t >= debut and (not liees.Trouver or liees.Trouver(e) == 0) then
 			local j = joueurs[Opus.Joueur(e.nom)]
 			if j then j.verse = j.verse + e.c end
 		end
