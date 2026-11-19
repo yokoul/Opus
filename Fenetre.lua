@@ -66,7 +66,13 @@ Opus.TEINTES = {
 	{ "ardoise", "Ardoise froide", { 0.13, 0.15, 0.18 }, { 0.19, 0.22, 0.26 }, { 0.08, 0.09, 0.11 } },
 	{ "bronze", "Bronze fumé", { 0.17, 0.12, 0.07 }, { 0.25, 0.18, 0.10 }, { 0.10, 0.07, 0.04 } },
 }
-local FILETS = { normal = { 0.62, 0.48, 0.24 }, survol = { 0.98, 0.80, 0.42 }, appui = { 0.85, 0.68, 0.32 }, eteint = { 0.30, 0.28, 0.24 } }
+-- le filet doré, en dégradé (haut, bas) : plus clair en haut, comme un métal éclairé d'en haut
+local FILETS = {
+	normal = { { 0.86, 0.70, 0.38 }, { 0.45, 0.33, 0.15 } },
+	survol = { { 1.00, 0.88, 0.55 }, { 0.70, 0.53, 0.24 } },
+	appui = { { 0.55, 0.41, 0.18 }, { 0.80, 0.63, 0.30 } },
+	eteint = { { 0.38, 0.35, 0.30 }, { 0.22, 0.20, 0.18 } },
+}
 
 local function Teinte ()
 	local choix = Opus.db and Opus.db.styleBoutons
@@ -74,13 +80,38 @@ local function Teinte ()
 	return Opus.TEINTES[1]
 end
 
+-- un dégradé vertical (bas, haut) ; SetGradient prend des couleurs depuis Dragonflight, SetGradientAlpha avant
+local function Degrade (tex, bas, haut, a)
+	if CreateColor and tex.SetGradient and pcall(tex.SetGradient, tex, "VERTICAL", CreateColor(bas[1], bas[2], bas[3], a), CreateColor(haut[1], haut[2], haut[3], a)) then return end
+	if tex.SetGradientAlpha then tex:SetGradientAlpha("VERTICAL", bas[1], bas[2], bas[3], a, haut[1], haut[2], haut[3], a) return end
+	tex:SetVertexColor((bas[1] + haut[1]) / 2, (bas[2] + haut[2]) / 2, (bas[3] + haut[3]) / 2, a)
+end
+
+local function Eclaircir (c, k) return { math.min(1, c[1] * k + 0.02), math.min(1, c[2] * k + 0.02), math.min(1, c[3] * k + 0.02) } end
+
 local function Teinter (b, etat)
 	etat = b:IsEnabled() and etat or "eteint"
 	local t = Teinte()
 	local fond = etat == "survol" and t[4] or etat == "appui" and t[5] or t[3]
-	if etat == "eteint" then b.opusFond:SetVertexColor(0.08, 0.09, 0.09, 0.85) else b.opusFond:SetVertexColor(fond[1], fond[2], fond[3], 0.95) end
+	if etat == "eteint" then fond = { 0.09, 0.09, 0.09 } end
+	-- le fond bombé : clair en haut, sombre en bas ; enfoncé, l'inverse
+	if etat == "appui" then Degrade(b.opusFond, Eclaircir(fond, 1.3), Eclaircir(fond, 0.6), 0.97)
+	else Degrade(b.opusFond, Eclaircir(fond, 0.55), Eclaircir(fond, 1.7), 0.97) end
 	local l = FILETS[etat]
-	for _, x in ipairs(b.opusFilet) do x:SetVertexColor(l[1], l[2], l[3], 1) end
+	Degrade(b.opusFilet[3], l[2], l[1], 1) Degrade(b.opusFilet[4], l[2], l[1], 1)
+	b.opusFilet[1]:SetVertexColor(l[1][1], l[1][2], l[1][3], 1)
+	b.opusFilet[2]:SetVertexColor(l[2][1], l[2][2], l[2][3], 1)
+	-- le biseau : lumière en haut, ombre en bas (inversés à l'appui)
+	local enfonce = etat == "appui"
+	b.opusLumiere:SetAlpha(enfonce and 0 or etat == "eteint" and 0.06 or 0.22)
+	b.opusOmbre:SetAlpha(enfonce and 0.15 or 0.45)
+	b.opusLueur:SetShown(etat == "survol")
+end
+
+local function Ligne (b, couche, sous)
+	local l = b:CreateTexture(nil, couche, nil, sous)
+	l:SetTexture(BLANC)
+	return l
 end
 
 function Opus.HabillerBouton (b)
@@ -92,16 +123,30 @@ function Opus.HabillerBouton (b)
 		local t = b[f] and b[f](b)
 		if t then t:SetAlpha(0) end
 	end
-	b.opusFond = b:CreateTexture(nil, "BACKGROUND", nil, 7)
-	b.opusFond:SetTexture(BLANC) b.opusFond:SetPoint("TOPLEFT", 1, -1) b.opusFond:SetPoint("BOTTOMRIGHT", -1, 1)
-	-- un reflet en haut, pour le relief
-	local reflet = b:CreateTexture(nil, "BORDER", nil, 7)
-	reflet:SetTexture(BLANC) reflet:SetPoint("TOPLEFT", 1, -1) reflet:SetPoint("TOPRIGHT", -1, -1) reflet:SetHeight(1)
-	reflet:SetVertexColor(1, 0.88, 0.6, 0.14)
+	-- l'ombre portée, un pixel sous le bouton et à droite
+	local ombre = Ligne(b, "BACKGROUND", 5)
+	ombre:SetPoint("TOPLEFT", 1, -1) ombre:SetPoint("BOTTOMRIGHT", 1, -2)
+	ombre:SetVertexColor(0, 0, 0, 0.55)
+	b.opusFond = Ligne(b, "BACKGROUND", 7)
+	b.opusFond:SetPoint("TOPLEFT", 1, -1) b.opusFond:SetPoint("BOTTOMRIGHT", -1, 1)
+	-- la lueur dorée au survol, ajoutée par-dessus le fond
+	b.opusLueur = Ligne(b, "BORDER", 1)
+	b.opusLueur:SetPoint("TOPLEFT", 1, -1) b.opusLueur:SetPoint("BOTTOMRIGHT", -1, 1)
+	b.opusLueur:SetBlendMode("ADD")
+	Degrade(b.opusLueur, { 0, 0, 0 }, { 0.30, 0.22, 0.08 }, 1)
+	b.opusLueur:Hide()
+	-- le biseau intérieur : un liseré clair sous le filet du haut, un sombre au-dessus de celui du bas
+	b.opusLumiere = Ligne(b, "BORDER", 6)
+	b.opusLumiere:SetPoint("TOPLEFT", 2, -2) b.opusLumiere:SetPoint("TOPRIGHT", -2, -2) b.opusLumiere:SetHeight(1)
+	b.opusLumiere:SetVertexColor(1, 0.92, 0.70, 1)
+	b.opusOmbre = Ligne(b, "BORDER", 6)
+	b.opusOmbre:SetPoint("BOTTOMLEFT", 2, 2) b.opusOmbre:SetPoint("BOTTOMRIGHT", -2, 2) b.opusOmbre:SetHeight(1)
+	b.opusOmbre:SetVertexColor(0, 0, 0, 1)
+	-- le filet doré : haut, bas, gauche, droite
 	b.opusFilet = {}
 	for _, cote in ipairs { { "TOPLEFT", "TOPRIGHT", true }, { "BOTTOMLEFT", "BOTTOMRIGHT", true }, { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } } do
-		local l = b:CreateTexture(nil, "BORDER", nil, 7)
-		l:SetTexture(BLANC) l:SetPoint(cote[1]) l:SetPoint(cote[2])
+		local l = Ligne(b, "BORDER", 7)
+		l:SetPoint(cote[1]) l:SetPoint(cote[2])
 		if cote[3] then l:SetHeight(1) else l:SetWidth(1) end
 		b.opusFilet[#b.opusFilet + 1] = l
 	end
@@ -110,6 +155,9 @@ function Opus.HabillerBouton (b)
 		b:SetHighlightFontObject(GameFontHighlightSmall)
 		b:SetDisabledFontObject(GameFontDisableSmall)
 	end
+	-- le texte, gravé : une ombre nette sous les lettres
+	local texte = b.GetFontString and b:GetFontString()
+	if texte and texte.SetShadowOffset then texte:SetShadowOffset(1, -1) texte:SetShadowColor(0, 0, 0, 0.9) end
 	if b.SetPushedTextOffset then b:SetPushedTextOffset(1, -1) end
 	b:HookScript("OnEnter", function (self) Teinter(self, "survol") end)
 	b:HookScript("OnLeave", function (self) Teinter(self, "normal") end)
