@@ -18,7 +18,7 @@ function Opus.BoutonSecurise (parent, largeur, bulle)
 		GameTooltip:Show()
 	end)
 	b:SetScript("OnLeave", GameTooltip_Hide)
-	return b
+	return Opus.HabillerBouton(b)
 end
 
 local function BoutonPromo (parent)

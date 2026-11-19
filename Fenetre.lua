@@ -1,6 +1,6 @@
 -- Fenetre.lua : la fenêtre /opus, faite des cadres natifs du client (comme SkillUp ou le Bestiaire) : cadre à
 -- portrait (ButtonFrameTemplate) avec l'emblème d'Opus, onglets en bas (PanelTabButtonTemplate), contenu dans
--- l'encart (Inset), boutons rouges du client (SharedButton*), polices et couleurs du jeu. Chaque page vit dans son
+-- l'encart (Inset), boutons aux couleurs d'Opus (ou rouges du client, au choix dans Réglages), polices et couleurs du jeu. Chaque page vit dans son
 -- fichier (Page*.lua) ; ses réglages (période, préréglage) vont dans la bande au-dessus de l'encart.
 local _, Opus = ...
 
@@ -52,12 +52,68 @@ function Opus.Bulle (cadre, titre, texte)
 end
 
 -- bouton rouge du client ; petit = la taille des lignes de liste
+-- Le style d'Opus : fond lie-de-vin, filet doré qui s'éclaire au survol, texte or (la planche de marque : écarlate, or,
+-- parchemin). On garde le modèle du client pour son comportement et on éteint ses textures (SetAlpha plutôt que Hide :
+-- le modèle les remontre à chaque état). « Classique » dans Réglages garde le bouton rouge du jeu, au prochain /reload.
+local BLANC = "Interface\\Buttons\\WHITE8X8"
+local TEINTES = {
+	normal = { fond = { 0.20, 0.06, 0.05, 0.95 }, filet = { 0.55, 0.42, 0.18, 1 } },
+	survol = { fond = { 0.30, 0.09, 0.07, 0.95 }, filet = { 0.95, 0.78, 0.30, 1 } },
+	appui = { fond = { 0.12, 0.03, 0.03, 0.95 }, filet = { 0.83, 0.69, 0.22, 1 } },
+	eteint = { fond = { 0.10, 0.09, 0.08, 0.85 }, filet = { 0.30, 0.27, 0.23, 1 } },
+}
+
+local function Teinter (b, etat)
+	local t = TEINTES[b:IsEnabled() and etat or "eteint"]
+	local f, l = t.fond, t.filet
+	b.opusFond:SetVertexColor(f[1], f[2], f[3], f[4])
+	for _, x in ipairs(b.opusFilet) do x:SetVertexColor(l[1], l[2], l[3], l[4]) end
+end
+
+function Opus.HabillerBouton (b)
+	if Opus.db and Opus.db.styleBoutons == "classique" then return b end
+	for _, r in ipairs { b:GetRegions() } do
+		if r:GetObjectType() == "Texture" then r:SetAlpha(0) end
+	end
+	for _, f in ipairs { "GetNormalTexture", "GetPushedTexture", "GetHighlightTexture", "GetDisabledTexture" } do
+		local t = b[f] and b[f](b)
+		if t then t:SetAlpha(0) end
+	end
+	b.opusFond = b:CreateTexture(nil, "BACKGROUND", nil, 7)
+	b.opusFond:SetTexture(BLANC) b.opusFond:SetPoint("TOPLEFT", 1, -1) b.opusFond:SetPoint("BOTTOMRIGHT", -1, 1)
+	-- un reflet en haut, pour le relief
+	local reflet = b:CreateTexture(nil, "BORDER", nil, 7)
+	reflet:SetTexture(BLANC) reflet:SetPoint("TOPLEFT", 1, -1) reflet:SetPoint("TOPRIGHT", -1, -1) reflet:SetHeight(1)
+	reflet:SetVertexColor(1, 0.85, 0.5, 0.18)
+	b.opusFilet = {}
+	for _, cote in ipairs { { "TOPLEFT", "TOPRIGHT", true }, { "BOTTOMLEFT", "BOTTOMRIGHT", true }, { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } } do
+		local l = b:CreateTexture(nil, "BORDER", nil, 7)
+		l:SetTexture(BLANC) l:SetPoint(cote[1]) l:SetPoint(cote[2])
+		if cote[3] then l:SetHeight(1) else l:SetWidth(1) end
+		b.opusFilet[#b.opusFilet + 1] = l
+	end
+	if b.SetNormalFontObject then
+		b:SetNormalFontObject(GameFontNormalSmall)
+		b:SetHighlightFontObject(GameFontHighlightSmall)
+		b:SetDisabledFontObject(GameFontDisableSmall)
+	end
+	if b.SetPushedTextOffset then b:SetPushedTextOffset(1, -1) end
+	b:HookScript("OnEnter", function (self) Teinter(self, "survol") end)
+	b:HookScript("OnLeave", function (self) Teinter(self, "normal") end)
+	b:HookScript("OnMouseDown", function (self) Teinter(self, "appui") end)
+	b:HookScript("OnMouseUp", function (self) Teinter(self, self:IsMouseOver() and "survol" or "normal") end)
+	b:HookScript("OnEnable", function (self) Teinter(self, "normal") end)
+	b:HookScript("OnDisable", function (self) Teinter(self, "eteint") end)
+	Teinter(b, "normal")
+	return b
+end
+
 function Opus.Bouton (parent, texte, largeur, clic, petit)
 	local b = CreateFrame("Button", nil, parent, petit and "SharedButtonExtraSmallTemplate" or "SharedButtonSmallTemplate")
 	b:SetSize(largeur, petit and 20 or 24)
 	b:SetText(texte)
 	if clic then b:SetScript("OnClick", clic) end
-	return b
+	return Opus.HabillerBouton(b)
 end
 
 -- menu déroulant du client, à choix unique : choix = { { valeur, libellé }, … }

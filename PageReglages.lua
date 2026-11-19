@@ -17,6 +17,7 @@ local function Rafraichir (cadre)
 	cadre.niveaux:GenerateMenu()
 	cadre.notifs:GenerateMenu()
 	cadre.dureeNotif:GenerateMenu()
+	cadre.styleBoutons:GenerateMenu()
 	-- ses rôles : ceux qu'il a cochés ; rien de coché, celui de sa spé
 	-- sans déclaration, la case du rôle de sa spé est cochée : on n'a plus qu'à ajouter les autres
 	local declares = {}
@@ -95,6 +96,16 @@ local function Construire (cadre, barre)
 	Libelle("Durée des notifications", "Envies et montées de niveau ; le survol les retient.")
 	cadre.dureeNotif = Opus.Menu(cadre, 220, DUREES, function () return Opus.db.dureeNotif or 10 end, function (v) Opus.db.dureeNotif = v end)
 	cadre.dureeNotif:SetPoint("TOPLEFT", X_CONTROLE, y)
+	Ligne(40)
+	Libelle("Style des boutons", "Aux couleurs d'Opus, ou le bouton rouge du jeu ; au prochain /reload.")
+	cadre.styleBoutons = Opus.Menu(cadre, 220, { { "opus", "Opus" }, { "classique", "Classique du jeu" } },
+		function () return Opus.db.styleBoutons or "opus" end,
+		function (v)
+			if (Opus.db.styleBoutons or "opus") == v then return end
+			Opus.db.styleBoutons = v
+			Opus.Msg("style des boutons changé : fais /reload pour l'appliquer.")
+		end)
+	cadre.styleBoutons:SetPoint("TOPLEFT", X_CONTROLE, y)
 	Ligne(40)
 	local _, aide = Libelle("Mes rôles en groupe", " ")
 	cadre.roleAide = aide

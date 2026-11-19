@@ -3,6 +3,9 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.28.2
+- Boutons aux couleurs d'Opus : fond lie-de-vin, filet doré qui s'éclaire au survol, texte or, à la place du bouton rouge du jeu. Réglages, « Style des boutons », permet de revenir au classique (au prochain /reload).
+
 ## 0.28.1
 - Notifications : un clic droit passe la notification (sans ouvrir la fiche ni l'onglet), maj + clic droit passe aussi celles en attente ; leur nombre s'affiche en bas.
 - Envies : « Clore pour mon groupe », dans le menu « Mon envie » de la carte (donjon fait ou abandonné), clôt ton envie sur ce donjon et celles des membres de ton groupe qui en avaient une ; la carte disparaît quand plus personne n'y a d'envie. Sans envie sur ce donjon mais en groupe avec des intéressés, « Moi aussi » le propose aussi.
