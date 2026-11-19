@@ -1,5 +1,5 @@
 -- PageGuilde.lua : le tableau de la guilde. Les membres regroupés par voie (et les essais à part), avec leur classe,
--- grade, niveau, ancienneté et participation à la banque ; un clic ouvre la fiche du membre (son histoire dans la guilde,
+-- joueur Discord, grade, niveau, ancienneté et participation à la banque ; un clic ouvre la fiche du membre (son histoire dans la guilde,
 -- sa banque, ses notes). Le journal de guilde brut reste une des vues du menu.
 local _, Opus = ...
 
@@ -14,6 +14,8 @@ local VUES = {
 local JOURNAL = { tout = true, mouvements = true, grades = true }
 
 local NOTES_MAX = 130         -- hauteur de la boîte des notes dans la fiche, au-delà on défile dedans
+-- l'étoile d'un main : l'icône du marqueur de raid (les polices du jeu n'ont pas l'emoji ⭐, affiché en carré)
+local ETOILE = "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_1:0|t"
 
 local function Icone (classe, taille)
 	local atlas = classe and GetClassAtlas and GetClassAtlas(classe:lower())
@@ -99,6 +101,9 @@ local function LigneMembre (l, m)
 	if atlas then l.icone:SetAtlas(atlas) end
 	l.icone:SetShown(atlas ~= nil)
 	l.nom:SetText(Opus.Couleur(m.classe) .. m.nom .. "|r")
+	-- son joueur Discord (dernier import) : en blanc avec une étoile sur un main, en gris sur un reroll
+	local j, _, main = Opus.Discord(m.nom)
+	l.joueur:SetText(j and (main and (Opus.Blanc(j.pseudo) .. " " .. ETOILE) or Opus.Gris(j.pseudo)) or Opus.Gris("–"))
 	l.grade:SetText(m.nomGrade)
 	l.niveau:SetText(m.niveau)
 	l.depuis:SetText(TexteAnciennete(Anciennete(m)))
@@ -181,11 +186,11 @@ local function Fiche (cadre)
 		local j = Opus.Discord(m.nom)
 		local autres = {}
 		for _, p in ipairs(Opus.PersosDuJoueur(m.nom)) do
-			if p.nom ~= m.nom then autres[#autres + 1] = nom(p.nom) .. (p.main and " ⭐" or "") end
+			if p.nom ~= m.nom then autres[#autres + 1] = nom(p.nom) .. (p.main and (" " .. ETOILE) or "") end
 		end
 		local _, _, main = Opus.Discord(m.nom)
 		if j then
-			infos[#infos + 1] = Opus.Normal("Discord : ") .. Opus.Blanc(j.pseudo) .. (main and Opus.Gris(" · son main ⭐") or Opus.Gris(" · reroll"))
+			infos[#infos + 1] = Opus.Normal("Discord : ") .. Opus.Blanc(j.pseudo) .. (main and (Opus.Gris(" · son main ") .. ETOILE) or Opus.Gris(" · reroll"))
 		end
 		if #autres > 0 then infos[#infos + 1] = Opus.Normal("Ses autres persos : ") .. table.concat(autres, ", ") end
 		if m.note ~= "" then infos[#infos + 1] = Opus.Normal("Note du jeu : ") .. m.note end
@@ -280,7 +285,7 @@ local function Rafraichir (cadre)
 		if e then
 			l.e = e
 			local membre = not journal and e.nom ~= nil
-			for _, w in ipairs { l.icone, l.nom, l.grade, l.niveau, l.depuis, l.banque, l.statut } do w:SetShown(membre) end
+			for _, w in ipairs { l.icone, l.nom, l.joueur, l.grade, l.niveau, l.depuis, l.banque, l.statut } do w:SetShown(membre) end
 			l.titre:SetShown(not journal and e.titre ~= nil)
 			l.quand:SetShown(journal) l.texte:SetShown(journal)
 			if journal then
@@ -329,12 +334,13 @@ local function Construire (cadre, barre)
 		l.titre = Texte("GameFontNormal", 2)
 		l.icone = l:CreateTexture(nil, "ARTWORK")
 		l.icone:SetSize(18, 18) l.icone:SetPoint("LEFT", 5, 0)
-		l.nom = Texte("GameFontHighlight", 28, 150)
-		l.grade = Texte("GameFontHighlightSmall", 182, 90)
-		l.niveau = Texte("GameFontHighlightSmall", 274, 26, "RIGHT")
-		l.depuis = Texte("GameFontHighlightSmall", 310, 70, "RIGHT")
-		l.banque = Texte("GameFontHighlightSmall", 390, 110, "RIGHT")
-		l.statut = Texte("GameFontHighlightSmall", 512, 160)
+		l.nom = Texte("GameFontHighlight", 28, 140)
+		l.joueur = Texte("GameFontHighlightSmall", 172, 100)
+		l.grade = Texte("GameFontHighlightSmall", 276, 84)
+		l.niveau = Texte("GameFontHighlightSmall", 362, 24, "RIGHT")
+		l.depuis = Texte("GameFontHighlightSmall", 392, 60, "RIGHT")
+		l.banque = Texte("GameFontHighlightSmall", 458, 92, "RIGHT")
+		l.statut = Texte("GameFontHighlightSmall", 558, 116)
 		l.quand = Texte("GameFontDisableSmall", 2, 52, "RIGHT")
 		l.texte = Texte("GameFontHighlightSmall", 64)
 		l.texte:SetPoint("RIGHT", -2, 0)
@@ -351,7 +357,8 @@ local function Construire (cadre, barre)
 		end, function (self)
 			local e = self.e
 			if not e or JOURNAL[vue] or e.titre then return nil end
-			return { "Ancienneté : depuis l'arrivée relevée au journal de guilde ; en gris, arrivé avant le début du journal.",
+			return { "Joueur : son pseudo Discord (" .. ETOILE .. " sur son main), d'après le dernier /opus import.",
+				"Ancienneté : depuis l'arrivée relevée au journal de guilde ; en gris, arrivé avant le début du journal.",
 				"Banque : dépôts des 30 derniers jours.", Opus.Gris("Clic : ouvrir sa fiche.") }
 		end)
 		lignes[i] = l
