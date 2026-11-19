@@ -204,19 +204,26 @@ function Opus.CreerBarre (parent, largeur)
 	c.max = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	function c.Montrer (oui)
 		for _, w in ipairs { c.barre, c.plage, c.moi, c.moiTexte, c.min, c.max } do w:SetShown(oui) end
+		if c.gris and not oui then c.gris:Hide() end
 	end
 	return c
 end
 
-function Opus.PlacerBarre (c, d)
-	if not d or not d.min then c.Montrer(false) return end
+-- joueurs : les autres niveaux à situer (son groupe, ou les intéressés), { niveau } ; la zone rouge commence au niveau où
+-- les monstres du donjon deviennent gris (Opus.ECART_GRIS au-dessus de son maximum) : un seul joueur au-delà, et plus
+-- personne du groupe ne gagne d'XP sur ses victimes
+function Opus.PlacerBarre (c, d, joueurs)
+	if not d or not d.min then c.Montrer(false) for _, r in ipairs(c.reperes or {}) do r:Hide() end return end
 	c.Montrer(true)
 	local n = UnitLevel("player")
-	local bas, haut = math.max(1, math.min(d.min, n) - 4), math.min(60, math.max(d.max, n) + 4)
+	local plusHaut, plusBas = n, n
+	for _, j in ipairs(joueurs or {}) do plusHaut, plusBas = math.max(plusHaut, j.niveau), math.min(plusBas, j.niveau) end
+	local seuil = d.max + Opus.ECART_GRIS
+	local bas, haut = math.max(1, math.min(d.min, plusBas) - 4), math.min(60, math.max(d.max, plusHaut) + 4)
 	if haut - bas < 12 then haut = math.min(60, bas + 12) bas = math.max(1, haut - 12) end
 	local w = c.barre:GetWidth()
 	w = type(w) == "number" and w > 0 and w or 200
-	local function X (niveau) return (niveau - bas) / (haut - bas) * w end
+	local function X (niveau) return (math.max(bas, math.min(haut, niveau)) - bas) / (haut - bas) * w end
 	c.plage:ClearAllPoints()
 	c.plage:SetPoint("TOPLEFT", c.barre, "TOPLEFT", X(d.min), 0)
 	c.plage:SetPoint("BOTTOMLEFT", c.barre, "BOTTOMLEFT", X(d.min), 0)
@@ -226,12 +233,35 @@ function Opus.PlacerBarre (c, d)
 	if dedans then c.plage:SetColorTexture(0.25, 0.75, 0.25, 0.9)
 	elseif proche then c.plage:SetColorTexture(0.9, 0.7, 0.15, 0.9)
 	else c.plage:SetColorTexture(0.45, 0.45, 0.45, 0.8) end
+	-- la zone sans XP, si l'échelle l'atteint
+	c.gris = c.gris or c.barre:GetParent():CreateTexture(nil, "ARTWORK", nil, 1)
+	c.gris:SetColorTexture(0.8, 0.15, 0.1, 0.55)
+	c.gris:SetShown(seuil <= haut)
+	if seuil <= haut then
+		c.gris:ClearAllPoints()
+		c.gris:SetPoint("TOPLEFT", c.barre, "TOPLEFT", X(seuil), 0)
+		c.gris:SetPoint("BOTTOMRIGHT", c.barre, "BOTTOMRIGHT", 0, 0)
+	end
 	c.min:ClearAllPoints() c.min:SetPoint("TOP", c.plage, "BOTTOMLEFT", 0, -2) c.min:SetText(d.min)
 	c.max:ClearAllPoints() c.max:SetPoint("TOP", c.plage, "BOTTOMRIGHT", 0, -2) c.max:SetText(d.max)
-	local x = math.max(0, math.min(w, X(math.max(bas, math.min(haut, n)))))
+	local x = X(n)
 	c.moi:ClearAllPoints() c.moi:SetPoint("TOPLEFT", c.barre, "TOPLEFT", x - 1, 3) c.moi:SetPoint("BOTTOMLEFT", c.barre, "BOTTOMLEFT", x - 1, -3)
+	c.moi:SetColorTexture(n >= seuil and 1 or 1, n >= seuil and 0.3 or 1, n >= seuil and 0.3 or 1, 1)
 	c.moiTexte:ClearAllPoints() c.moiTexte:SetPoint("BOTTOM", c.moi, "TOP", 0, 1)
-	c.moiTexte:SetText(Opus.Blanc("toi " .. n))
+	c.moiTexte:SetText(n >= seuil and Opus.Rouge("toi " .. n) or Opus.Blanc("toi " .. n))
+	-- les autres : un petit repère chacun, rouge s'ils rendraient les monstres gris
+	c.reperes = c.reperes or {}
+	for i, j in ipairs(joueurs or {}) do
+		local r = c.reperes[i] or c.barre:GetParent():CreateTexture(nil, "OVERLAY")
+		c.reperes[i] = r
+		r:SetWidth(2)
+		local rouge = j.niveau >= seuil
+		r:SetColorTexture(rouge and 1 or 0.45, rouge and 0.25 or 0.75, rouge and 0.25 or 1, 0.9)
+		r:ClearAllPoints()
+		r:SetPoint("TOPLEFT", c.barre, "TOPLEFT", X(j.niveau) - 1, 2) r:SetPoint("BOTTOMLEFT", c.barre, "BOTTOMLEFT", X(j.niveau) - 1, -2)
+		r:Show()
+	end
+	for i = #(joueurs or {}) + 1, #c.reperes do c.reperes[i]:Hide() end
 end
 
 local function Carte (v, largeur)
@@ -306,6 +336,10 @@ local function Carte (v, largeur)
 			local lignes = {}
 			local quoi = Opus.TextePourquoi(e)
 			if quoi ~= "" then lignes[#lignes + 1] = "Pour : " .. quoi end
+			local m, d = Opus.TrouverMembre(e.par), self:GetParent().donjon
+			if m and d and d.max and m.niveau - d.max >= Opus.ECART_GRIS then
+				lignes[#lignes + 1] = Opus.Rouge(("Monstres gris pour lui (%d niveaux au-dessus du donjon) : avec lui, plus personne ne gagne d'XP. Un reroll ?"):format(m.niveau - d.max))
+			end
 			if e.note then lignes[#lignes + 1] = e.note end
 			lignes[#lignes + 1] = Opus.Gris("Publiée le " .. date("%d/%m à %H h %M", e.m) .. ", affichée jusqu'au " .. date("%d/%m à %H h", e.fin) .. ".")
 			return lignes
@@ -324,8 +358,13 @@ local function RemplirCarte (c, g)
 	for _, e in ipairs(g.envies) do for cle in pairs(e.pourquoi) do pourquoi[cle] = true end end
 	local raisons = {}
 	for _, p in ipairs(Opus.POURQUOI) do if pourquoi[p[1]] then raisons[#raisons + 1] = p[2]:lower() end end
-	c.sous:SetText(Opus.Gris((d.min and ("niveaux %d à %d"):format(d.min, d.max) or "") .. (#raisons > 0 and ("  ·  " .. table.concat(raisons, ", ")) or "")))
-	Opus.PlacerBarre(c.niveaux, d)
+	c.sous:SetText(Opus.Gris((d.min and ("niveaux %d à %d"):format(d.min, d.max) or "") .. (d.entree and (", entrée dès " .. d.entree) or "") .. (#raisons > 0 and ("  ·  " .. table.concat(raisons, ", ")) or "")))
+	local niveaux, moi = {}, Opus.MonNom()
+	for _, e in ipairs(g.envies) do
+		local m = e.par ~= moi and Opus.TrouverMembre(e.par)
+		if m and m.niveau then niveaux[#niveaux + 1] = { niveau = m.niveau } end
+	end
+	Opus.PlacerBarre(c.niveaux, d, niveaux)
 	local manque = 0
 	for i, r in ipairs(Opus.PLACES) do
 		local t = c.places[i]
@@ -353,7 +392,8 @@ local function RemplirCarte (c, g)
 			local atlas = classe and GetClassAtlas and GetClassAtlas(classe:lower())
 			if atlas then l.icone:SetAtlas(atlas) end
 			l.icone:SetShown(atlas ~= nil)
-			l.nom:SetText((classe and Opus.Couleur(classe) or "") .. e.par .. "|r" .. (m and m.niveau and Opus.Gris("  " .. m.niveau) or "")
+			local gris = m and m.niveau and d.max and m.niveau - d.max >= Opus.ECART_GRIS
+			l.nom:SetText((classe and Opus.Couleur(classe) or "") .. e.par .. "|r" .. (m and m.niveau and (gris and Opus.Rouge("  " .. m.niveau) or Opus.Gris("  " .. m.niveau)) or "")
 				.. ((m and m.enLigne) and "" or Opus.Gris("  hors ligne")))
 			l.roles:SetText(IconesRoles(e.roles))
 			l.quand:SetText(Opus.TexteCreneau(e))

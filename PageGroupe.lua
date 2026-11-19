@@ -110,7 +110,13 @@ local function RemplirGroupe (c)
 	local replie = autres == 0
 	local d = Opus.groupe.donjon
 	c.donjon:GenerateMenu()
-	Opus.PlacerBarre(c.niveaux, d)
+	local niveaux = {}
+	for i = 1, #Opus.PLACES do
+		local nom = Opus.groupe.places[i]
+		local m = nom and nom ~= moi and Opus.TrouverMembre(nom)
+		if m then niveaux[#niveaux + 1] = { niveau = m.niveau } end
+	end
+	Opus.PlacerBarre(c.niveaux, d, niveaux)
 	c.seul:SetShown(replie and not d)
 	for _, w in ipairs { c.manque, c.inviter, c.annoncer, c.vider } do w:SetShown(not replie) end
 	for i, r in ipairs(Opus.PLACES) do
