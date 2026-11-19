@@ -1,5 +1,6 @@
 -- Niveaux.lua : les montées de niveau des membres de la guilde. L'addon relève le roster chaque minute et note chaque
--- niveau gagné depuis le relevé précédent ; il l'annonce dans la discussion (le niveau 60 aussi au milieu de l'écran).
+-- niveau gagné depuis le relevé précédent ; il annonce le niveau 60 dans la discussion et au milieu de l'écran (au choix,
+-- aussi les paliers de 10, ou tous les niveaux : /opus niveaux).
 -- Un niveau vu juste après un relevé récent est daté à la minute près ; vu après une absence (le joueur a monté pendant
 -- qu'on n'était pas connecté), il est seulement « vu le » et n'est pas annoncé.
 -- Les dates passent d'un membre à l'autre : « L » (des montées), « l » (demande de rattrapage à la connexion).
@@ -41,12 +42,26 @@ function Opus.Montees (nom)
 end
 
 ------------------------------------------------------------------------
--- annonces : réglables par /opus niveaux (tous, 60, aucun)
+-- annonces : réglables par /opus niveaux (60 par défaut, paliers, tous, aucun)
 ------------------------------------------------------------------------
 
-local function Annoncer (m, niveau)
-	local mode = Opus.db.annonceNiveaux or "tous"
-	if mode == "aucun" or (mode == "60" and niveau < NIVEAU_MAX) then return end
+local MODES = { ["60"] = "le niveau 60 seulement", paliers = "les paliers de 10 (10, 20… 60)", tous = "tous les niveaux", aucun = "aucune" }
+
+-- de avant à niveau : le niveau à annoncer selon le réglage, ou nil
+local function AAnnoncer (avant, niveau)
+	local mode = Opus.db.annonceNiveaux or "60"
+	if mode == "tous" then return niveau end
+	if mode == "60" then return niveau >= NIVEAU_MAX and niveau or nil end
+	if mode == "paliers" then
+		local palier = niveau - niveau % 10
+		return palier > avant and palier >= 10 and palier or nil
+	end
+	return nil
+end
+
+local function Annoncer (m, avant, niveau)
+	niveau = AAnnoncer(avant, niveau)
+	if not niveau then return end
 	local nom = Opus.Couleur(m.classe) .. m.nom .. "|r"
 	if niveau >= NIVEAU_MAX then
 		Opus.Msg(("%s |cffffd100atteint le niveau %d ! Félicitations !|r"):format(nom, niveau))
@@ -73,7 +88,7 @@ function Opus.ReleverNiveaux ()
 			if s and niveau > s.n and niveau <= NIVEAU_MAX then
 				local precis = maintenant - s.t <= PRECIS
 				for n = s.n + 1, niveau do Retenir(d, m.nom, n, maintenant, not precis) end
-				if precis and m.nom ~= moi then Annoncer(m, niveau) end
+				if precis and m.nom ~= moi then Annoncer(m, s.n, niveau) end
 			end
 			d.suivi[m.nom] = { n = niveau, t = maintenant }
 		end
@@ -151,10 +166,8 @@ end)
 
 Opus.Ecoute("GUILD_ROSTER_UPDATE", function () Opus.ReleverNiveaux() end)
 
-Opus.Commande("niveaux", "niveaux [tous|60|aucun]", "annonce des montées de niveau de la guilde : toutes, le 60 seulement, ou aucune", function (reste)
+Opus.Commande("niveaux", "niveaux [60|paliers|tous|aucun]", "annonce des montées de niveau de la guilde : le 60 (par défaut), les paliers de 10, tous les niveaux, ou aucune", function (reste)
 	reste = (reste or ""):lower()
-	if reste == "tous" or reste == "60" or reste == "aucun" then Opus.db.annonceNiveaux = reste end
-	local mode = Opus.db.annonceNiveaux or "tous"
-	Opus.Msg("annonce des montées de niveau : " .. (mode == "tous" and "toutes" or mode == "60" and "le niveau 60 seulement" or "aucune") ..
-		Opus.Gris(" (/opus niveaux tous, 60 ou aucun)"))
+	if MODES[reste] then Opus.db.annonceNiveaux = reste end
+	Opus.Msg("annonce des montées de niveau : " .. MODES[Opus.db.annonceNiveaux or "60"] .. Opus.Gris(" (/opus niveaux 60, paliers, tous ou aucun)"))
 end)
