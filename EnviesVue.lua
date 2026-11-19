@@ -326,7 +326,7 @@ local function RemplirCarte (c, g)
 			manque = manque + 1
 		end
 	end
-	c.etat:SetText(#g.dispo == 0 and Opus.Gris(#g.envies .. " intéressé(s), personne de disponible maintenant")
+	c.etat:SetText(#g.dispo == 0 and Opus.Gris(#g.envies .. " intéressé(s) · personne de dispo")
 		or manque == 0 and Opus.Vert("Groupe complet possible maintenant !")
 		or (Opus.Vert(#g.dispo .. " disponible(s) maintenant") .. Opus.Gris(" · " .. #g.envies .. " intéressé(s)")))
 	c.former:SetEnabled(#g.dispo >= 2)

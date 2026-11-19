@@ -193,7 +193,9 @@ end
 ------------------------------------------------------------------------
 
 function Opus.MesRoles ()
-	local s = Opus.db.spes[Opus.MonNom()]
+	-- sa spé retenue, sinon celle qu'on lit à l'instant (la publication n'a peut-être pas encore eu lieu)
+	local s = Opus.db.spes[Opus.MonNom()] or (Opus.MaSpe and Opus.MaSpe())
+	if s and not s.role then s = { arbre = s.arbre, role = Opus.db.monRole } end
 	local liste = s and Opus.RolesDe(s) or Opus.ListeRoles(Opus.db.monRole)
 	return #liste > 0 and table.concat(liste, ",") or nil
 end

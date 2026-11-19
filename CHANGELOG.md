@@ -3,6 +3,9 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.23.2
+- Envies : tes rôles apparaissent sur tes propres envies même avant la première publication de ta spé ; l'état d'une carte n'est plus coupé.
+
 ## 0.23.1
 - Envies de donjon : une carte par donjon, comme la recherche de groupe du jeu. Les cinq places du groupe (pleines quand quelqu'un de disponible maintenant la tient), une barre de niveaux qui situe la tranche du donjon face au tien (vert : dans la tranche, jaune : à portée, gris : trop loin), puis les intéressés, les disponibles d'abord ; la note et le détail dans la bulle.
 - Réglages : sans rôle déclaré, celui de ta spé est coché ; tu n'as plus qu'à ajouter ceux que tu sais jouer.
