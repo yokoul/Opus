@@ -7,8 +7,9 @@ local _, Opus = ...
 local Msg = Opus.Msg
 
 local CONSERVATION = 400 * 24          -- en heures : un peu plus d'un an
--- « ong » : l'achat d'un onglet, payé par la banque (pas une opération d'un joueur)
-local TYPES_OR = { deposit = "or+", withdraw = "or-", withdrawal = "or-", repair = "rep", buyTab = "ong", withdrawForTab = "ong" }
+-- « ong » : l'achat d'un onglet (pas une opération d'un joueur). Payé avec l'or de la guilde, le jeu l'inscrit deux fois :
+-- « retiré pour acheter un onglet » (withdrawForTab) puis « a acheté un onglet » (buyTab) ; seul l'achat compte.
+local TYPES_OR = { deposit = "or+", withdraw = "or-", withdrawal = "or-", repair = "rep", buyTab = "ong" }
 local TYPES_OBJET = { deposit = "obj+", withdraw = "obj-" }
 
 -- les opérations sont datées en heures depuis l'époque Unix
@@ -222,8 +223,14 @@ Opus.Commande("diagbanque", "diagbanque", "ce que le jeu donne des journaux de l
 			p.envoyes, Opus.FileDePartage(), p.recus, Opus.Pairs(), tostring(p.dernierResultat)))
 		return
 	end
-	DEFAULT_CHAT_FRAME:AddMessage(("  onglets : %s ; opérations d'or : %s"):format(tostring(GetNumGuildBankTabs()),
-		tostring(GetNumGuildBankMoneyTransactions and GetNumGuildBankMoneyTransactions())))
+	DEFAULT_CHAT_FRAME:AddMessage(("  onglets : %s ; opérations d'or : %s ; solde : %s"):format(tostring(GetNumGuildBankTabs()),
+		tostring(GetNumGuildBankMoneyTransactions and GetNumGuildBankMoneyTransactions()), tostring(GetGuildBankMoney and GetGuildBankMoney())))
+	-- le journal de l'or tel que le jeu le donne : genre, joueur, montant, ancienneté
+	for i = 1, GetNumGuildBankMoneyTransactions and GetNumGuildBankMoneyTransactions() or 0 do
+		local type, nom, cuivre, an, mois, jour, heure = GetGuildBankMoneyTransaction(i)
+		DEFAULT_CHAT_FRAME:AddMessage(("    %s · %s · %s · il y a %sa %sm %sj %sh"):format(tostring(type), tostring(nom), Opus.OrDetail(cuivre or 0),
+			tostring(an), tostring(mois), tostring(jour), tostring(heure)))
+	end
 	for tab = 1, GetNumGuildBankTabs() or 0 do
 		DEFAULT_CHAT_FRAME:AddMessage(("  onglet %d : %s opération(s)"):format(tab, tostring(GetNumGuildBankTransactions and GetNumGuildBankTransactions(tab))))
 	end

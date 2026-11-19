@@ -1,7 +1,7 @@
 -- Opus.lua : socle de l'addon (base de données, liste de guilde, commandes)
 local ADDON, Opus = ...
 _G.Opus = Opus
-Opus.version = "0.25.2"
+Opus.version = "0.25.3"
 
 local DEFAUTS = {
 	dureeEssai = { Apprenti = 14, Aspirant = 14 },
@@ -143,6 +143,12 @@ Opus.Ecoute("ADDON_LOADED", function (nom)
 	OpusDB = OpusDB or {}
 	Defauts(OpusDB, DEFAUTS)
 	Opus.db = OpusDB
+	-- 0.25.1 comptait deux fois l'achat d'un onglet : on oublie ces relevés, relus au prochain passage à la banque
+	if not OpusDB.ongletsRelus then
+		local garde = {}
+		for _, e in ipairs(OpusDB.banque.evenements) do if e.q ~= "ong" then garde[#garde + 1] = e end end
+		OpusDB.banque.evenements, OpusDB.ongletsRelus = garde, true
+	end
 end)
 
 -- banque de guilde ouverte ou fermée (les droits des onglets ne se lisent qu'avec la banque ouverte)
