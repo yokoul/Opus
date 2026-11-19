@@ -97,14 +97,14 @@ local function Construire (cadre, barre)
 	cadre.dureeNotif = Opus.Menu(cadre, 220, DUREES, function () return Opus.db.dureeNotif or 10 end, function (v) Opus.db.dureeNotif = v end)
 	cadre.dureeNotif:SetPoint("TOPLEFT", X_CONTROLE, y)
 	Ligne(40)
-	Libelle("Teinte des boutons", "Celles des planches d'Opus, filet doré ; ou le bouton du jeu. Au prochain /reload.")
+	Libelle("Teinte des boutons", "Le bouton du jeu, ou une teinte des planches d'Opus. Au prochain /reload.")
 	local teintes = {}
 	for _, t in ipairs(Opus.TEINTES) do teintes[#teintes + 1] = { t[1], t[2] } end
 	teintes[#teintes + 1] = { "classique", "Classique du jeu" }
 	cadre.styleBoutons = Opus.Menu(cadre, 220, teintes,
-		function () return Opus.db.styleBoutons or "petrole" end,
+		function () return Opus.db.styleBoutons or "classique" end,
 		function (v)
-			if (Opus.db.styleBoutons or "petrole") == v then return end
+			if (Opus.db.styleBoutons or "classique") == v then return end
 			Opus.db.styleBoutons = v
 			Opus.Msg("teinte des boutons changée : fais /reload pour l'appliquer.")
 		end)

@@ -115,7 +115,8 @@ local function Ligne (b, couche, sous)
 end
 
 function Opus.HabillerBouton (b)
-	if Opus.db and Opus.db.styleBoutons == "classique" then return b end
+	-- par défaut le bouton du jeu : sa texture usée va avec le reste de l'interface, nos aplats détonnent
+	if not Opus.db or (Opus.db.styleBoutons or "classique") == "classique" then return b end
 	for _, r in ipairs { b:GetRegions() } do
 		if r:GetObjectType() == "Texture" then r:SetAlpha(0) end
 	end

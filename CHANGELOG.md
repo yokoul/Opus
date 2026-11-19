@@ -4,7 +4,8 @@ Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, E
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
 ## 0.28.2
-- Boutons aux couleurs d'Opus : fond vert-bleu des bannières de la guilde, filet doré qui s'éclaire au survol, texte or, à la place du bouton rouge du jeu. Réglages, « Teinte des boutons », propose les teintes des planches de la guilde (pétrole de la bannière par défaut, écarlate noble, vert de gris, aubergine, ardoise froide, bronze fumé) ou le bouton classique du jeu, au prochain /reload.
+- Réglages, « Teinte des boutons » : en plus du bouton du jeu (par défaut), des boutons aux teintes des planches de la guilde (pétrole de la bannière, écarlate noble, vert de gris, aubergine, ardoise froide, bronze fumé), en relief avec un filet doré ; au prochain /reload.
+- Réglages : le texte des diagnostics ne passe plus sous les boutons.
 
 ## 0.28.1
 - Notifications : un clic droit passe la notification (sans ouvrir la fiche ni l'onglet), maj + clic droit passe aussi celles en attente ; leur nombre s'affiche en bas.
