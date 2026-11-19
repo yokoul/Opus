@@ -1,10 +1,12 @@
 -- PageGroupe.lua : former un groupe de donjon. Le donjon (et sa tranche de niveaux) en haut, le groupe à gauche (une
 -- place par rôle, ce qui manque, l'alerte d'XP), à droite les membres en ligne de la tranche : un clic les place, « Écrire »
--- ouvre un chuchotement tout prêt, « Proposer » ouvre une fenêtre chez ceux qui ont l'addon (Invitation.lua).
+-- ouvre un chuchotement tout prêt, « Proposer » ouvre une fenêtre chez ceux qui ont l'addon (Invitation.lua). L'autre
+-- vue de l'onglet : les envies de donjon de la guilde (Envies.lua, EnviesVue.lua).
 local _, Opus = ...
 
 local GAUCHE, HAUTEUR, LIGNES = 226, 20, 16
 local tri, croissant, decalage = "role", true, 0
+local mode = "former"                  -- « former » (le groupe) ou « envies » (les envies de donjon)
 local lignes, entetes = {}, {}
 
 local ATLAS_ROLES = { tank = "roleicon-tiny-tank", soin = "roleicon-tiny-healer", degats = "roleicon-tiny-dps" }
@@ -53,6 +55,17 @@ local function Candidats ()
 end
 
 local function Rafraichir (cadre)
+	local envies = mode == "envies"
+	cadre.envies:SetShown(envies)
+	for _, w in ipairs { cadre.groupe, cadre.donjon, cadre.tranche } do w:SetShown(not envies) end
+	for _, h in ipairs(entetes) do h:SetShown(not envies) end
+	cadre.mode:SetText(envies and "Former un groupe" or ("Envies de donjon (" .. #Opus.Envies() .. ")"))
+	if envies then
+		for i = 1, LIGNES do lignes[i]:Hide() end
+		cadre.ascenseur:Hide() cadre.vide:Hide()
+		cadre.info:SetText("")
+		return cadre.envies.Rafraichir()
+	end
 	-- on est soi-même dans son groupe, à la place de son rôle
 	local moi = Opus.TrouverMembre(Opus.MonNom())
 	if moi and not Opus.DansLeGroupe(moi.nom) then Opus.AjouterAuGroupe(moi) end
@@ -130,8 +143,13 @@ local function Construire (cadre, barre)
 	end)
 	cadre.tranche = barre:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	cadre.tranche:SetPoint("LEFT", cadre.donjon, "RIGHT", 12, 0)
+	-- l'autre vue : les envies de donjon
+	cadre.mode = Opus.Bouton(barre, "Envies de donjon", 170, function () mode = mode == "envies" and "former" or "envies" Opus.Rafraichir() end)
+	cadre.mode:SetPoint("RIGHT", 0, 0)
 	cadre.info = barre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	cadre.info:SetPoint("RIGHT", 0, 0)
+	cadre.info:SetPoint("RIGHT", cadre.mode, "LEFT", -10, 0)
+	cadre.envies = Opus.VueEnvies(cadre, largeur)
+	cadre.envies:Hide()
 
 	-- le groupe, à gauche
 	local g = CreateFrame("Frame", nil, cadre)
@@ -245,11 +263,16 @@ local function Construire (cadre, barre)
 	cadre.vide:SetText("Personne en ligne dans cette tranche de niveaux.")
 end
 
--- /opus groupe
-function Opus.OuvrirGroupe ()
+-- /opus groupe ; v = « former » ou « envies »
+function Opus.OuvrirGroupe (v)
+	mode = v or mode
 	Opus.db.page = "groupe"
 	Opus.Fenetre(true)
+	Opus.Afficher("groupe")
 end
+function Opus.OuvrirEnvies () Opus.OuvrirGroupe("envies") end
 Opus.Commande("groupe", "groupe", "former un groupe de donjon avec les membres en ligne de ton niveau", function () Opus.OuvrirGroupe() end)
 
-Opus.Page("groupe", "Groupe", Construire, Rafraichir, function (_, d) decalage = decalage - d * 2 end)
+Opus.Page("groupe", "Groupe", Construire, Rafraichir, function (cadre, d)
+	if mode == "envies" then cadre.envies.Defiler(d) else decalage = decalage - d * 2 end
+end)

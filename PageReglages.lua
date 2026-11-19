@@ -6,6 +6,7 @@ local _, Opus = ...
 local function Commande (texte) SlashCmdList.OPUS(texte) end
 
 local NIVEAUX = { { "60", "Le niveau 60 seulement" }, { "paliers", "Les paliers de 10" }, { "tous", "Tous les niveaux" }, { "aucun", "Aucune" } }
+local NOTIFS = { { "toutes", "Toutes" }, { "aucune", "Aucune" } }
 local ROLES = { { "tank", "Tank" }, { "soin", "Soigneur" }, { "degats", "Dégâts" } }
 local NOMS_ROLES = { tank = "tank", soin = "soigneur", degats = "dégâts" }
 
@@ -13,6 +14,7 @@ local X_CONTROLE = 300           -- colonne des réglages, à droite des libell�
 
 local function Rafraichir (cadre)
 	cadre.niveaux:GenerateMenu()
+	cadre.notifs:GenerateMenu()
 	-- ses rôles : ceux qu'il a cochés ; rien de coché, celui de sa spé
 	local declares = {}
 	for _, r in ipairs(Opus.ListeRoles(Opus.db.monRole)) do declares[r] = true end
@@ -80,6 +82,10 @@ local function Construire (cadre, barre)
 	Libelle("Annonce des montées de niveau", "Dans la discussion ; le 60 aussi à l'écran.")
 	cadre.niveaux = Opus.Menu(cadre, 220, NIVEAUX, function () return Opus.db.annonceNiveaux or "60" end, function (v) Commande("niveaux " .. v) end)
 	cadre.niveaux:SetPoint("TOPLEFT", X_CONTROLE, y)
+	Ligne(40)
+	Libelle("Envies de donjon", "Notification quand un membre annonce une envie.")
+	cadre.notifs = Opus.Menu(cadre, 220, NOTIFS, function () return Opus.db.notifEnvies or "toutes" end, function (v) Opus.db.notifEnvies = v end)
+	cadre.notifs:SetPoint("TOPLEFT", X_CONTROLE, y)
 	Ligne(40)
 	local _, aide = Libelle("Mes rôles en groupe", " ")
 	cadre.roleAide = aide

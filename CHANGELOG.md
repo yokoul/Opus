@@ -3,6 +3,11 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.23.0
+- **Envies de donjon** (onglet Groupe, bouton « Envies de donjon », ou `/opus envies`) : annonce que tu dois faire un ou plusieurs donjons (quêtes, objets, expérience, avec une note), quand tu es disponible (maintenant, ce soir, ce week-end, ou une précision libre) et combien de temps l'envie reste affichée (3 jours par défaut, jusqu'à ce soir pour « maintenant » et « ce soir »). Toute la guilde voit tous les donjons demandés, grisés hors de ton niveau (un reroll peut être du bon niveau), avec qui les veut, ses rôles, pourquoi et quand.
+- « Moi aussi » sur un donjon : tu es partant, au créneau choisi. « Former » remplit le panneau de groupe avec ceux qui sont disponibles maintenant et en ligne ; « Annoncer en /g » prévient ceux qui n'ont pas l'addon.
+- Une notification (quelques secondes, en haut de l'écran) annonce chaque nouvelle envie, et prévient quand un groupe complet est possible pour un donjon où tu es disponible. Réglable dans Réglages.
+
 ## 0.22.0
 - **Plusieurs rôles** : dans Réglages, coche tout ce que tu sais jouer en donjon (un druide en dégâts qui soigne aussi) ; rien de coché, c'est le rôle de ta spé. Le groupe te place à une place libre de l'un de tes rôles, et une proposition te demande le rôle qui manque. Roster et Groupe montrent tous tes rôles (le principal en plus grand). `/opus role soin degats` fait la même chose.
 - **Durée des essais** : devient un réglage de la guilde, partagé à tous et modifiable par le chef de guilde seulement (onglet Réglages, ou `/opus duree <grade> <jours>`), pour chaque grade d'essai de la grille.
