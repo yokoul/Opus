@@ -405,9 +405,9 @@ function Opus.DonjonFait (cle)
 	end
 	local nom = Opus.DonjonDe(cle).nom
 	if #morceaux > 0 then
-		Opus.Msg(("%s fait : ton envie est retirée, et celles de %s le seront aussi (s'ils ont l'addon à jour)."):format(nom, table.concat(morceaux, ", ")))
+		Opus.Msg(("%s clos : ton envie est close, celles de %s aussi (s'ils ont l'addon à jour)."):format(nom, table.concat(morceaux, ", ")))
 	else
-		Opus.Msg(("%s fait : ton envie est retirée."):format(nom))
+		Opus.Msg(("%s clos : ton envie est close."):format(nom))
 	end
 	Apres()
 end
@@ -422,7 +422,7 @@ Opus.recepteurs.F = function (_, champs, expediteur, canal)
 			for _, e in ipairs(miennes) do Opus.RetirerEnvie(e.id, cle) end
 			if #miennes > 0 then
 				local par = Opus.TrouverExpediteur(expediteur)
-				Opus.Msg(("%s a marqué %s comme fait : ton envie est retirée."):format(par.nom, Opus.DonjonDe(cle).nom))
+				Opus.Msg(("%s a clos %s (donjon fait) : ton envie est close."):format(par.nom, Opus.DonjonDe(cle).nom))
 				Apres()
 			end
 			return
