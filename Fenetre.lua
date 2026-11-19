@@ -52,22 +52,35 @@ function Opus.Bulle (cadre, titre, texte)
 end
 
 -- bouton rouge du client ; petit = la taille des lignes de liste
--- Le style d'Opus : fond vert-bleu profond des bannières, filet doré des cadres qui s'éclaire au survol, texte or (la
--- bannière du bot ; le rouge n'y est que l'éclat de la gemme). On garde le modèle du client pour son comportement et on éteint ses textures (SetAlpha plutôt que Hide :
--- le modèle les remontre à chaque état). « Classique » dans Réglages garde le bouton rouge du jeu, au prochain /reload.
+-- Le style d'Opus, d'après les planches de marque : une teinte de fond (pétrole de la bannière, écarlate, ardoise…),
+-- toujours le même filet doré des cadres, qui s'éclaire au survol, et le texte or. On garde le modèle du client pour
+-- son comportement et on éteint ses textures (SetAlpha plutôt que Hide : le modèle les remontre à chaque état). La
+-- teinte se choisit dans Réglages (« classique » garde le bouton rouge du jeu), au prochain /reload.
 local BLANC = "Interface\\Buttons\\WHITE8X8"
-local TEINTES = {
-	normal = { fond = { 0.05, 0.16, 0.16, 0.95 }, filet = { 0.62, 0.48, 0.24, 1 } },
-	survol = { fond = { 0.08, 0.24, 0.23, 0.95 }, filet = { 0.98, 0.80, 0.42, 1 } },
-	appui = { fond = { 0.03, 0.10, 0.10, 0.95 }, filet = { 0.85, 0.68, 0.32, 1 } },
-	eteint = { fond = { 0.08, 0.10, 0.10, 0.85 }, filet = { 0.30, 0.28, 0.24, 1 } },
+-- par teinte : le fond au repos, au survol, à l'appui
+Opus.TEINTES = {
+	{ "petrole", "Pétrole (la bannière)", { 0.05, 0.16, 0.16 }, { 0.08, 0.24, 0.23 }, { 0.03, 0.10, 0.10 } },
+	{ "ecarlate", "Écarlate noble", { 0.30, 0.04, 0.05 }, { 0.42, 0.07, 0.07 }, { 0.18, 0.02, 0.03 } },
+	{ "vertdegris", "Vert de gris", { 0.10, 0.17, 0.14 }, { 0.15, 0.25, 0.20 }, { 0.06, 0.11, 0.09 } },
+	{ "aubergine", "Aubergine", { 0.15, 0.08, 0.20 }, { 0.22, 0.12, 0.29 }, { 0.09, 0.05, 0.13 } },
+	{ "ardoise", "Ardoise froide", { 0.13, 0.15, 0.18 }, { 0.19, 0.22, 0.26 }, { 0.08, 0.09, 0.11 } },
+	{ "bronze", "Bronze fumé", { 0.17, 0.12, 0.07 }, { 0.25, 0.18, 0.10 }, { 0.10, 0.07, 0.04 } },
 }
+local FILETS = { normal = { 0.62, 0.48, 0.24 }, survol = { 0.98, 0.80, 0.42 }, appui = { 0.85, 0.68, 0.32 }, eteint = { 0.30, 0.28, 0.24 } }
+
+local function Teinte ()
+	local choix = Opus.db and Opus.db.styleBoutons
+	for _, t in ipairs(Opus.TEINTES) do if t[1] == choix then return t end end
+	return Opus.TEINTES[1]
+end
 
 local function Teinter (b, etat)
-	local t = TEINTES[b:IsEnabled() and etat or "eteint"]
-	local f, l = t.fond, t.filet
-	b.opusFond:SetVertexColor(f[1], f[2], f[3], f[4])
-	for _, x in ipairs(b.opusFilet) do x:SetVertexColor(l[1], l[2], l[3], l[4]) end
+	etat = b:IsEnabled() and etat or "eteint"
+	local t = Teinte()
+	local fond = etat == "survol" and t[4] or etat == "appui" and t[5] or t[3]
+	if etat == "eteint" then b.opusFond:SetVertexColor(0.08, 0.09, 0.09, 0.85) else b.opusFond:SetVertexColor(fond[1], fond[2], fond[3], 0.95) end
+	local l = FILETS[etat]
+	for _, x in ipairs(b.opusFilet) do x:SetVertexColor(l[1], l[2], l[3], 1) end
 end
 
 function Opus.HabillerBouton (b)
