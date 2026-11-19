@@ -83,18 +83,18 @@ local function CarteGroupe (parent, largeur)
 	end
 	c.manque = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	c.manque:SetPoint("TOPLEFT", 12, -94) c.manque:SetWidth(largeur - 24) c.manque:SetJustifyH("LEFT")
-	-- inviter et annoncer passent par des commandes (/invite, /g) dans des boutons sécurisés : les fonctions directes
-	-- sont restreintes pour un addon sur Forever
+	-- inviter passe par /invite dans un bouton sécurisé (inviter directement est restreint pour un addon sur Forever) ;
+	-- chercher en /g prépare seulement le texte dans la ligne de discussion, à envoyer soi-même
 	c.inviter = Opus.BoutonSecurise(c, 130, function ()
 		GameTooltip:SetText("Inviter le groupe")
 		GameTooltip:AddLine("Invite les membres placés qui ne sont pas encore avec toi.", 1, 1, 1, true)
 	end)
 	c.inviter:SetText("Inviter") c.inviter:SetPoint("BOTTOMLEFT", 10, 10)
-	c.annoncer = Opus.BoutonSecurise(c, 160, function ()
-		GameTooltip:SetText("Annoncer en guilde")
-		GameTooltip:AddLine(Opus.MacroAnnonce() and Opus.MacroAnnonce():sub(4) or "Le groupe est complet.", 1, 1, 1, true)
+	c.annoncer = Opus.Bouton(c, "Chercher en /g", 160, function () Opus.PreRemplir(Opus.MacroAnnonce()) end, true)
+	c.annoncer:SetPoint("LEFT", c.inviter, "RIGHT", 6, 0)
+	Opus.Bulle(c.annoncer, "Chercher en guilde", function ()
+		return { Opus.MacroAnnonce() and Opus.MacroAnnonce():sub(4) or "Le groupe est complet.", Opus.Gris("Le texte s'ouvre dans la discussion : à toi de l'envoyer.") }
 	end)
-	c.annoncer:SetText("Chercher en /g") c.annoncer:SetPoint("LEFT", c.inviter, "RIGHT", 6, 0)
 	c.vider = Opus.Bouton(c, "Vider le groupe", 130, function () Opus.ViderGroupe() end, true)
 	c.vider:SetPoint("LEFT", c.annoncer, "RIGHT", 6, 0)
 	return c
@@ -135,7 +135,6 @@ local function RemplirGroupe (c)
 	local invitations, annonce = Opus.MacroInvitations(), Opus.MacroAnnonce()
 	c.inviter:SetAttribute("macrotext", invitations)
 	c.inviter:SetEnabled(invitations ~= "")
-	c.annoncer:SetAttribute("macrotext", annonce or "")
 	c.annoncer:SetEnabled(annonce ~= nil)
 	c:SetHeight(146)
 	return 146
@@ -272,7 +271,6 @@ local function Rafraichir (cadre)
 
 	-- la bande du haut : son envie, et l'annonce de sa dernière envie en guilde
 	local macro = Opus.MacroEnvie()
-	cadre.annoncerEnvie:SetAttribute("macrotext", macro)
 	cadre.annoncerEnvie:SetEnabled(macro ~= "")
 	cadre.info:SetText(("%d en ligne à ta portée"):format(#Candidats()))
 	return visible
@@ -283,11 +281,9 @@ local function Construire (cadre, barre)
 	-- la bande du haut : annoncer une envie
 	local nouveau = Opus.Bouton(barre, "J'ai besoin d'un donjon…", 200, function () Opus.EditerEnvie() end)
 	nouveau:SetPoint("LEFT", 0, 0)
-	cadre.annoncerEnvie = Opus.BoutonSecurise(barre, 180, function ()
-		GameTooltip:SetText("Annoncer mon envie en /g")
-		GameTooltip:AddLine("Pour les membres sans l'addon : ta dernière envie de donjon dans la discussion de guilde.", 1, 1, 1, true)
-	end)
-	cadre.annoncerEnvie:SetText("Annoncer mon envie en /g")
+	cadre.annoncerEnvie = Opus.Bouton(barre, "Annoncer mon envie en /g", 180, function () Opus.PreRemplir(Opus.MacroEnvie()) end)
+	Opus.Bulle(cadre.annoncerEnvie, "Annoncer mon envie en /g", { "Ta dernière envie de donjon, pour ceux qui ne regardent pas l'addon.",
+		Opus.Gris("Le texte s'ouvre dans la discussion de guilde : relis-le, retouche-le, envoie-le.") })
 	cadre.annoncerEnvie:SetPoint("LEFT", nouveau, "RIGHT", 8, 0)
 	cadre.info = barre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	cadre.info:SetPoint("RIGHT", 0, 0)

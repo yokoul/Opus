@@ -390,7 +390,7 @@ function Opus.MacroEnvie ()
 			for _, cle in ipairs(e.donjons) do noms[#noms + 1] = Opus.DonjonDe(cle).nom end
 			local quoi = Opus.TextePourquoi(e)
 			local quand = Opus.TexteCreneau(e):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
-			return (("/g [Opus] Je cherche du monde pour %s%s, %s : chuchotez-moi !"):format(table.concat(noms, ", "),
+			return (("/g [Opus] Je cherche du monde pour %s%s, %s : les détails dans l'addon Opus, onglet Groupe !"):format(table.concat(noms, ", "),
 				quoi ~= "" and (" (" .. quoi .. ")") or "", quand)):sub(1, 255)
 		end
 	end

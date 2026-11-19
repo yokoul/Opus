@@ -3,6 +3,9 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.24.1
+- Groupe : « Chercher en /g » et « Annoncer mon envie en /g » n'envoient plus rien d'eux-mêmes : le texte s'ouvre dans la discussion de guilde, à relire et envoyer. L'annonce d'une envie renvoie vers l'addon (onglet Groupe) plutôt que vers un chuchotement.
+
 ## 0.24.0
 - **Onglet Groupe en une seule page** : « Ton groupe » en haut (le donjon et sa barre de niveaux, les cinq places, ce qui manque, l'alerte d'XP, inviter, chercher en /g, vider ; replié en une ligne tant que tu y es seul), puis les envies de donjon de la guilde en cartes (« Former le groupe » remplit la carte du haut), puis les membres en ligne à ta portée (un clic les place, Proposer, Écrire). Le choix du donjon montre tous les donjons, grisés hors de ton niveau.
 - La page défile dans une hauteur fixe : la molette fait glisser les cartes au lieu d'en retirer, et la fenêtre ne change plus de taille en défilant.

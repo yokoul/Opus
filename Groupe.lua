@@ -126,6 +126,13 @@ function Opus.MacroInvitations ()
 	return #texte <= 255 and texte or texte:sub(1, 255)
 end
 
+-- ouvre la ligne de discussion avec un texte déjà écrit (« /g … ») : on le relit, le retouche et l'envoie soi-même
+function Opus.PreRemplir (texte)
+	if not texte or texte == "" then return end
+	local ouvrir = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
+	if ouvrir then ouvrir(texte) end
+end
+
 function Opus.MacroAnnonce ()
 	local min, max, nom = Opus.Tranche()
 	local manque = Opus.Manque()
