@@ -5,7 +5,7 @@ Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://disc
 
 ## 0.20.0
 - **Onglet Réglages** : ce qui ne se faisait que par `/opus` — annonce des montées de niveau, rôle, bouton de la minimap, durée des essais ; banque (synchroniser) et liaisons Discord (état, import) ; pour le chef et les officiers, restriction et cotisation, contrôle des droits, réglages à faire à la main ; diagnostics. Les commandes `/opus` restent.
-- Onglets : Essais passe juste avant Réglages et À propos.
+- Onglets : Banque, Guilde, Roster, Groupe, Grades, Réglages, Essais, À propos (Essais passe juste avant À propos).
 
 ## 0.19.1
 - **Niveaux** : l'addon note chaque montée de niveau des membres de la guilde (roster relu chaque minute) et annonce le niveau 60 dans la discussion et au milieu de l'écran, avec le son de montée de niveau. `/opus niveaux` règle les annonces : `60` (par défaut), `paliers` (10, 20… 60), `tous` ou `aucun`. Les dates passent d'un membre à l'autre : on retrouve à la connexion celles qu'on a manquées.
