@@ -44,7 +44,7 @@ local function Encoder (e)
 	return table.concat({ e.q, Texte(e.nom), e.t, e.c or "", e.id or "", e.n or "", e.tab or "", Texte(e.o) }, FS)
 end
 
-local QUOI = { ["or+"] = true, ["or-"] = true, rep = true, ["obj+"] = true, ["obj-"] = true }
+local QUOI = { ["or+"] = true, ["or-"] = true, rep = true, ong = true, ["obj+"] = true, ["obj-"] = true }
 
 -- un enregistrement reçu, vérifié : un message mal formé ou invraisemblable ne laisse rien
 local function Decoder (r)
@@ -53,7 +53,7 @@ local function Decoder (r)
 	local maintenant = math.floor(time() / 3600)
 	if not QUOI[q] or not nom or nom == "" or #nom > 48 or not t or t > maintenant + 2 or t < maintenant - 400 * 24 then return nil end
 	local e = { q = q, nom = nom, t = t }
-	if q == "or+" or q == "or-" or q == "rep" then
+	if q == "or+" or q == "or-" or q == "rep" or q == "ong" then
 		if not c or c <= 0 then return nil end
 		e.c = c
 	else

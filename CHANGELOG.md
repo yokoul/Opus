@@ -3,6 +3,10 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.25.1
+- Banque : le solde réel de la banque s'affiche sous le tableau de participation, lu à chaque passage à la banque et partagé à toute la guilde (le total du tableau n'additionne que les opérations des joueurs).
+- Banque : l'achat d'un onglet est relevé dans le journal (« achat d'onglet ») et affiché à côté du solde ; il ne compte plus comme un retrait du joueur qui l'a acheté.
+
 ## 0.25.0
 - Banque : l'onglet a trois vues, « Participation », « Prêts » et « Remises » (menu en haut à gauche).
 - Prêts : le chef et les officiers notent un prêt dans un sens ou dans l'autre, « la guilde lui doit » (un joueur a avancé de l'or) ou « il doit à la guilde ». Le dépôt qui fait le prêt est retrouvé à la banque et y est relié : il ne compte pas comme cotisation. Chaque remboursement s'ajoute au prêt, avec le reste dû. L'addon propose comme remboursements les dépôts d'un débiteur et les retraits d'un créancier (clic sur le prêt pour les confirmer), et demande à un officier qui envoie de l'or à un créancier, par courrier ou par échange, s'il faut le compter.

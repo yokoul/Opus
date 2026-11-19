@@ -122,10 +122,18 @@ local function Rafraichir (cadre)
 			cadre.total.cases[c]:SetText(texte)
 		end
 	end
-	cadre.aide:SetPoint("TOPLEFT", 2, -ENTETE - math.max(n, 1) * HAUTEUR - (#liste > 0 and 30 or 8))
+	-- le solde de la banque (le total ci-dessus n'additionne que les opérations des joueurs) et les onglets achetés
+	local y = ENTETE + math.max(n, 1) * HAUTEUR + (#liste > 0 and 30 or 8)
+	local s, achats = banque.solde, Opus.AchatsOnglets(periode)
+	cadre.solde:SetPoint("TOPLEFT", 2, -y)
+	cadre.solde:SetText((s and ("Solde de la banque : %s %s"):format(Opus.OrDetail(s.c), Opus.Gris("(vu il y a " .. Opus.Depuis(math.floor(s.t / 3600)) .. ")"))
+		or Opus.Gris("Solde de la banque : pas encore vu, il s'affiche après un passage à la banque."))
+		.. (achats > 0 and ("   ·   onglets achetés sur la période : %s"):format(Opus.OrDetail(achats)) or ""))
+	y = y + 22
+	cadre.aide:SetPoint("TOPLEFT", 2, -y)
 	local hAide = cadre.aide:GetStringHeight()
 	if type(hAide) ~= "number" then hAide = 36 end
-	return ENTETE + math.max(n, 1) * HAUTEUR + (#liste > 0 and 30 or 8) + math.ceil(hAide) + 8
+	return y + math.ceil(hAide) + 8
 end
 
 local function Cases (l)
@@ -204,6 +212,7 @@ local function Construire (cadre, barre)
 	cadre.vide:SetPoint("TOPLEFT", 4, -ENTETE - 3)
 	cadre.vide:SetText("Rien sur cette période.")
 
+	cadre.solde = vp:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 	cadre.aide = vp:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	cadre.aide:SetWidth(largeur - 4) cadre.aide:SetJustifyH("LEFT")
 	cadre.aide:SetText("")

@@ -7,7 +7,8 @@ local _, Opus = ...
 local Msg = Opus.Msg
 
 local CONSERVATION = 400 * 24          -- en heures : un peu plus d'un an
-local TYPES_OR = { deposit = "or+", withdraw = "or-", withdrawal = "or-", repair = "rep" }
+-- « ong » : l'achat d'un onglet, payé par la banque (pas une opération d'un joueur)
+local TYPES_OR = { deposit = "or+", withdraw = "or-", withdrawal = "or-", repair = "rep", buyTab = "ong", withdrawForTab = "ong" }
 local TYPES_OBJET = { deposit = "obj+", withdraw = "obj-" }
 
 -- les opérations sont datées en heures depuis l'époque Unix
@@ -78,6 +79,9 @@ function Opus.ReleverBanque ()
 			end
 		end
 	end
+	-- le solde, tel que le jeu le donne banque ouverte (partagé aussi, Registre.lua)
+	local solde = GetGuildBankMoney and GetGuildBankMoney()
+	if solde and Opus.RetenirSolde then Opus.RetenirSolde(solde, time(), true) end
 	local ajoutees = Opus.FusionnerBanque(lus)
 	Opus.PurgerBanque()
 	Opus.db.banque.releve = time()
@@ -143,7 +147,7 @@ function Opus.Participation (jours)
 	local depuis = jours and (Maintenant() - jours * 24) or -math.huge
 	local par, liste = {}, {}
 	for _, e in ipairs(Opus.db.banque.evenements) do
-		if e.t >= depuis then
+		if e.t >= depuis and e.q ~= "ong" then
 			local p = par[e.nom]
 			if not p then
 				p = { nom = e.nom, orPlus = 0, orMoins = 0, rep = 0, objPlus = 0, objMoins = 0, dernier = 0, ev = {} }
@@ -161,6 +165,15 @@ function Opus.Participation (jours)
 	end
 	for _, p in ipairs(liste) do table.sort(p.ev, function (a, b) return a.t > b.t end) end
 	return liste
+end
+
+-- l'or dépensé en onglets sur la période (cuivre)
+function Opus.AchatsOnglets (jours)
+	local depuis, total = jours and (Maintenant() - jours * 24) or -math.huge, 0
+	for _, e in ipairs(Opus.db.banque.evenements) do
+		if e.q == "ong" and e.t >= depuis then total = total + e.c end
+	end
+	return total
 end
 
 -- « 3 h », « 2 j », « 5 sem. »
@@ -184,7 +197,7 @@ function Opus.OrDetail (cuivre)
 end
 
 -- une opération en clair, pour les infobulles
-local LIBELLES = { ["or+"] = "dépôt", ["or-"] = "retrait", rep = "réparations", ["obj+"] = "dépôt", ["obj-"] = "retrait" }
+local LIBELLES = { ["or+"] = "dépôt", ["or-"] = "retrait", rep = "réparations", ong = "achat d'onglet", ["obj+"] = "dépôt", ["obj-"] = "retrait" }
 function Opus.Operation (e)
 	local quoi = e.c and Opus.OrDetail(e.c) or ((e.n or 1) .. " × " .. (e.o or ("objet " .. tostring(e.id))))
 	local onglet = e.tab and Opus.ONGLETS[e.tab] and (" (" .. Opus.ONGLETS[e.tab] .. ")") or ""

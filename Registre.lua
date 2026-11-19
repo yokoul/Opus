@@ -240,9 +240,35 @@ Opus.recepteurs.B = function (_, champs, _, canal)
 	if r and Retenir(r) and Opus.Rafraichir then Opus.Rafraichir() end
 end
 
--- rattrapage : on renvoie ce qui est plus récent que le plus récent du demandeur
+------------------------------------------------------------------------
+-- le solde de la banque (« O ») : lu par qui ouvre la banque, partagé aux autres
+------------------------------------------------------------------------
+
+local function PartagerSolde ()
+	local s = Opus.db.banque.solde
+	if s and IsInGuild() then Opus.Envoyer(table.concat({ "O", s.c, s.t }, FS)) end
+end
+
+-- retient le solde s'il est plus récent ; lu = relevé à la banque par ce joueur, à partager s'il a changé
+function Opus.RetenirSolde (c, t, lu)
+	local s = Opus.db.banque.solde
+	if s and s.t >= t then return false end
+	local change = not s or s.c ~= c
+	Opus.db.banque.solde = { c = c, t = t }
+	if lu and change then PartagerSolde() end
+	return true
+end
+
+Opus.recepteurs.O = function (_, champs, _, canal)
+	local c, t = tonumber(champs[2]), tonumber(champs[3])
+	if canal ~= "GUILD" or not c or c < 0 or not t or t > time() + 86400 then return end
+	if Opus.RetenirSolde(c, t) and Opus.Rafraichir then Opus.Rafraichir() end
+end
+
+-- rattrapage : on renvoie ce qui est plus récent que le plus récent du demandeur (et le solde connu)
 Opus.recepteurs.b = function (_, champs, _, canal)
 	if canal ~= "GUILD" then return end
+	if Opus.db.banque.solde then Opus.Repondre(champs[3] and champs[3] .. "o", "GUILD", PartagerSolde) end
 	local depuis, rid = tonumber(champs[2]) or 0, champs[3]
 	local choix = {}
 	for _, r in pairs(Registre() or {}) do
