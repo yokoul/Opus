@@ -16,13 +16,16 @@ local function Rafraichir (cadre)
 	cadre.niveaux:GenerateMenu()
 	cadre.notifs:GenerateMenu()
 	-- ses rôles : ceux qu'il a cochés ; rien de coché, celui de sa spé
+	-- sans déclaration, la case du rôle de sa spé est cochée : on n'a plus qu'à ajouter les autres
 	local declares = {}
 	for _, r in ipairs(Opus.ListeRoles(Opus.db.monRole)) do declares[r] = true end
-	for r, c in pairs(cadre.roles) do c:SetChecked(declares[r] == true) end
 	local spe = Opus.MaSpe and Opus.MaSpe()
 	local deSpe = spe and Opus.RoleDeSpe(spe.arbre)
-	cadre.roleAide:SetText(next(declares) and "Coche tout ce que tu sais jouer en donjon." or
-		("Rien de coché : selon ta spé" .. (deSpe and (" (" .. NOMS_ROLES[deSpe] .. ")") or "") .. "."))
+	local auto = next(declares) == nil
+	if auto and deSpe then declares[deSpe] = true end
+	for r, c in pairs(cadre.roles) do c:SetChecked(declares[r] == true) end
+	cadre.roleAide:SetText(auto and (deSpe and ("Selon ta spé (" .. NOMS_ROLES[deSpe] .. ") : coche aussi ce que tu sais jouer.")
+		or "Ta spé ne dit pas ton rôle : coche ce que tu joues.") or "Ce que tu sais jouer en donjon.")
 	cadre.minimap:SetChecked(not Opus.db.minimap.cache)
 
 	-- la durée des essais : réglage de la guilde, modifiable par le chef seulement

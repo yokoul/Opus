@@ -1,8 +1,9 @@
--- EnviesVue.lua : les envies de donjon à l'écran. La vue de l'onglet Groupe (tous les donjons demandés, grisés hors de son
--- niveau, avec qui les veut, pourquoi et quand) et le formulaire « J'ai besoin d'un donjon ».
+-- EnviesVue.lua : les envies de donjon à l'écran. La vue de l'onglet Groupe, une carte par donjon demandé (comme la
+-- recherche de groupe du jeu) : sa tranche de niveaux face au sien, les places du groupe déjà couvertes par ceux qui
+-- sont disponibles maintenant, et qui le veut, quand et pourquoi ; et le formulaire « J'ai besoin d'un donjon ».
 local _, Opus = ...
 
-local LIGNES, HAUTEUR = 16, 24
+local CARTES_MAX, JOUEURS_MAX, JOUEUR_H, HAUT_MAX = 6, 6, 18, 430
 local ATLAS_ROLES = { tank = "roleicon-tiny-tank", soin = "roleicon-tiny-healer", degats = "roleicon-tiny-dps" }
 local NOMS_ROLES = { tank = "tank", soin = "soigneur", degats = "dégâts" }
 
@@ -150,11 +151,11 @@ function Opus.EditerEnvie (cle, creneau)
 end
 
 ------------------------------------------------------------------------
--- la vue de l'onglet Groupe
+-- la vue de l'onglet Groupe : une carte par donjon
 ------------------------------------------------------------------------
 
--- les lignes : pour chaque donjon demandé, un en-tête puis une ligne par envie ; ceux à sa portée d'abord
-local function Elements ()
+-- les donjons demandés, ceux à sa portée d'abord, puis les plus demandés
+local function Donjons ()
 	local parDonjon, ordre = {}, {}
 	for _, e in ipairs(Opus.Envies()) do
 		for _, cle in ipairs(e.donjons) do
@@ -168,22 +169,195 @@ local function Elements ()
 		if #a.envies ~= #b.envies then return #a.envies > #b.envies end
 		return (a.d.min or 99) < (b.d.min or 99)
 	end)
-	local elements = {}
 	for _, g in ipairs(ordre) do
-		local dispo, places = Opus.CompositionPossible(g.d.cle)
-		elements[#elements + 1] = { donjon = g.d, n = #g.envies, dispo = #dispo, places = places }
-		for _, e in ipairs(g.envies) do elements[#elements + 1] = { envie = e, donjon = g.d } end
+		-- les disponibles maintenant d'abord
+		table.sort(g.envies, function (a, b)
+			local x, y = Opus.DispoMaintenant(a), Opus.DispoMaintenant(b)
+			if x ~= y then return x end
+			return a.m > b.m
+		end)
+		g.dispo, g.places = Opus.CompositionPossible(g.d.cle)
 	end
-	return elements
+	return ordre
 end
 
-local NOMS = { tank = "tank", soin = "soigneur", degats = "dégâts" }
-local function Manque (places)
-	local manque = {}
-	for i, r in ipairs(Opus.PLACES) do if not places[i] then manque[r] = (manque[r] or 0) + 1 end end
-	local morceaux = {}
-	for _, r in ipairs { "tank", "soin", "degats" } do if manque[r] then morceaux[#morceaux + 1] = manque[r] .. " " .. NOMS[r] end end
-	return table.concat(morceaux, ", ")
+-- les places du groupe, comme la recherche de groupe du jeu : pleines si quelqu'un de disponible la tient
+local ATLAS_PLACES = { tank = "groupfinder-icon-role-large-tank", soin = "groupfinder-icon-role-large-heal", degats = "groupfinder-icon-role-large-dps" }
+local function Atlas (texture, atlas, repli)
+	if not (C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas)) then atlas = repli end
+	texture:SetAtlas(atlas)
+end
+
+-- la barre de niveaux : la tranche du donjon sur une échelle autour d'elle, et un repère à son niveau
+local function Barre (c, d)
+	local n = UnitLevel("player")
+	if not d.min then c.barre:Hide() return end
+	c.barre:Show()
+	local bas, haut = math.max(1, math.min(d.min, n) - 4), math.min(60, math.max(d.max, n) + 4)
+	if haut - bas < 12 then haut = math.min(60, bas + 12) bas = math.max(1, haut - 12) end
+	local w = c.barre:GetWidth()
+	w = type(w) == "number" and w > 0 and w or 200
+	local function X (niveau) return (niveau - bas) / (haut - bas) * w end
+	c.plage:ClearAllPoints()
+	c.plage:SetPoint("TOPLEFT", c.barre, "TOPLEFT", X(d.min), 0)
+	c.plage:SetPoint("BOTTOMLEFT", c.barre, "BOTTOMLEFT", X(d.min), 0)
+	c.plage:SetWidth(math.max(2, X(d.max) - X(d.min)))
+	-- vert : dans la tranche ; jaune : à portée ; gris : trop loin (un reroll peut y aller)
+	local dedans, proche = n >= d.min and n <= d.max, APortee(d)
+	if dedans then c.plage:SetColorTexture(0.25, 0.75, 0.25, 0.9)
+	elseif proche then c.plage:SetColorTexture(0.9, 0.7, 0.15, 0.9)
+	else c.plage:SetColorTexture(0.45, 0.45, 0.45, 0.8) end
+	c.min:ClearAllPoints() c.min:SetPoint("TOP", c.plage, "BOTTOMLEFT", 0, -2) c.min:SetText(d.min)
+	c.max:ClearAllPoints() c.max:SetPoint("TOP", c.plage, "BOTTOMRIGHT", 0, -2) c.max:SetText(d.max)
+	local x = math.max(0, math.min(w, X(math.max(bas, math.min(haut, n)))))
+	c.moi:ClearAllPoints() c.moi:SetPoint("TOPLEFT", c.barre, "TOPLEFT", x - 1, 3) c.moi:SetPoint("BOTTOMLEFT", c.barre, "BOTTOMLEFT", x - 1, -3)
+	c.moiTexte:ClearAllPoints() c.moiTexte:SetPoint("BOTTOM", c.moi, "TOP", 0, 1)
+	c.moiTexte:SetText(Opus.Blanc("toi " .. n))
+end
+
+local function Carte (v, largeur)
+	local c = CreateFrame("Frame", nil, v, "BackdropTemplate")
+	c:SetWidth(largeur - 14)
+	if c.SetBackdrop then
+		c:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12,
+			insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+		c:SetBackdropColor(0.06, 0.05, 0.04, 0.85)
+		c:SetBackdropBorderColor(0.45, 0.38, 0.25, 0.9)
+	end
+	c.titre = c:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+	c.titre:SetPoint("TOPLEFT", 12, -10) c.titre:SetWidth(300) c.titre:SetJustifyH("LEFT") c.titre:SetWordWrap(false)
+	c.sous = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	c.sous:SetPoint("TOPLEFT", c.titre, "BOTTOMLEFT", 0, -3)
+	-- la barre de niveaux, sous le titre
+	c.barre = c:CreateTexture(nil, "ARTWORK")
+	c.barre:SetColorTexture(0.15, 0.13, 0.1, 0.9)
+	c.barre:SetSize(220, 6) c.barre:SetPoint("TOPLEFT", 12, -60)
+	c.plage = c:CreateTexture(nil, "ARTWORK", nil, 1)
+	c.moi = c:CreateTexture(nil, "OVERLAY")
+	c.moi:SetColorTexture(1, 1, 1, 1) c.moi:SetWidth(2)
+	c.moiTexte = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	c.min = c:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	c.max = c:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	-- les cinq places, à droite du titre
+	c.places = {}
+	for i = 1, #Opus.PLACES do
+		local t = c:CreateTexture(nil, "ARTWORK")
+		t:SetSize(26, 26) t:SetPoint("TOPLEFT", 330 + (i - 1) * 30, -12)
+		c.places[i] = t
+	end
+	c.etat = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	c.etat:SetPoint("TOPLEFT", 330, -44) c.etat:SetWidth(210) c.etat:SetJustifyH("LEFT") c.etat:SetWordWrap(false)
+	c.moiAussi = CreateFrame("DropdownButton", nil, c, "WowStyle1DropdownTemplate")
+	c.moiAussi:SetWidth(110) c.moiAussi:SetPoint("TOPRIGHT", -10, -10)
+	c.moiAussi:SetDefaultText("Moi aussi")
+	c.moiAussi:SetupMenu(function (_, racine)
+		for _, cr in ipairs(Opus.CRENEAUX) do
+			racine:CreateButton(cr[2], function ()
+				local cle = c.donjon and c.donjon.cle
+				if not cle then return end
+				if cr[1] == "autre" then Opus.EditerEnvie(cle, "autre") return end
+				Opus.PublierEnvie({ donjons = { cle }, pourquoi = {}, creneau = cr[1], duree = Opus.DureePourCreneau(cr[1]), suite = true })
+			end)
+		end
+	end)
+	c.former = Opus.Bouton(c, "Former le groupe", 110, function () if c.donjon then Opus.FormerDepuisEnvie(c.donjon.cle) end end, true)
+	c.former:SetPoint("TOPRIGHT", c.moiAussi, "BOTTOMRIGHT", 0, -6)
+	Opus.Bulle(c.former, "Former le groupe", "Remplit le panneau de groupe avec ceux qui sont disponibles maintenant et en ligne.")
+
+	-- les joueurs intéressés, une ligne chacun sous l'en-tête
+	c.joueurs = {}
+	for i = 1, JOUEURS_MAX do
+		local l = CreateFrame("Button", nil, c)
+		l:SetSize(largeur - 40, JOUEUR_H)
+		l:SetPoint("TOPLEFT", 10, -84 - (i - 1) * JOUEUR_H)
+		Opus.Survol(l)
+		l.icone = l:CreateTexture(nil, "ARTWORK")
+		l.icone:SetSize(14, 14) l.icone:SetPoint("LEFT", 2, 0)
+		local function Texte (x, w)
+			local t = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+			t:SetPoint("LEFT", x, 0) t:SetWidth(w) t:SetJustifyH("LEFT") t:SetWordWrap(false)
+			return t
+		end
+		l.nom = Texte(22, 150)
+		l.roles = Texte(176, 44)
+		l.quand = Texte(222, 170)
+		l.quoi = Texte(396, 150)
+		l.action = Opus.Bouton(l, "Écrire", 64, function ()
+			local e = l.envie
+			if not e then return end
+			if e.par == Opus.MonNom() then Opus.RetirerEnvie(e.id) else Chuchoter(e.par) end
+		end, true)
+		l.action:SetPoint("RIGHT", 0, 0) l.action:SetHeight(16)
+		Opus.Bulle(l, function (self) return self.envie and self.envie.par end, function (self)
+			local e = self.envie
+			if not e then return nil end
+			local lignes = {}
+			local quoi = Opus.TextePourquoi(e)
+			if quoi ~= "" then lignes[#lignes + 1] = "Pour : " .. quoi end
+			if e.note then lignes[#lignes + 1] = e.note end
+			lignes[#lignes + 1] = Opus.Gris("Publiée le " .. date("%d/%m à %H h %M", e.m) .. ", affichée jusqu'au " .. date("%d/%m à %H h", e.fin) .. ".")
+			return lignes
+		end)
+		c.joueurs[i] = l
+	end
+	c.plus = c:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	return c
+end
+
+local function RemplirCarte (c, g)
+	local d, moi = g.d, Opus.MonNom()
+	c.donjon = d
+	c.titre:SetText(APortee(d) and d.nom or Opus.Gris(d.nom))
+	local pourquoi = {}
+	for _, e in ipairs(g.envies) do for cle in pairs(e.pourquoi) do pourquoi[cle] = true end end
+	local raisons = {}
+	for _, p in ipairs(Opus.POURQUOI) do if pourquoi[p[1]] then raisons[#raisons + 1] = p[2]:lower() end end
+	c.sous:SetText(Opus.Gris((d.min and ("niveaux %d à %d"):format(d.min, d.max) or "") .. (#raisons > 0 and ("  ·  " .. table.concat(raisons, ", ")) or "")))
+	Barre(c, d)
+	local manque = 0
+	for i, r in ipairs(Opus.PLACES) do
+		local t = c.places[i]
+		if g.places[i] then
+			Atlas(t, ATLAS_PLACES[r], ATLAS_ROLES[r])
+			t:SetDesaturated(false) t:SetAlpha(1)
+		else
+			Atlas(t, ATLAS_PLACES[r], ATLAS_ROLES[r])
+			t:SetDesaturated(true) t:SetAlpha(0.3)
+			manque = manque + 1
+		end
+	end
+	c.etat:SetText(#g.dispo == 0 and Opus.Gris(#g.envies .. " intéressé(s), personne de disponible maintenant")
+		or manque == 0 and Opus.Vert("Groupe complet possible maintenant !")
+		or (Opus.Vert(#g.dispo .. " disponible(s) maintenant") .. Opus.Gris(" · " .. #g.envies .. " intéressé(s)")))
+	c.former:SetEnabled(#g.dispo >= 2)
+	local montres = math.min(#g.envies, JOUEURS_MAX)
+	for i, l in ipairs(c.joueurs) do
+		local e = g.envies[i]
+		l.envie = e
+		l:SetShown(e ~= nil and i <= montres)
+		if e then
+			local m = Opus.TrouverMembre(e.par)
+			local classe = Opus.db.classes[e.par] or (m and m.classe)
+			local atlas = classe and GetClassAtlas and GetClassAtlas(classe:lower())
+			if atlas then l.icone:SetAtlas(atlas) end
+			l.icone:SetShown(atlas ~= nil)
+			l.nom:SetText((classe and Opus.Couleur(classe) or "") .. e.par .. "|r" .. (m and m.niveau and Opus.Gris("  " .. m.niveau) or "")
+				.. ((m and m.enLigne) and "" or Opus.Gris("  hors ligne")))
+			l.roles:SetText(IconesRoles(e.roles))
+			l.quand:SetText(Opus.TexteCreneau(e))
+			l.quoi:SetText(Opus.Gris(e.note or Opus.TextePourquoi(e)))
+			l.action:SetText(e.par == moi and "Retirer" or "Écrire")
+		end
+	end
+	local h = 84 + montres * JOUEUR_H + 8
+	c.plus:SetShown(#g.envies > montres)
+	if #g.envies > montres then
+		c.plus:ClearAllPoints() c.plus:SetPoint("TOPLEFT", 32, -(84 + montres * JOUEUR_H))
+		c.plus:SetText(("… et %d autre(s)"):format(#g.envies - montres))
+		h = h + 14
+	end
+	c:SetHeight(h)
+	return h
 end
 
 function Opus.VueEnvies (parent, largeur)
@@ -202,111 +376,40 @@ function Opus.VueEnvies (parent, largeur)
 	v.info = v:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	v.info:SetPoint("TOPRIGHT", -4, -6)
 
-	v.lignes = {}
-	for i = 1, LIGNES do
-		local l = CreateFrame("Button", nil, v)
-		l:SetSize(largeur - 14, HAUTEUR)
-		l:SetPoint("TOPLEFT", 0, -32 - (i - 1) * HAUTEUR)
-		Opus.Survol(l)
-		local function Texte (police, x, w, align)
-			local t = l:CreateFontString(nil, "OVERLAY", police)
-			t:SetPoint("LEFT", x, 0) if w then t:SetWidth(w) end t:SetJustifyH(align or "LEFT") t:SetWordWrap(false)
-			return t
-		end
-		-- en-tête d'un donjon
-		l.titre = Texte("GameFontNormal", 4, 300)
-		l.resume = Texte("GameFontHighlightSmall", 310, 200)
-		l.moiAussi = CreateFrame("DropdownButton", nil, l, "WowStyle1DropdownTemplate")
-		l.moiAussi:SetWidth(110) l.moiAussi:SetPoint("RIGHT", -88, 0)
-		l.moiAussi:SetDefaultText("Moi aussi")
-		l.moiAussi:SetupMenu(function (_, racine)
-			for _, c in ipairs(Opus.CRENEAUX) do
-				racine:CreateButton(c[2], function ()
-					local cle = l.element and l.element.donjon.cle
-					if not cle then return end
-					if c[1] == "autre" then Opus.EditerEnvie(cle, "autre") return end
-					Opus.PublierEnvie({ donjons = { cle }, pourquoi = {}, creneau = c[1], duree = Opus.DureePourCreneau(c[1]), suite = true })
-				end)
-			end
-		end)
-		l.former = Opus.Bouton(l, "Former", 80, function () if l.element then Opus.FormerDepuisEnvie(l.element.donjon.cle) end end, true)
-		l.former:SetPoint("RIGHT", -2, 0)
-		Opus.Bulle(l.former, "Former le groupe", "Remplit le panneau de groupe avec ceux qui sont disponibles maintenant et en ligne.")
-		-- une envie
-		l.icone = l:CreateTexture(nil, "ARTWORK")
-		l.icone:SetSize(16, 16) l.icone:SetPoint("LEFT", 18, 0)
-		l.nom = Texte("GameFontHighlightSmall", 40, 140)
-		l.roles = Texte("GameFontHighlightSmall", 182, 44)
-		l.quand = Texte("GameFontHighlightSmall", 228, 150)
-		l.quoi = Texte("GameFontHighlightSmall", 382, 210)
-		l.action = Opus.Bouton(l, "Écrire", 70, function ()
-			local e = l.element and l.element.envie
-			if not e then return end
-			if e.par == Opus.MonNom() then Opus.RetirerEnvie(e.id) else Chuchoter(e.par) end
-		end, true)
-		l.action:SetPoint("RIGHT", -2, 0)
-		Opus.Bulle(l, function (self)
-			local e = self.element and self.element.envie
-			return e and e.par
-		end, function (self)
-			local e = self.element and self.element.envie
-			if not e then return nil end
-			local lignes = {}
-			if e.note then lignes[#lignes + 1] = e.note end
-			lignes[#lignes + 1] = Opus.Gris("Publiée le " .. date("%d/%m à %H h %M", e.m) .. ", affichée jusqu'au " .. date("%d/%m à %H h", e.fin) .. ".")
-			return lignes
-		end)
-		v.lignes[i] = l
-	end
+	v.cartes = {}
+	for i = 1, CARTES_MAX do v.cartes[i] = Carte(v, largeur) end
+	v.ascenseur = Opus.Ascenseur(v, function (d) decalage = d Opus.Rafraichir() end)
+	v.ascenseur:SetPoint("TOPRIGHT", -2, -32)
 	v.vide = v:CreateFontString(nil, "OVERLAY", "GameFontDisable")
 	v.vide:SetPoint("TOPLEFT", 4, -38) v.vide:SetWidth(largeur - 20) v.vide:SetJustifyH("LEFT")
 	v.vide:SetText("Aucune envie de donjon pour l'instant. Tu dois faire un donjon pour une quête ou un objet ? Annonce-le : la guilde est prévenue, et chacun peut dire quand il est disponible.")
 
-	function v.Defiler (d) decalage = math.max(0, decalage - d * 2) end
+	function v.Defiler (d) decalage = math.max(0, decalage - d) end
 
 	function v.Rafraichir ()
-		local elements = Elements()
+		local donjons = Donjons()
 		local moi = Opus.MonNom()
-		decalage = math.max(0, math.min(decalage, #elements - LIGNES))
-		local joueurs, n = {}, 0
-		for _, e in ipairs(Opus.Envies()) do if not joueurs[e.par] then joueurs[e.par] = true n = n + 1 end end
-		v.info:SetText(("%d envie(s) · %d joueur(s)"):format(#Opus.Envies(), n))
-		for i, l in ipairs(v.lignes) do
-			local x = elements[i + decalage]
-			l.element = x
-			l:SetShown(x ~= nil)
-			if x then
-				local entete = x.envie == nil
-				for _, w in ipairs { l.titre, l.resume, l.moiAussi, l.former } do w:SetShown(entete) end
-				for _, w in ipairs { l.icone, l.nom, l.roles, l.quand, l.quoi, l.action } do w:SetShown(not entete) end
-				if entete then
-					local d = x.donjon
-					local titre = d.nom .. (d.min and ("  (%d-%d)"):format(d.min, d.max) or "")
-					l.titre:SetText(APortee(d) and titre or Opus.Gris(titre))
-					local manque = Manque(x.places)
-					l.resume:SetText(Opus.Gris(x.n .. " envie(s)") .. (x.dispo > 0 and (Opus.Gris(" · ") .. Opus.Vert(x.dispo .. " dispo")) or "")
-						.. (x.dispo > 0 and (manque == "" and Opus.Vert(" · complet !") or Opus.Gris(" · manque " .. manque)) or ""))
-					l.former:SetEnabled(x.dispo >= 2)
-				else
-					local e = x.envie
-					local m = Opus.TrouverMembre(e.par)
-					local classe = Opus.db.classes[e.par] or (m and m.classe)
-					local atlas = classe and GetClassAtlas and GetClassAtlas(classe:lower())
-					if atlas then l.icone:SetAtlas(atlas) end
-					l.icone:SetShown(atlas ~= nil)
-					local nom = (classe and Opus.Couleur(classe) or "") .. e.par .. "|r" .. (m and m.niveau and Opus.Gris(" " .. m.niveau) or "")
-					l.nom:SetText((m and m.enLigne) and nom or (nom .. Opus.Gris(" ·")))
-					l.roles:SetText(IconesRoles(e.roles))
-					l.quand:SetText(Opus.TexteCreneau(e))
-					local quoi = Opus.TextePourquoi(e)
-					l.quoi:SetText((quoi ~= "" and quoi or "") .. (e.note and Opus.Gris((quoi ~= "" and " · " or "") .. e.note) or ""))
-					l.action:SetText(e.par == moi and "Retirer" or "Écrire")
-				end
+		decalage = math.max(0, math.min(decalage, #donjons - 1))
+		local joueurs, n, envies = {}, 0, Opus.Envies()
+		for _, e in ipairs(envies) do if not joueurs[e.par] then joueurs[e.par] = true n = n + 1 end end
+		v.info:SetText(("%d donjon(s) · %d joueur(s)"):format(#donjons, n))
+		-- les cartes, l'une sous l'autre, tant qu'il y a de la place
+		local y, montrees = 32, 0
+		for i, c in ipairs(v.cartes) do
+			local g = donjons[i + decalage]
+			local montrer = g ~= nil and (i == 1 or y < HAUT_MAX)
+			c:SetShown(montrer)
+			if montrer then
+				c:ClearAllPoints() c:SetPoint("TOPLEFT", 0, -y)
+				y = y + RemplirCarte(c, g) + 6
+				montrees = montrees + 1
 			end
 		end
+		v.ascenseur:SetHeight(math.max(y - 32, 1))
+		v.ascenseur:Recaler(decalage, #donjons, montrees)
 		-- l'annonce en guilde : sa dernière envie
 		local mienne
-		for _, e in ipairs(Opus.Envies()) do if e.par == moi then mienne = e break end end
+		for _, e in ipairs(envies) do if e.par == moi then mienne = e break end end
 		local texte = ""
 		if mienne then
 			local noms = {}
@@ -318,9 +421,8 @@ function Opus.VueEnvies (parent, largeur)
 		end
 		v.annoncer:SetAttribute("macrotext", texte:sub(1, 255))
 		v.annoncer:SetEnabled(texte ~= "")
-		v.vide:SetShown(#elements == 0)
-		local visibles = math.min(#elements, LIGNES)
-		local hauteur = 32 + math.max(visibles * HAUTEUR, #elements == 0 and 60 or 0) + 8
+		v.vide:SetShown(#donjons == 0)
+		local hauteur = #donjons == 0 and 100 or y + 4
 		v:SetHeight(hauteur)
 		return hauteur
 	end
