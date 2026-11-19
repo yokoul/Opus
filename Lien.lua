@@ -272,13 +272,10 @@ function Opus.TrouverMembreLie (nom)
 	return nil
 end
 
--- l'état des liaisons, en clair
-local function Etat ()
+-- l'état des liaisons, en clair (nil sans liaison)
+function Opus.EtatDiscord ()
 	local d = Donnees()
-	if not d then
-		Opus.Msg("aucune liaison Discord : un officier colle le code de /persoadmin export avec /opus import.")
-		return
-	end
+	if not d then return nil end
 	local lies, total = 0, 0
 	for _, m in ipairs(Opus.Membres()) do
 		total = total + 1
@@ -286,8 +283,13 @@ local function Etat ()
 	end
 	local joueurs = 0
 	for _ in pairs(d.joueurs) do joueurs = joueurs + 1 end
-	Opus.Msg(("liaisons Discord : export du %s (importé par %s), %d joueur(s) ; %d membre(s) sur %d reliés."):format(
-		date("%d/%m/%Y %H:%M", d.t), d.par or "?", joueurs, lies, total))
+	return ("export du %s (importé par %s), %d joueur(s) ; %d membre(s) sur %d reliés"):format(
+		date("%d/%m/%Y %H:%M", d.t), d.par or "?", joueurs, lies, total)
+end
+
+local function Etat ()
+	local etat = Opus.EtatDiscord()
+	Opus.Msg(etat and ("liaisons Discord : " .. etat .. ".") or "aucune liaison Discord : un officier colle le code de /persoadmin export avec /opus import.")
 end
 
 ------------------------------------------------------------------------
