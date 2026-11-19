@@ -1,7 +1,7 @@
 -- Opus.lua : socle de l'addon (base de données, liste de guilde, commandes)
 local ADDON, Opus = ...
 _G.Opus = Opus
-Opus.version = "0.25.4"
+Opus.version = "0.26.0"
 
 local DEFAUTS = {
 	dureeEssai = { Apprenti = 14, Aspirant = 14 },
@@ -17,6 +17,8 @@ local DEFAUTS = {
 	notes = {},                 -- [guilde] = { pub, off } : notes publiques et d'officier de l'addon (Notes.lua)
 	niveaux = {},               -- [guilde] = { suivi, dings } : montées de niveau des membres (Niveaux.lua)
 	envies = {},                -- [guilde] = { [id] = envie } : envies de donjon de la guilde (Envies.lua)
+	contenu = {},               -- [guilde] = { [onglet] = photo de son contenu } (Contenu.lua)
+	objets = {},                -- [id] = nom d'un objet vu à la banque, tant que le jeu ne le connaît pas
 	registre = {},              -- [guilde] = { [id] = prêt, remboursement ou remise } (Registre.lua)
 	mesPersos = {},             -- [guilde] = { [personnage] = true } : nos personnages, vus sur ce compte
 	spes = {},                  -- [membre] = { arbre, icone, points, t } : sa spé, annoncée par son addon (Specs.lua)

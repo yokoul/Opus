@@ -70,8 +70,11 @@ local function Rafraichir (cadre)
 	cadre.vue:GenerateMenu()
 	cadre.vp:SetShown(vue == "participation")
 	cadre.periode:SetShown(vue == "participation")
-	cadre.registre:SetShown(vue ~= "participation")
-	if vue ~= "participation" then return Opus.RafraichirRegistre(cadre.registre, vue, cadre.info) end
+	local registre, contenu = vue == "prets" or vue == "remises", vue == "contenu" or vue == "journal"
+	cadre.registre:SetShown(registre)
+	cadre.contenu:SetShown(contenu)
+	if registre then return Opus.RafraichirRegistre(cadre.registre, vue, cadre.info) end
+	if contenu then return Opus.RafraichirContenu(cadre.contenu, vue, cadre.info) end
 	cadre.periode:GenerateMenu()
 	for _, h in ipairs(entetes) do
 		h.fleche:SetShown(h.cle == tri)
@@ -148,8 +151,8 @@ end
 local function Construire (cadre, barre)
 	local largeur = Opus.LARGEUR - 30
 
-	-- la vue : participation de chacun, prêts, sorties d'objets
-	cadre.vue = Opus.Menu(barre, 130, { { "participation", "Participation" }, { "prets", "Prêts" }, { "remises", "Sorties" } },
+	-- la vue : participation de chacun, contenu, journal, prêts, sorties d'objets
+	cadre.vue = Opus.Menu(barre, 130, { { "participation", "Participation" }, { "contenu", "Contenu" }, { "journal", "Journal" }, { "prets", "Prêts" }, { "remises", "Sorties" } },
 		function () return vue end,
 		function (v) vue = v Opus.Rafraichir() end)
 	cadre.vue:SetPoint("LEFT", 0, 0)
@@ -161,6 +164,7 @@ local function Construire (cadre, barre)
 	cadre.info = barre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	cadre.info:SetPoint("RIGHT", 0, 0)
 	cadre.registre = Opus.ConstruireRegistre(cadre, largeur)
+	cadre.contenu = Opus.ConstruireContenu(cadre, largeur)
 
 	-- la participation, dans son propre cadre pour être masquée d'un bloc
 	local vp = CreateFrame("Frame", nil, cadre)
@@ -219,5 +223,7 @@ local function Construire (cadre, barre)
 end
 
 Opus.Page("banque", "Banque", Construire, Rafraichir, function (_, d)
-	if vue == "participation" then decalage = decalage - d else Opus.MoletteRegistre(vue, d) end
+	if vue == "participation" then decalage = decalage - d
+	elseif vue == "contenu" or vue == "journal" then Opus.MoletteContenu(vue, d)
+	else Opus.MoletteRegistre(vue, d) end
 end)

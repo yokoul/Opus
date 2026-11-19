@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: |cffd4af37Opus|r
-## Notes: Outils de guilde pour WoW Forever : tableau de la guilde (persos, niveaux, notes, liens Discord), groupes et envies de donjon, banque partagée (prêts, sorties d'objets), essais et promotions, grille des grades.
+## Notes: Outils de guilde pour WoW Forever : tableau de la guilde (persos, niveaux, notes, liens Discord), groupes et envies de donjon, banque partagée (contenu, journal, prêts, sorties d'objets), essais et promotions, grille des grades.
 ## Author: Yan
-## Version: 0.25.4
+## Version: 0.26.0
 ## IconTexture: Interface\AddOns\Opus\Media\Icone
 ## SavedVariables: OpusDB
 ## AddonCompartmentFunc: Opus_Compartiment
@@ -20,6 +20,7 @@ Journal.lua
 Specs.lua
 Cotisation.lua
 Registre.lua
+Contenu.lua
 Lien.lua
 Notes.lua
 Niveaux.lua
@@ -33,6 +34,7 @@ PageGuilde.lua
 PageRoster.lua
 PageGroupe.lua
 PageRegistre.lua
+PageContenu.lua
 PageBanque.lua
 PageGrades.lua
 Editeur.lua

@@ -50,7 +50,7 @@ local function Construire (cadre, barre)
 	texte:SetPoint("TOPLEFT", nom, "BOTTOMLEFT", 0, -8)
 	texte:SetWidth(largeur - 120) texte:SetJustifyH("LEFT") texte:SetSpacing(3)
 	texte:SetText("Outils de guilde pour WoW Forever, faits pour la guilde " .. Opus.Normal("Opus") .. " (royaume PvE, Europe) : tableau de la guilde "
-		.. "(persos et rerolls, niveaux, notes, liens Discord, arrivées et départs), groupes et envies de donjon, banque partagée (prêts, sorties d'objets), "
+		.. "(persos et rerolls, niveaux, notes, liens Discord, arrivées et départs), groupes et envies de donjon, banque partagée (contenu, journal, prêts, sorties d'objets), "
 		.. "essais et promotions, grille des grades. "
 		.. Opus.Gris("Ce que l'addon partage reste dans la guilde (messages d'addon de guilde)."))
 
