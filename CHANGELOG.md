@@ -3,6 +3,10 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.27.1
+- Guilde et Roster : les vues et les filtres passent aussi en onglets dans le bandeau (Par voie, En ligne, Calendrier, Journal, Grades ; Tous, Niveau 60, Raiders, En ligne).
+- Les onglets du haut sont posés sur un filet doré, pour les distinguer des onglets de navigation du bas.
+
 ## 0.27.0
 - Banque : les vues (Participation, Contenu, Journal, Prêts, Sorties) passent en onglets dans le bandeau, à la place du menu ; la ligne d'état (relevé, photo, nombre) passe sous le contenu.
 - Contenu : vue en grille, comme la banque du jeu (98 cases, un onglet à la fois), ou en liste. La recherche et « Pour moi » éteignent ce qui ne correspond pas. La photo garde maintenant la case de chaque objet ; une photo de la 0.26.0 se refait au prochain passage à la banque.

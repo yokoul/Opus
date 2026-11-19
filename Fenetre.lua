@@ -72,6 +72,44 @@ function Opus.Menu (parent, largeur, choix, lire, ecrire)
 	return d
 end
 
+-- les vues d'une page, en onglets dans son bandeau (ceux du haut du client, comme les macros), posés sur un filet doré
+-- qui court jusqu'au bord : on les distingue des onglets de navigation du bas. choix = { { valeur, libellé }, … } ;
+-- o:Maj() montre la vue choisie (à appeler au rafraîchissement)
+local nOnglets = 0
+function Opus.Onglets (barre, choix, lire, ecrire)
+	local o = CreateFrame("Frame", nil, barre)
+	o:SetPoint("BOTTOMLEFT", 0, -4) o:SetPoint("BOTTOMRIGHT", 0, -4) o:SetHeight(24)
+	o.filet = o:CreateTexture(nil, "BACKGROUND")
+	o.filet:SetHeight(1)
+	o.filet:SetPoint("BOTTOMRIGHT", 0, 1)
+	o.filet:SetColorTexture(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 0.45)
+	o.boutons = {}
+	local precedent
+	for _, c in ipairs(choix) do
+		nOnglets = nOnglets + 1
+		local nom = "OpusVue" .. nOnglets
+		local ok, b = pcall(CreateFrame, "Button", nom, o, "TabButtonTemplate")
+		if not ok then b = CreateFrame("Button", nom, o, "PanelTopTabButtonTemplate") end
+		b.valeur = c[1]
+		b:SetText(c[2])
+		PanelTemplates_TabResize(b, 0)
+		if precedent then b:SetPoint("BOTTOMLEFT", precedent, "BOTTOMRIGHT", -2, 0) else b:SetPoint("BOTTOMLEFT", 0, 0) end
+		b:SetScript("OnClick", function (self)
+			PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
+			ecrire(self.valeur)
+		end)
+		o.boutons[#o.boutons + 1] = b
+		precedent = b
+	end
+	o.filet:SetPoint("BOTTOMLEFT", precedent, "BOTTOMRIGHT", 0, 1)
+	function o:Maj ()
+		for _, b in ipairs(self.boutons) do
+			if b.valeur == lire() then PanelTemplates_SelectTab(b) else PanelTemplates_DeselectTab(b) end
+		end
+	end
+	return o
+end
+
 -- ascenseur natif (MinimalScrollBar) pour une liste paginée à la main : maj(decalage, total, visibles) le recale,
 -- defiler(nouveauDecalage) est appelé quand le joueur le tire
 function Opus.Ascenseur (parent, defiler)

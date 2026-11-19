@@ -10,7 +10,7 @@ local HAUTEUR_CLASSE, HAUTEUR, LIGNES = 36, 20, 16
 local filtre, classe, tri, croissant, decalage = "tous", nil, "role", true, 0
 local boutons, lignes, entetes = {}, {}, {}
 
-local FILTRES = { { "tous", "Tous les membres" }, { "max", "Niveau " .. NIVEAU_MAX }, { "raid", "Raiders (voie du Tour)" }, { "enligne", "En ligne" } }
+local FILTRES = { { "tous", "Tous" }, { "max", "Niveau " .. NIVEAU_MAX }, { "raid", "Raiders" }, { "enligne", "En ligne" } }
 local ATLAS_ROLES = { tank = "roleicon-tiny-tank", soin = "roleicon-tiny-healer", degats = "roleicon-tiny-dps" }
 local ORDRE_ROLES = { tank = 1, soin = 2, degats = 3 }
 
@@ -71,7 +71,7 @@ local function Valeur (m, cle)
 end
 
 local function Rafraichir (cadre)
-	cadre.filtre:GenerateMenu()
+	cadre.filtre:Maj()
 	local membres, parClasse, roles = Composition()
 	local connues = roles.connues
 	cadre.info:SetText(("%d membres · %d spé(s) connue(s)"):format(#membres, connues))
@@ -142,10 +142,9 @@ end
 
 local function Construire (cadre, barre)
 	local largeur = Opus.LARGEUR - 30
-	cadre.filtre = Opus.Menu(barre, 200, FILTRES, function () return filtre end, function (v) filtre, decalage = v, 0 Opus.Rafraichir() end)
-	cadre.filtre:SetPoint("LEFT", 0, 0)
+	cadre.filtre = Opus.Onglets(barre, FILTRES, function () return filtre end, function (v) filtre, decalage = v, 0 Opus.Rafraichir() end)
 	cadre.info = barre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	cadre.info:SetPoint("RIGHT", 0, 0)
+	cadre.info:SetPoint("RIGHT", 0, 4)
 	cadre.roles = cadre:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 	cadre.roles:SetPoint("TOPLEFT", 4, -4)
 

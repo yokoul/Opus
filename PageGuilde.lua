@@ -10,8 +10,7 @@ local tousNiveaux = false              -- fiche : la liste de tous ses niveaux e
 local PERSOS_MAX = 8                   -- persos du même joueur montrés dans la fiche
 
 local VUES = {
-	{ "voies", "Membres par voie" }, { "enligne", "Membres en ligne" },
-	{ "tout", "Journal : tout" }, { "mouvements", "Arrivées et départs (calendrier)" }, { "grades", "Journal : grades" },
+	{ "voies", "Par voie" }, { "enligne", "En ligne" }, { "mouvements", "Calendrier" }, { "tout", "Journal" }, { "grades", "Grades" },
 }
 local JOURNAL = { tout = true, mouvements = true, grades = true }
 
@@ -289,7 +288,7 @@ end
 ------------------------------------------------------------------------
 
 local function Rafraichir (cadre)
-	cadre.vue:GenerateMenu()
+	cadre.vue:Maj()
 	cadre.retour:SetShown(fiche ~= nil)
 	cadre.vue:SetShown(fiche == nil)
 	cadre.fiche:SetShown(fiche ~= nil)
@@ -358,12 +357,11 @@ end
 local function Construire (cadre, barre)
 	local largeur = Opus.LARGEUR - 30
 
-	cadre.vue = Opus.Menu(barre, 220, VUES, function () return vue end, function (v) vue, decalage = v, 0 Opus.Rafraichir() end)
-	cadre.vue:SetPoint("LEFT", 0, 0)
+	cadre.vue = Opus.Onglets(barre, VUES, function () return vue end, function (v) vue, decalage = v, 0 Opus.Rafraichir() end)
 	cadre.retour = Opus.Bouton(barre, "Retour", 100, function () fiche = nil Opus.Rafraichir() end)
 	cadre.retour:SetPoint("LEFT", 0, 0)
 	cadre.info = barre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	cadre.info:SetPoint("RIGHT", 0, 0)
+	cadre.info:SetPoint("RIGHT", 0, 4)
 
 	for i = 1, LIGNES do
 		local l = CreateFrame("Button", nil, cadre)
