@@ -194,8 +194,12 @@ local function MessagesConfig (c)
 	-- les réglages (« X ») : ce que coupe la restriction, et la cotisation ; envoyés avant les grades, donc reçus avant
 	local co, tranches = c.cotisation, {}
 	for _, t in ipairs(co and co.tranches or {}) do tranches[#tranches + 1] = t.min .. "-" .. t.max .. "-" .. t.montant end
+	-- la durée des essais, par rang (« 6:14,8:21 ») : en dernier champ, ignoré par les versions d'avant 0.22
+	local durees = {}
+	for rang, j in pairs(c.durees or {}) do durees[#durees + 1] = rang .. ":" .. j end
+	table.sort(durees)
 	messages[2] = table.concat({ "X", c.version, r and r.coupeRep == false and 0 or 1, r and r.coupeOr == false and 0 or 1,
-		co == nil and "" or (co.actif and 1 or 0), table.concat(tranches, ","), co and co.plafond or "" }, FS)
+		co == nil and "" or (co.actif and 1 or 0), table.concat(tranches, ","), co and co.plafond or "", table.concat(durees, ",") }, FS)
 	for i, g in ipairs(c.grades) do
 		local bits = 0
 		for cle, b in pairs(DRAPEAUX) do if g[cle] then bits = bits + b end end
@@ -233,6 +237,10 @@ local function RecevoirConfig (genre, champs, expediteur)
 			end
 			r.cotisation = co
 		end
+		for x, y in (champs[8] or ""):gmatch("(%d+):(%d+)") do
+			local rang, j = tonumber(x), tonumber(y)
+			if rang >= 1 and rang <= 10 and j >= 1 and j <= 365 then r.durees = r.durees or {} r.durees[rang] = j end
+		end
 		return
 	elseif genre == "C" then
 		local n, par, fin, noms, texte = tonumber(champs[3]), champs[4], tonumber(champs[5]), champs[6] or "", champs[7]
@@ -267,7 +275,7 @@ local function RecevoirConfig (genre, champs, expediteur)
 	local auteur = r.par and Opus.TrouverMembre(r.par)
 	if not auteur or not Opus.PeutConfigurer(auteur.grade) then return end
 	if r.restriction then r.restriction.coupeRep, r.restriction.coupeOr = r.coupeRep ~= false, r.coupeOr ~= false end
-	local c = { version = version, par = r.par, grades = r.grades, onglets = r.onglets or {}, restriction = r.restriction, cotisation = r.cotisation }
+	local c = { version = version, par = r.par, grades = r.grades, onglets = r.onglets or {}, restriction = r.restriction, cotisation = r.cotisation, durees = r.durees }
 	Opus.db.configs[GetGuildInfo("player")] = c
 	Opus.AppliquerConfig()
 	Opus.Msg(("grille de la guilde mise à jour (par %s)."):format(r.par))
@@ -346,7 +354,9 @@ end
 
 local function RecevoirSpe (champs, expediteur)
 	local nom, arbre, icone, points, t = champs[2], champs[3], tonumber(champs[4]), champs[5], tonumber(champs[6])
-	local role = (champs[7] == "tank" or champs[7] == "soin" or champs[7] == "degats") and champs[7] or nil
+	-- un ou plusieurs rôles (« soin,degats ») ; les versions d'avant 0.22 n'en lisent qu'un seul
+	local role = table.concat(Opus.ListeRoles(champs[7]), ",")
+	if role == "" then role = nil end
 	-- on n'annonce que sa propre spé
 	if not Opus.EstMembre(nom, expediteur) or not arbre or arbre == "" or not t then return end
 	if Opus.RetenirSpe(nom, { arbre = arbre, icone = icone, points = points, role = role }, t) and Opus.Rafraichir then Opus.Rafraichir() end

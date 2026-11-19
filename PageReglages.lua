@@ -1,22 +1,43 @@
 -- PageReglages.lua : l'onglet « Réglages ». Ce qui ne se faisait que par /opus : ses préférences (annonces de niveau,
--- rôle, minimap, durée des essais), le partage (banque, liaisons Discord), les outils du chef et des officiers, et les
--- diagnostics. Chaque bouton passe par la même commande que /opus, pour qu'il n'y ait qu'un seul chemin.
+-- rôles, minimap), le partage (banque, liaisons Discord), la durée des essais (chef de guilde), les outils du chef et
+-- des officiers, et les diagnostics. Chaque bouton passe par la même commande que /opus, pour qu'il n'y ait qu'un seul chemin.
 local _, Opus = ...
 
 local function Commande (texte) SlashCmdList.OPUS(texte) end
 
 local NIVEAUX = { { "60", "Le niveau 60 seulement" }, { "paliers", "Les paliers de 10" }, { "tous", "Tous les niveaux" }, { "aucun", "Aucune" } }
-local ROLES = { { "auto", "Selon ma spé" }, { "tank", "Tank" }, { "soin", "Soigneur" }, { "degats", "Dégâts" } }
+local ROLES = { { "tank", "Tank" }, { "soin", "Soigneur" }, { "degats", "Dégâts" } }
+local NOMS_ROLES = { tank = "tank", soin = "soigneur", degats = "dégâts" }
 
 local X_CONTROLE = 300           -- colonne des réglages, à droite des libellés
 
 local function Rafraichir (cadre)
 	cadre.niveaux:GenerateMenu()
-	cadre.role:GenerateMenu()
+	-- ses rôles : ceux qu'il a cochés ; rien de coché, celui de sa spé
+	local declares = {}
+	for _, r in ipairs(Opus.ListeRoles(Opus.db.monRole)) do declares[r] = true end
+	for r, c in pairs(cadre.roles) do c:SetChecked(declares[r] == true) end
+	local spe = Opus.MaSpe and Opus.MaSpe()
+	local deSpe = spe and Opus.RoleDeSpe(spe.arbre)
+	cadre.roleAide:SetText(next(declares) and "Coche tout ce que tu sais jouer en donjon." or
+		("Rien de coché : selon ta spé" .. (deSpe and (" (" .. NOMS_ROLES[deSpe] .. ")") or "") .. "."))
 	cadre.minimap:SetChecked(not Opus.db.minimap.cache)
-	for nom, s in pairs(cadre.durees) do
-		if not s:HasFocus() then s:SetText(Opus.db.dureeEssai[nom] or 14) end
+
+	-- la durée des essais : réglage de la guilde, modifiable par le chef seulement
+	local chef = IsGuildLeader()
+	local essais = Opus.GradesEssai()
+	for i, d in ipairs(cadre.durees) do
+		local g = essais[i]
+		d.grade = g and g.nom
+		d.nom:SetShown(g ~= nil) d.saisie:SetShown(g ~= nil)
+		if g then
+			d.nom:SetText(g.nom)
+			d.saisie:SetEnabled(chef)
+			if not d.saisie:HasFocus() then d.saisie:SetText(Opus.DureeEssai(g.nom)) end
+		end
 	end
+	cadre.dureesAide:SetText(#essais == 0 and "Aucun grade d'essai dans la grille." or
+		chef and "Partagée à toute la guilde." or "Réglée par le chef de guilde, partagée à tous.")
 
 	local n = #Opus.db.banque.evenements
 	cadre.banque:SetText(("%d opération(s) relevée(s) · %d membre(s) avec l'addon ces 7 jours"):format(n, Opus.Pairs()))
@@ -60,9 +81,23 @@ local function Construire (cadre, barre)
 	cadre.niveaux = Opus.Menu(cadre, 220, NIVEAUX, function () return Opus.db.annonceNiveaux or "60" end, function (v) Commande("niveaux " .. v) end)
 	cadre.niveaux:SetPoint("TOPLEFT", X_CONTROLE, y)
 	Ligne(40)
-	Libelle("Mon rôle", "Quand ta spé ne le dit pas (druide farouche…).")
-	cadre.role = Opus.Menu(cadre, 220, ROLES, function () return Opus.db.monRole or "auto" end, function (v) Commande("role " .. v) end)
-	cadre.role:SetPoint("TOPLEFT", X_CONTROLE, y)
+	local _, aide = Libelle("Mes rôles en groupe", " ")
+	cadre.roleAide = aide
+	cadre.roles = {}
+	local function ChangerRoles ()
+		local liste = {}
+		for _, r in ipairs(ROLES) do if cadre.roles[r[1]]:GetChecked() then liste[#liste + 1] = r[1] end end
+		Commande("role " .. (#liste > 0 and table.concat(liste, " ") or "auto"))
+		Opus.Rafraichir()
+	end
+	for i, r in ipairs(ROLES) do
+		local c = CreateFrame("CheckButton", nil, cadre, "UICheckButtonTemplate")
+		c:SetSize(24, 24) c:SetPoint("TOPLEFT", X_CONTROLE - 4 + (i - 1) * 110, y)
+		local t = c.Text or c.text
+		if t then t:SetText(r[2]) t:SetFontObject("GameFontHighlightSmall") end
+		c:SetScript("OnClick", ChangerRoles)
+		cadre.roles[r[1]] = c
+	end
 	Ligne(40)
 	Libelle("Bouton de la minimap")
 	cadre.minimap = CreateFrame("CheckButton", nil, cadre, "UICheckButtonTemplate")
@@ -71,28 +106,6 @@ local function Construire (cadre, barre)
 		if self:GetChecked() == (Opus.db.minimap.cache == true) then Commande("minimap") end
 	end)
 	Ligne(30)
-	Libelle("Durée des essais (jours)", "Pour le décompte de l'onglet Essais.")
-	cadre.durees = {}
-	local x = X_CONTROLE
-	for _, nom in ipairs { "Apprenti", "Aspirant" } do
-		local t = cadre:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		t:SetPoint("TOPLEFT", x, y - 6) t:SetText(nom)
-		local s = CreateFrame("EditBox", nil, cadre, "InputBoxTemplate")
-		s:SetSize(36, 20) s:SetPoint("LEFT", t, "RIGHT", 10, 0)
-		s:SetAutoFocus(false) s:SetNumeric(true) s:SetMaxLetters(3)
-		local function Valider (self)
-			local n = tonumber(self:GetText())
-			if n and n > 0 then Commande(("duree %s %d"):format(nom:lower(), n)) end
-			self:ClearFocus()
-			Opus.Rafraichir()
-		end
-		s:SetScript("OnEnterPressed", Valider)
-		s:SetScript("OnEditFocusLost", function (self) if tonumber(self:GetText()) ~= Opus.db.dureeEssai[nom] then Valider(self) end end)
-		s:SetScript("OnEscapePressed", function (self) self:ClearFocus() Opus.Rafraichir() end)
-		cadre.durees[nom] = s
-		x = x + 130
-	end
-	Ligne(40)
 
 	-- le partage
 	Section("Données partagées")
@@ -110,6 +123,31 @@ local function Construire (cadre, barre)
 	cadre.import:SetPoint("TOPRIGHT", -8, y)
 	Opus.Bulle(cadre.import, "Importer les liaisons Discord", "Coller le code de /persoadmin export (chef et officiers). L'addon le partage ensuite à la guilde.")
 	Ligne(46)
+
+	-- la durée des essais, pour toute la guilde (le chef seul la modifie, comme les grades en jeu)
+	Section("Essais")
+	local _, aideDurees = Libelle("Durée des essais (jours)", " ")
+	cadre.dureesAide = aideDurees
+	cadre.durees = {}
+	for i = 1, 3 do
+		local d = {}
+		d.nom = cadre:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		d.nom:SetPoint("TOPLEFT", X_CONTROLE + (i - 1) * 130, y - 6)
+		d.saisie = CreateFrame("EditBox", nil, cadre, "InputBoxTemplate")
+		d.saisie:SetSize(36, 20) d.saisie:SetPoint("LEFT", d.nom, "RIGHT", 10, 0)
+		d.saisie:SetAutoFocus(false) d.saisie:SetNumeric(true) d.saisie:SetMaxLetters(3)
+		local function Valider (self)
+			local n = tonumber(self:GetText())
+			if d.grade and n and n ~= Opus.DureeEssai(d.grade) then Opus.ModifierDureeEssai(d.grade, n) end
+			self:ClearFocus()
+			Opus.Rafraichir()
+		end
+		d.saisie:SetScript("OnEnterPressed", Valider)
+		d.saisie:SetScript("OnEditFocusLost", Valider)
+		d.saisie:SetScript("OnEscapePressed", function (self) self:SetText(d.grade and Opus.DureeEssai(d.grade) or "") self:ClearFocus() end)
+		cadre.durees[i] = d
+	end
+	Ligne(40)
 
 	-- le chef et les officiers
 	Section("Guilde (chef et officiers)")

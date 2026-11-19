@@ -12,10 +12,15 @@ local envoyees = {}               -- [rid] = { cible, role } : nos propositions 
 
 local function Texte (s) return s and (tostring(s):gsub(";", ","):gsub("~", "-")) or "" end
 
--- la place qu'on propose : son rôle s'il est connu, sinon le premier rôle qui manque
+-- la place qu'on propose : parmi ses rôles, celui qui manque au groupe (tank et soin d'abord), sinon son rôle principal ;
+-- sans rôle connu, le premier rôle qui manque
 function Opus.RolePropose (m)
-	local role = Opus.RoleDe(Opus.db.spes[m.nom])
-	if role then return role end
+	local s = Opus.db.spes[m.nom]
+	local roles = Opus.RolesDe(s)
+	for i, r in ipairs(Opus.PLACES) do
+		if not Opus.groupe.places[i] and Opus.PeutTenir(s, r) then return r end
+	end
+	if roles[1] then return roles[1] end
 	for i, r in ipairs(Opus.PLACES) do if not Opus.groupe.places[i] then return r end end
 	return "degats"
 end

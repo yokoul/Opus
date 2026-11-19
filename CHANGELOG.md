@@ -3,6 +3,10 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.22.0
+- **Plusieurs rôles** : dans Réglages, coche tout ce que tu sais jouer en donjon (un druide en dégâts qui soigne aussi) ; rien de coché, c'est le rôle de ta spé. Le groupe te place à une place libre de l'un de tes rôles, et une proposition te demande le rôle qui manque. Roster et Groupe montrent tous tes rôles (le principal en plus grand). `/opus role soin degats` fait la même chose.
+- **Durée des essais** : devient un réglage de la guilde, partagé à tous et modifiable par le chef de guilde seulement (onglet Réglages, ou `/opus duree <grade> <jours>`), pour chaque grade d'essai de la grille.
+
 ## 0.21.0
 - Guilde : **arrivées et départs en calendrier**, comme celui du jeu. Une case par jour avec le blason de classe de ceux qui arrivent (ligne verte) et de ceux qui partent (ligne rouge), le total du mois, et le détail du jour choisi en dessous (un clic sur un membre ouvre sa fiche). L'addon retient désormais la classe de chaque membre vu, pour garder son blason après son départ.
 

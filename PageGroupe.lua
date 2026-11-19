@@ -10,6 +10,12 @@ local lignes, entetes = {}, {}
 local ATLAS_ROLES = { tank = "roleicon-tiny-tank", soin = "roleicon-tiny-healer", degats = "roleicon-tiny-dps" }
 local ORDRE_ROLES = { tank = 1, soin = 2, degats = 3 }
 local function IconeRole (role, taille) return role and CreateAtlasMarkup(ATLAS_ROLES[role], taille or 14, taille or 14) or "" end
+-- ses rôles : le principal, puis les autres qu'il peut tenir, plus petits
+local function IconesRoles (s)
+	local roles, icones = Opus.RolesDe(s), {}
+	for i, r in ipairs(roles) do icones[#icones + 1] = IconeRole(r, i == 1 and 14 or 11) end
+	return table.concat(icones, "")
+end
 
 -- colonnes des candidats : clé de tri, titre, x (depuis le panneau de droite), largeur, alignement ; les boutons à droite
 local COLONNES = {
@@ -85,7 +91,7 @@ local function Rafraichir (cadre)
 		l:SetShown(m ~= nil)
 		if m then
 			l.m = m
-			l.cases.role:SetText(IconeRole(m.role))
+			l.cases.role:SetText(IconesRoles(m.spe))
 			l.cases.nom:SetText(Opus.Couleur(m.classe) .. m.nom .. "|r")
 			l.cases.niveau:SetText(Opus.RisqueGris(m.niveau) and Opus.Rouge(m.niveau) or m.niveau)
 			l.cases.spe:SetText(m.spe and (m.spe.arbre .. Opus.Gris("  " .. m.spe.points)) or Opus.Gris("inconnue"))

@@ -70,7 +70,7 @@ function Opus.Essais ()
 			-- un officier qui lit la date dans la note la transmet à ceux qui ne la voient pas
 			if source == "note" then Opus.RetenirArrivee(m.nom, debut) end
 			m.essai = g.nom          -- le grade d'essai d'origine, même en pleine montée
-			m.duree = Opus.db.dureeEssai[g.nom] or 14
+			m.duree = Opus.DureeEssai(g.nom)
 			m.jours = debut and math.floor((maintenant - debut) / 86400) or nil
 			m.echu = m.jours and m.jours >= m.duree
 			liste[#liste + 1] = m
@@ -152,10 +152,42 @@ Opus.Commande("essais", "essais", "liste des membres à l'essai dans la discussi
 	end
 end)
 
-Opus.Commande("duree", "duree apprenti|aspirant <jours>", "durée des essais (14 jours par défaut)", function (s)
-	local qui, n = s:lower():match("^(%a+)%s+(%d+)$")
-	local nom = (qui == "apprenti" and "Apprenti") or (qui == "aspirant" and "Aspirant")
-	if not nom then Msg("exemple : /opus duree apprenti 21") return end
-	Opus.db.dureeEssai[nom] = tonumber(n)
-	Msg("essai " .. nom .. " : " .. n .. " jours.")
+-- la durée d'un essai : réglage de la guilde (grille, partagée), que seul le chef modifie ; à défaut, l'ancien réglage
+-- local d'avant 0.22, puis 14 jours
+function Opus.DureeEssai (nomGrade)
+	local c, rang = Opus.Config(), Opus.RangDe(nomGrade)
+	return c and c.durees and rang and c.durees[rang] or Opus.db.dureeEssai[nomGrade] or 14
+end
+
+-- les grades d'essai de la grille, dans l'ordre : { rang, nom }
+function Opus.GradesEssai ()
+	local liste = {}
+	for rang, g in ipairs(Opus.GRADES or {}) do
+		if g.essai then liste[#liste + 1] = { rang = rang, nom = g.nom } end
+	end
+	return liste
+end
+
+function Opus.ModifierDureeEssai (nomGrade, jours)
+	if not IsGuildLeader() then Msg("seul le chef de guilde modifie la durée des essais.") return false end
+	local rang = Opus.RangDe(nomGrade)
+	local c = Opus.Config()
+	if not rang or not c or not jours or jours < 1 or jours > 365 then return false end
+	if c.durees and c.durees[rang] == jours then return true end
+	local copie = Opus.Copie(c)
+	copie.durees = copie.durees or {}
+	copie.durees[rang] = jours
+	Opus.EnregistrerConfig(copie)
+	Msg("essai " .. nomGrade .. " : " .. jours .. " jours, partagé à la guilde.")
+	return true
+end
+
+Opus.Commande("duree", "duree <grade d'essai> <jours>", "durée des essais, pour toute la guilde (14 jours par défaut ; chef de guilde)", function (s)
+	local qui, n = (s or ""):match("^(.-)%s+(%d+)$")
+	for _, g in ipairs(Opus.GradesEssai()) do
+		if qui and Opus.Pli and Opus.Pli(g.nom) == Opus.Pli(qui) then Opus.ModifierDureeEssai(g.nom, tonumber(n)) return end
+	end
+	local noms = {}
+	for _, g in ipairs(Opus.GradesEssai()) do noms[#noms + 1] = g.nom:lower() end
+	Msg("exemple : /opus duree " .. (noms[1] or "apprenti") .. " 21" .. (#noms > 0 and Opus.Gris(" (grades d'essai : " .. table.concat(noms, ", ") .. ")") or ""))
 end)

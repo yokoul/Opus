@@ -161,6 +161,7 @@ function Opus.ReprendreLeJeu ()
 	neuve.onglets = ancienne and ancienne.onglets or {}
 	neuve.restriction = ancienne and ancienne.restriction
 	neuve.cotisation = ancienne and ancienne.cotisation
+	neuve.durees = ancienne and ancienne.durees
 	Opus.EnregistrerConfig(neuve)
 end
 

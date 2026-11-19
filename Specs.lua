@@ -19,10 +19,35 @@ function Opus.RoleDeSpe (arbre)
 	return "degats"
 end
 
--- le rôle d'une spé connue : celui que le joueur a déclaré (/opus role), sinon celui que son arbre laisse supposer
-function Opus.RoleDe (s)
-	if not s then return nil end
-	return s.role or Opus.RoleDeSpe(s.arbre)
+local ORDRE_ROLES = { "tank", "soin", "degats" }
+
+-- des rôles déclarés, en texte (« soin,degats ») : la liste dans l'ordre tank, soin, dégâts, sans inconnu ni doublon
+function Opus.ListeRoles (texte)
+	local vus, liste = {}, {}
+	for r in (texte or ""):gmatch("[^,%s]+") do vus[r] = true end
+	for _, r in ipairs(ORDRE_ROLES) do if vus[r] then liste[#liste + 1] = r end end
+	return liste
+end
+
+-- les rôles qu'un membre peut tenir : ceux qu'il a déclarés (/opus role, plusieurs possibles : un druide dégâts qui
+-- soigne aussi), celui de son arbre en premier s'il en fait partie ; sans déclaration, celui que son arbre laisse supposer
+function Opus.RolesDe (s)
+	if not s then return {} end
+	local liste, deSpe = Opus.ListeRoles(s.role), Opus.RoleDeSpe(s.arbre)
+	if #liste == 0 then return deSpe and { deSpe } or {} end
+	for i, r in ipairs(liste) do
+		if r == deSpe then table.remove(liste, i) table.insert(liste, 1, r) break end
+	end
+	return liste
+end
+
+-- son rôle principal
+function Opus.RoleDe (s) return Opus.RolesDe(s)[1] end
+
+-- ce rôle fait-il partie des siens ?
+function Opus.PeutTenir (s, role)
+	for _, r in ipairs(Opus.RolesDe(s)) do if r == role then return true end end
+	return false
 end
 
 -- la spé du joueur : { arbre, icone, points = "31/20/0" } ; nil tant qu'aucun point n'est placé ou que l'API manque
@@ -95,21 +120,30 @@ Opus.Ecoute("PLAYER_ENTERING_WORLD", function ()
 end)
 
 local NOMS_ROLES = { tank = "tank", soin = "soigneur", degats = "dégâts" }
-Opus.Commande("role", "role tank|soin|degats|auto", "ton rôle quand ta spé ne le dit pas (druide farouche…), partagé avec ta spé", function (s)
-	s = (s or ""):lower():gsub("é", "e"):gsub("â", "a")
-	if s == "soigneur" or s == "heal" then s = "soin" elseif s == "dps" or s == "degat" then s = "degats" end
-	if s == "auto" then
+local SYNONYMES = { soigneur = "soin", heal = "soin", healer = "soin", dps = "degats", degat = "degats" }
+
+-- ses rôles : plusieurs à la fois (« soin degats »), ou « auto » pour s'en remettre à sa spé
+function Opus.DeclarerRoles (texte)
+	texte = (texte or ""):lower():gsub("é", "e"):gsub("â", "a")
+	local mots = {}
+	for mot in texte:gmatch("%a+") do mots[#mots + 1] = SYNONYMES[mot] or mot end
+	local liste = Opus.ListeRoles(table.concat(mots, ","))
+	if texte:match("auto") or #liste == 0 and texte == "" then
 		Opus.db.monRole = nil
 		Opus.Msg("rôle : déduit de ta spé.")
-	elseif NOMS_ROLES[s] then
-		Opus.db.monRole = s
-		Opus.Msg("rôle déclaré : " .. NOMS_ROLES[s] .. ".")
+	elseif #liste > 0 then
+		Opus.db.monRole = table.concat(liste, ",")
+		local noms = {}
+		for _, r in ipairs(liste) do noms[#noms + 1] = NOMS_ROLES[r] end
+		Opus.Msg("rôle(s) déclaré(s) : " .. table.concat(noms, ", ") .. ".")
 	else
-		Opus.Msg("exemple : /opus role tank (ou soin, degats, auto).")
+		Opus.Msg("exemple : /opus role soin degats (tank, soin, degats, plusieurs possibles ; auto = selon ta spé).")
 		return
 	end
 	Publier(true)
-end)
+end
+
+Opus.Commande("role", "role tank|soin|degats… |auto", "les rôles que tu peux tenir (plusieurs possibles : « soin degats »), partagés avec ta spé ; auto = selon ta spé", Opus.DeclarerRoles)
 
 Opus.Commande("diagspe", "diagspe", "la spécialisation que l'addon lit pour ton personnage", function ()
 	local s = Opus.MaSpe()

@@ -42,14 +42,17 @@ function Opus.DansLeGroupe (nom)
 	return nil
 end
 
--- place un membre à une place de son rôle ; un rôle inconnu va d'abord en dégâts (le plus courant), pour laisser
--- tank et soin à ceux qui le sont, puis à n'importe quelle place libre
+-- place un membre à une place de ses rôles, le principal d'abord ; un rôle inconnu va d'abord en dégâts (le plus
+-- courant), pour laisser tank et soin à ceux qui le sont, puis à n'importe quelle place libre
 function Opus.AjouterAuGroupe (m)
 	if Opus.DansLeGroupe(m.nom) then return end
-	local role = Opus.RoleDe(Opus.db.spes[m.nom])
+	local roles = Opus.RolesDe(Opus.db.spes[m.nom])
+	local role = roles[1]
 	local libre
-	for i, r in ipairs(Opus.PLACES) do
-		if not Opus.groupe.places[i] and r == (role or "degats") then libre = i break end
+	for _, voulu in ipairs(#roles > 0 and roles or { "degats" }) do
+		for i, r in ipairs(Opus.PLACES) do
+			if not libre and not Opus.groupe.places[i] and r == voulu then libre = i end
+		end
 	end
 	if not libre and not role then
 		for i = 1, #Opus.PLACES do if not Opus.groupe.places[i] then libre = i break end end
