@@ -22,87 +22,74 @@ for _, c in ipairs(Opus.CRENEAUX) do NOMS_CRENEAUX[c[1]] = c[2] end
 -- les donjons : ceux de Dungeon Journal s'il est installé, sinon ceux de Forever retenus ici
 ------------------------------------------------------------------------
 
--- Les donjons de Forever : clé (celle de Dungeon Journal), nom français, tranche recommandée. Tranches du guide Wowhead
--- « Dungeons Overview » de Forever (relevé le 19/11/2026) ; elles l'emportent aussi sur celles de Dungeon Journal quand il
--- est installé (on ne lui prend que ses noms traduits). Maraudon (trois ailes chez Wowhead : 45-53, 45-53, 48-57) reste un
--- seul donjon, de 45 à 57 ; les ailes de Hache-Tripes et de Stratholme ont la tranche du donjon entier.
+-- Les donjons de Forever : clé (celle de Dungeon Journal), activité de la recherche de groupe du jeu, nom et tranche
+-- recommandée tels que le jeu les donne (relevés par /opus diagdonjons le 19/11/2026, client français ; ce sont aussi les
+-- tranches de Dungeon Journal, qui les tient du jeu). En jeu, l'addon relit le nom et la tranche de chaque activité, au
+-- cas où une mise à jour les change. Le jeu n'impose aucun niveau pour entrer (minimum 0 partout). La Prison n'apparaît
+-- pas dans la recherche de groupe d'un personnage de la Horde : sa tranche vient de Dungeon Journal. Le sommet du pic
+-- Rochenoire se fait à 10.
 local FOREVER = {
-	{ "Hall of Thanes", "La salle des Thanes", 13, 18 }, { "Ragefire Chasm", "Gouffre de Ragefeu", 13, 18 },
-	{ "Ruins of Lordaeron", "Ruines de Lordaeron", 15, 20 }, { "Wailing Caverns", "Cavernes des Lamentations", 15, 25 },
-	{ "The Deadmines", "Les Mortemines", 18, 23 }, { "Shadowfang Keep", "Donjon d'Ombrecroc", 22, 30 },
-	{ "The Stockade", "La Prison", 22, 30 }, { "Excavation Site: Wetlands", "Excavations : les Paluns", 24, 29 },
-	{ "Blackfathom Deeps", "Profondeurs de Brassenoire", 24, 32 }, { "City of Dalaran", "Cité de Dalaran", 28, 33 },
-	{ "Scarlet Monastery: Graveyard", "Monastère Écarlate - cimetière", 28, 38 }, { "Gnomeregan", "Gnomeregan", 29, 38 },
-	{ "Scarlet Monastery: Library", "Monastère Écarlate - bibliothèque", 29, 39 }, { "Razorfen Kraul", "Kraal de Tranchebauge", 30, 40 },
-	{ "Scarlet Monastery: Armory", "Monastère Écarlate - armurerie", 32, 42 }, { "The Drowned City", "La cité Submergée", 35, 40 },
-	{ "Scarlet Monastery: Cathedral", "Monastère Écarlate - cathédrale", 35, 45 }, { "Krol'dok Stronghold", "Bastion Krol'dok", 40, 45 },
-	{ "Razorfen Downs", "Souilles de Tranchebauge", 40, 50 }, { "Uldaman", "Uldaman", 42, 52 }, { "Zul'Farrak", "Zul'Farrak", 44, 54 },
-	{ "Maraudon", "Maraudon", 45, 57 }, { "Alcaz Prison", "Prison d'Alcaz", 48, 53 },
-	{ "Sunken Temple", "Le temple d'Atal'Hakkar", 50, 60 }, { "Blackrock Depths", "Profondeurs de Rochenoire", 52, 60 },
-	{ "Blackmaw Hold", "Repaire des Noiregueules", 55, 60 }, { "Lower Blackrock Spire", "Pic de Rochenoire inférieur", 55, 60 },
-	{ "Shaper's Terrace", "La terrasse du Façonneur", 58, 60 }, { "Upper Blackrock Spire", "Pic de Rochenoire supérieur", 58, 60 },
-	{ "Dire Maul: East", "Hache-Tripes - est", 58, 60 }, { "Dire Maul: West", "Hache-Tripes - ouest", 58, 60 },
-	{ "Dire Maul: North", "Hache-Tripes - nord", 58, 60 }, { "Scholomance", "Scholomance", 58, 60 },
-	{ "Stratholme: Living", "Stratholme - vivants", 58, 60 }, { "Stratholme: Undead", "Stratholme - morts-vivants", 58, 60 },
+	{ "Ragefire Chasm", 798, "Gouffre de Ragefeu", 13, 18 }, { "Hall of Thanes", 1984, "La salle des Thanes", 13, 20 },
+	{ "Ruins of Lordaeron", 1982, "Ruines de Lordaeron", 15, 22 }, { "Wailing Caverns", 796, "Cavernes des lamentations", 15, 24 },
+	{ "The Deadmines", 799, "Mortemines", 17, 26 }, { "Shadowfang Keep", 800, "Donjon d'Ombrecroc", 20, 30 },
+	{ "The Stockade", nil, "La Prison", 24, 32 }, { "Blackfathom Deeps", 801, "Profondeurs de Brassenoire", 24, 32 },
+	{ "Excavation Site: Wetlands", 1981, "Excavations : les Paluns", 26, 33 }, { "City of Dalaran", 1983, "Cité de Dalaran", 28, 35 },
+	{ "Gnomeregan", 803, "Gnomeregan", 29, 38 }, { "Razorfen Kraul", 804, "Kraal de Tranchebauge", 29, 38 },
+	{ "Scarlet Monastery: Graveyard", 805, "Monastère Écarlate (cimetière)", 30, 38 },
+	{ "Scarlet Monastery: Library", 829, "Monastère Écarlate (bibliothèque)", 33, 41 },
+	{ "The Drowned City", 1985, "La cité Submergée", 35, 42 },
+	{ "Scarlet Monastery: Armory", 827, "Monastère Écarlate (armurerie)", 36, 44 },
+	{ "Razorfen Downs", 806, "Souilles de Tranchebauge", 37, 46 },
+	{ "Scarlet Monastery: Cathedral", 828, "Monastère Écarlate (cathédrale)", 38, 46 },
+	{ "Krol'dok Stronghold", 1986, "Bastion Krol'dok", 40, 47 }, { "Uldaman", 807, "Uldaman", 41, 51 },
+	{ "Zul'Farrak", 808, "Zul'Farrak", 44, 54 }, { "Maraudon", 809, "Maraudon", 46, 55 }, { "Alcaz Prison", 1980, "Prison d'Alcaz", 48, 55 },
+	{ "Sunken Temple", 810, "Temple Englouti", 50, 60 }, { "Blackrock Depths", 811, "Profondeurs de Rochenoire", 52, 60 },
+	{ "Dire Maul: East", 813, "Haches-Tripes (est)", 54, 60 }, { "Blackmaw Hold", 1979, "Repaire des Noiregueules", 55, 60 },
+	{ "Lower Blackrock Spire", 812, "Bas du pic Rochenoire", 55, 60 }, { "Dire Maul: West", 814, "Haches-Tripes (ouest)", 56, 60 },
+	{ "Dire Maul: North", 815, "Haches-Tripes (nord)", 56, 60 }, { "Shaper's Terrace", 1978, "La terrasse du Façonneur", 58, 60 },
+	{ "Scholomance", 797, "Scholomance", 58, 60 }, { "Stratholme: Living", 816, "Stratholme (porte principale)", 58, 60 },
+	{ "Stratholme: Undead", 1603, "Stratholme (porte de service)", 58, 60 }, { "Upper Blackrock Spire", 837, "Sommet du pic Rochenoire", 59, 60 },
 }
-local TRANCHES = {}
-for _, d in ipairs(FOREVER) do TRANCHES[d[1]] = { d[3], d[4] } end
+local CONNUS = {}
+for _, d in ipairs(FOREVER) do CONNUS[d[1]] = d end
 
--- Le niveau minimal pour entrer, et la tranche recommandée, tels que le jeu les donne (activités de la recherche de
--- groupe, catégorie donjons) : retrouvés par leur nom traduit. Lus une fois ; rien si l'API manque.
-local jeu
-local function InfosDuJeu ()
-	if jeu then return jeu end
-	jeu = {}
-	local L = C_LFGList
-	if not (L and L.GetAvailableActivities and L.GetActivityInfoTable) then return jeu end
-	local ok, ids = pcall(L.GetAvailableActivities, 2)
-	for _, id in ipairs(ok and ids or {}) do
-		local ok2, a = pcall(L.GetActivityInfoTable, id)
-		if ok2 and a and a.fullName then
-			jeu[#jeu + 1] = { nom = a.fullName, min = a.minLevel, de = a.minLevelSuggestion, a = a.maxLevelSuggestion }
-		end
+-- ce que le jeu dit d'une activité (nom traduit, tranche, niveau pour entrer), lu une fois par session
+local lus = {}
+local function DuJeu (activite)
+	if not activite then return nil end
+	if lus[activite] == nil then
+		local L = C_LFGList
+		local ok, a = false, nil
+		if L and L.GetActivityInfoTable then ok, a = pcall(L.GetActivityInfoTable, activite) end
+		lus[activite] = ok and type(a) == "table" and a.fullName and a or false
 	end
-	return jeu
+	return lus[activite] or nil
 end
 
-local function Plier (s) return Opus.Pli and Opus.Pli((s or ""):gsub("[%p%s]+", " ")) or (s or ""):lower() end
-
-local function DuJeu (nom)
-	local cle = Plier(nom)
-	for _, a in ipairs(InfosDuJeu()) do
-		if Plier(a.nom) == cle then return a end
-	end
-	return nil
-end
-
--- tous les donjons : { cle, nom, min, max, entree }, du plus bas au plus haut ; entree = niveau minimal pour entrer
+-- tous les donjons : { cle, nom, min, max, entree }, du plus bas au plus haut ; entree = niveau pour entrer, si le jeu en
+-- impose un
 function Opus.TousLesDonjons ()
-	local liste, vus = {}, {}
-	-- de Dungeon Journal, seulement les donjons de la liste (pas ses raids : Onyxia…), pour leurs noms traduits
-	for _, d in ipairs(Opus.Donjons()) do
-		if TRANCHES[d.cle] then liste[#liste + 1] = d vus[d.cle] = true end
-	end
-	for _, d in ipairs(FOREVER) do
-		if not vus[d[1]] then liste[#liste + 1] = { cle = d[1], nom = d[2], min = d[3], max = d[4] } end
-	end
-	for _, d in ipairs(liste) do
-		local t = TRANCHES[d.cle]
-		if t then d.min, d.max = t[1], t[2] end
-		local a = DuJeu(d.nom)
-		if a and a.min and a.min > 0 then d.entree = a.min end
+	local liste = {}
+	for _, x in ipairs(FOREVER) do
+		local d = { cle = x[1], nom = x[3], min = x[4], max = x[5], activite = x[2] }
+		local a = DuJeu(x[2])
+		if a then
+			d.nom = a.fullName
+			if (a.minLevelSuggestion or 0) > 0 and (a.maxLevelSuggestion or 0) >= a.minLevelSuggestion then d.min, d.max = a.minLevelSuggestion, a.maxLevelSuggestion end
+			if (a.minLevel or 0) > 0 then d.entree = a.minLevel end
+		end
+		liste[#liste + 1] = d
 	end
 	table.sort(liste, function (x, y) if x.min ~= y.min then return x.min < y.min end return x.nom < y.nom end)
 	return liste
 end
 
 Opus.Commande("diagdonjons", "diagdonjons", "les donjons tels que le jeu les donne (niveau d'entrée, tranche recommandée)", function ()
-	jeu = nil
-	local infos = InfosDuJeu()
+	lus = {}
 	-- tout part dans les données sauvegardées (OpusDB.diagDonjons), lisibles après un /reload : la liste est trop longue
 	-- pour la discussion
 	local sans = {}
-	for _, d in ipairs(Opus.TousLesDonjons()) do if not d.entree then sans[#sans + 1] = d.cle end end
+	for _, d in ipairs(FOREVER) do if not DuJeu(d[2]) then sans[#sans + 1] = d[1] end end
 	local brut = {}
 	local L = C_LFGList
 	if L and L.GetAvailableActivities and L.GetActivityInfoTable then
@@ -118,9 +105,9 @@ Opus.Commande("diagdonjons", "diagdonjons", "les donjons tels que le jeu les don
 			end
 		end
 	end
-	Opus.db.diagDonjons = { t = time(), version = Opus.version, activites = infos, brut = brut, sansEntree = sans,
+	Opus.db.diagDonjons = { t = time(), version = Opus.version, brut = brut, sansActivite = sans,
 		api = { C_LFGList = C_LFGList ~= nil, GetAvailableActivities = L and L.GetAvailableActivities ~= nil } }
-	Opus.Msg(("%d activité(s) de donjon lues dans le jeu, %d en tout ; %d donjon(s) sans niveau d'entrée reconnu. "):format(#infos, #brut, #sans)
+	Opus.Msg(("%d activité(s) lues dans le jeu ; %d donjon(s) de la liste sans activité reconnue. "):format(#brut, #sans)
 		.. "Détail enregistré : fais /reload pour l'écrire sur le disque.")
 end)
 

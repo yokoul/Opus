@@ -3,8 +3,11 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.24.3
+- Donjons : noms et tranches recommandées lus dans la recherche de groupe du jeu (ses activités, par leur numéro), avec un relevé du 19/11/2026 si le jeu ne répond pas. Ce sont les tranches du jeu (et de Dungeon Journal), pas celles du guide Wowhead, qui s'en écartent par endroits. Le jeu n'impose aucun niveau pour entrer. `/opus diagdonjons` enregistre ce que le jeu donne dans les données sauvegardées (visible après /reload).
+
 ## 0.24.2
-- Donjons : la liste des 35 donjons de Forever (dont les nouveaux : salle des Thanes, ruines de Lordaeron, Excavations des Paluns, Dalaran, cité Submergée, bastion Krol'dok, prison d'Alcaz, repaire des Noiregueules, terrasse du Façonneur), avec les tranches recommandées du guide Wowhead de Forever, y compris quand Dungeon Journal est installé ; plus de doublons venus du jeu d'origine ni de raids. Le niveau minimal pour entrer est lu dans le jeu quand il le donne (« entrée dès … ») ; `/opus diagdonjons` montre ce que le jeu en dit.
+- Donjons : la liste des 35 donjons de Forever (dont les nouveaux : salle des Thanes, ruines de Lordaeron, Excavations des Paluns, Dalaran, cité Submergée, bastion Krol'dok, prison d'Alcaz, repaire des Noiregueules, terrasse du Façonneur); plus de doublons venus du jeu d'origine ni de raids.
 - Monstres gris : la barre de niveaux montre en rouge la zone où les monstres du donjon deviennent gris (13 niveaux au-dessus de son maximum) ; les autres joueurs (ton groupe, ou les intéressés d'une envie) y ont leur repère, rouge s'ils feraient perdre l'XP à tout le groupe. Leur niveau passe aussi en rouge, avec l'explication dans la bulle.
 
 ## 0.24.1
