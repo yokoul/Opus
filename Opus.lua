@@ -1,7 +1,7 @@
 -- Opus.lua : socle de l'addon (base de données, liste de guilde, commandes)
 local ADDON, Opus = ...
 _G.Opus = Opus
-Opus.version = "0.20.2"
+Opus.version = "0.21.0"
 
 local DEFAUTS = {
 	dureeEssai = { Apprenti = 14, Aspirant = 14 },
@@ -11,6 +11,7 @@ local DEFAUTS = {
 	page = "essais",            -- dernier onglet ouvert de la fenêtre
 	configs = {},               -- [guilde] = grille de la guilde (Config.lua)
 	vus = {},                   -- [membre] = première fois que l'addon l'a vu dans la guilde
+	classes = {},               -- [membre] = sa classe, gardée après son départ (blasons du calendrier)
 	alts = {},                  -- [personnage] = son joueur (le premier de ses personnages) : Cotisation.lua
 	discord = {},               -- [guilde] = qui joue quels personnages, importé du bot Discord (Lien.lua)
 	notes = {},                 -- [guilde] = { pub, off } : notes publiques et d'officier de l'addon (Notes.lua)
@@ -77,6 +78,7 @@ function Opus.Membres ()
 			end
 			if Opus.db then
 				Opus.db.vus[m.nom] = Opus.db.vus[m.nom] or time()
+				if classe then Opus.db.classes[m.nom] = classe end
 				m.vu = Opus.db.vus[m.nom]
 			end
 		end

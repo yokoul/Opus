@@ -11,7 +11,7 @@ local PERSOS_MAX = 8                   -- persos du même joueur montrés dans l
 
 local VUES = {
 	{ "voies", "Membres par voie" }, { "enligne", "Membres en ligne" },
-	{ "tout", "Journal : tout" }, { "mouvements", "Journal : arrivées et départs" }, { "grades", "Journal : grades" },
+	{ "tout", "Journal : tout" }, { "mouvements", "Arrivées et départs (calendrier)" }, { "grades", "Journal : grades" },
 }
 local JOURNAL = { tout = true, mouvements = true, grades = true }
 
@@ -293,6 +293,16 @@ local function Rafraichir (cadre)
 	cadre.retour:SetShown(fiche ~= nil)
 	cadre.vue:SetShown(fiche == nil)
 	cadre.fiche:SetShown(fiche ~= nil)
+	-- les arrivées et départs : en calendrier (Calendrier.lua)
+	local calendrier = not fiche and vue == "mouvements"
+	cadre.calendrier:SetShown(calendrier)
+	if calendrier then
+		for i = 1, LIGNES do lignes[i]:Hide() end
+		cadre.ascenseur:Hide()
+		cadre.vide:Hide()
+		cadre.info:SetText("")
+		return cadre.calendrier.Rafraichir()
+	end
 	if fiche then
 		for i = 1, LIGNES do lignes[i]:Hide() end
 		cadre.ascenseur:Hide()
@@ -402,6 +412,9 @@ local function Construire (cadre, barre)
 	cadre.vide = cadre:CreateFontString(nil, "OVERLAY", "GameFontDisable")
 	cadre.vide:SetPoint("TOPLEFT", 4, -4)
 	cadre.vide:SetText("Rien à afficher pour l'instant.")
+
+	cadre.calendrier = Opus.Calendrier(cadre, largeur, function (nom) fiche, tousNiveaux = nom, false Opus.Rafraichir() end)
+	cadre.calendrier:Hide()
 
 	-- la fiche
 	local f = CreateFrame("Frame", nil, cadre)

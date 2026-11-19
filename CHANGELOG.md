@@ -3,6 +3,9 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.21.0
+- Guilde : **arrivées et départs en calendrier**, comme celui du jeu. Une case par jour avec le blason de classe de ceux qui arrivent (ligne verte) et de ceux qui partent (ligne rouge), le total du mois, et le détail du jour choisi en dessous (un clic sur un membre ouvre sa fiche). L'addon retient désormais la classe de chaque membre vu, pour garder son blason après son départ.
+
 ## 0.20.2
 - Onglets dans l'ordre : Guilde, Roster, Groupe, Banque, Grades, Essais, Réglages, À propos.
 
