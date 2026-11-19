@@ -292,32 +292,56 @@ function Opus.PublierEnvie (x)
 	if Opus.Rafraichir then Opus.Rafraichir() end
 end
 
--- modifie sa propre envie (rôles, créneau) et la repartage ; elle couvre tous ses donjons
-function Opus.ModifierEnvie (id, champs)
+-- une version modifiée de sa propre envie, partagée (même identifiant, plus récente)
+local function Republier (e, champs)
 	local d = Donnees()
-	local e = d and d[id]
-	if not e or e.par ~= Opus.MonNom() then return end
 	local nouvelle = Opus.Copie(e)
 	for k, v in pairs(champs) do nouvelle[k] = v end
 	if champs.roles == false then nouvelle.roles = Opus.MesRoles() end
 	nouvelle.m = math.max(time(), e.m + 1)
 	if champs.creneau then nouvelle.fin = math.max(e.fin, Opus.FinEnvie(Opus.DureePourCreneau(champs.creneau))) end
-	d[id] = nouvelle
+	if nouvelle.fin <= nouvelle.m then d[e.id] = nil else d[e.id] = nouvelle end
 	Envoyer(nouvelle)
+	return nouvelle
+end
+
+-- sa propre envie, sans ce donjon-là (elle en couvre d'autres) ; renvoie false si c'était son seul donjon
+local function Detacher (e, cle)
+	if #e.donjons <= 1 then return false end
+	local reste = {}
+	for _, c in ipairs(e.donjons) do if c ~= cle then reste[#reste + 1] = c end end
+	Republier(e, { donjons = reste })
+	return true
+end
+
+local function Apres ()
 	if Opus.VerifierGroupes then Opus.VerifierGroupes() end
 	if Opus.Rafraichir then Opus.Rafraichir() end
 end
 
-function Opus.RetirerEnvie (id)
+-- modifie sa propre envie (rôles, créneau). Avec cle, pour ce donjon seulement : si l'envie en couvre plusieurs, ce
+-- donjon en est détaché et devient une envie à lui (même raison, même note), les autres gardent l'envie d'origine.
+function Opus.ModifierEnvie (id, champs, cle)
 	local d = Donnees()
 	local e = d and d[id]
 	if not e or e.par ~= Opus.MonNom() then return end
-	local retiree = Opus.Copie(e)
-	retiree.m = math.max(time(), e.m + 1)
-	retiree.fin = retiree.m
-	d[id] = nil
-	Envoyer(retiree)
-	if Opus.Rafraichir then Opus.Rafraichir() end
+	if cle and Detacher(e, cle) then
+		local seule = Opus.Copie(e)
+		seule.id, seule.donjons = Opus.NouvelId(), { cle }
+		Republier(seule, champs)
+	else
+		Republier(e, champs)
+	end
+	Apres()
+end
+
+-- retire sa propre envie ; avec cle, ce donjon seulement (les autres restent)
+function Opus.RetirerEnvie (id, cle)
+	local d = Donnees()
+	local e = d and d[id]
+	if not e or e.par ~= Opus.MonNom() then return end
+	if not (cle and Detacher(e, cle)) then Republier(e, { fin = math.max(time(), e.m + 1) }) end
+	Apres()
 end
 
 ------------------------------------------------------------------------

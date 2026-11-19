@@ -345,20 +345,20 @@ local function Carte (v, largeur)
 			local tous = #actuels ~= 1
 			if #mes > 1 then
 				racine:CreateTitle("Je viens en")
-				racine:CreateRadio("Tous mes rôles", function () return tous end, function () Opus.ModifierEnvie(mienne.id, { roles = false }) return garder end)
+				racine:CreateRadio("Tous mes rôles", function () return tous end, function () Opus.ModifierEnvie(mienne.id, { roles = false }, c.donjon.cle) end)
 				for _, r in ipairs(mes) do
-					racine:CreateRadio(NomRole(r), function () return not tous and actuels[1] == r end, function () Opus.ModifierEnvie(mienne.id, { roles = r }) return garder end)
+					racine:CreateRadio(NomRole(r), function () return not tous and actuels[1] == r end, function () Opus.ModifierEnvie(mienne.id, { roles = r }, c.donjon.cle) end)
 				end
 				racine:CreateDivider()
 			end
 			racine:CreateTitle("Disponible")
 			for _, cr in ipairs(Opus.CRENEAUX) do
 				if cr[1] ~= "autre" then
-					racine:CreateRadio(cr[2], function () return mienne.creneau == cr[1] end, function () Opus.ModifierEnvie(mienne.id, { creneau = cr[1] }) end)
+					racine:CreateRadio(cr[2], function () return mienne.creneau == cr[1] end, function () Opus.ModifierEnvie(mienne.id, { creneau = cr[1] }, c.donjon.cle) end)
 				end
 			end
 			racine:CreateDivider()
-			racine:CreateButton("Retirer mon envie", function () Opus.RetirerEnvie(mienne.id) end)
+			racine:CreateButton("Retirer mon envie pour ce donjon", function () Opus.RetirerEnvie(mienne.id, c.donjon.cle) end)
 			return
 		end
 		-- sinon « Moi aussi » : d'abord le rôle, si on en joue plusieurs (le menu reste ouvert), puis le créneau, qui publie
@@ -407,7 +407,7 @@ local function Carte (v, largeur)
 		l.action = Opus.Bouton(l, "Écrire", 64, function ()
 			local e = l.envie
 			if not e then return end
-			if e.par == Opus.MonNom() then Opus.RetirerEnvie(e.id) else Chuchoter(e.par) end
+			if e.par == Opus.MonNom() then Opus.RetirerEnvie(e.id, c.donjon and c.donjon.cle) else Chuchoter(e.par) end
 		end, true)
 		l.action:SetPoint("RIGHT", 0, 0) l.action:SetHeight(16)
 		Opus.Bulle(l, function (self) return self.envie and self.envie.par end, function (self)
