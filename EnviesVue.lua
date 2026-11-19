@@ -42,7 +42,7 @@ local function ConstruireFormulaire ()
 	f = CreateFrame("Frame", "OpusEnvie", UIParent, "ButtonFrameTemplate")
 	ButtonFrameTemplate_HidePortrait(f)
 	ButtonFrameTemplate_HideButtonBar(f)
-	f:SetSize(460, 360) f:SetPoint("CENTER") f:SetFrameStrata("DIALOG") f:SetToplevel(true)
+	f:SetSize(460, 400) f:SetPoint("CENTER") f:SetFrameStrata("DIALOG") f:SetToplevel(true)
 	f:EnableMouse(true) f:SetMovable(true) f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)
 	f:SetTitle("J'ai besoin d'un donjon")
@@ -118,13 +118,35 @@ local function ConstruireFormulaire ()
 	f.duree:SetPoint("TOPLEFT", X, y)
 	y = y - 34
 
-	f.roles = z:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	-- le rôle (ou les rôles) avec lequel on vient : ceux qu'on sait jouer, tous cochés par défaut
+	Libelle("Je viens en")
+	f.casesRoles = {}
+	f.casesRoles.ancre = CreateFrame("Frame", nil, z)
+	f.casesRoles.ancre:SetSize(1, 1) f.casesRoles.ancre:SetPoint("TOPLEFT", X - 4, y)
+	for i, r in ipairs { "tank", "soin", "degats" } do
+		local c = CreateFrame("CheckButton", nil, z, "UICheckButtonTemplate")
+		c:SetSize(24, 24) c:SetPoint("TOPLEFT", X - 4 + (i - 1) * 100, y)
+		local t = c.Text or c.text
+		if t then t:SetText(CreateAtlasMarkup(ATLAS_ROLES[r], 14, 14) .. " " .. (r == "tank" and "Tank" or r == "soin" and "Soigneur" or "Dégâts")) t:SetFontObject("GameFontHighlightSmall") end
+		c:SetScript("OnClick", function (self)
+			-- au moins un rôle reste coché
+			local un = false
+			for _, k in ipairs { "tank", "soin", "degats" } do if f.casesRoles[k]:GetChecked() then un = true end end
+			if not un then self:SetChecked(true) end
+		end)
+		f.casesRoles[r] = c
+	end
+	y = y - 30
+	f.roles = z:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	f.roles:SetPoint("TOPLEFT", 14, y - 4) f.roles:SetWidth(420) f.roles:SetJustifyH("LEFT")
 
 	local publier = Opus.Bouton(z, "Publier", 130, function ()
 		if #saisie.donjons == 0 then Opus.Msg("choisis au moins un donjon.") return end
 		saisie.note = strtrim(f.note:GetText() or "")
 		saisie.precision = strtrim(f.precision:GetText() or "")
+		local roles = {}
+		for _, r in ipairs { "tank", "soin", "degats" } do if f.casesRoles[r]:IsShown() and f.casesRoles[r]:GetChecked() then roles[#roles + 1] = r end end
+		saisie.roles = #roles > 0 and table.concat(roles, ",") or nil
 		Opus.PublierEnvie(saisie)
 		f:Hide()
 	end)
@@ -143,10 +165,19 @@ function Opus.EditerEnvie (cle, creneau)
 	f.note:SetText("") f.precision:SetText("")
 	f.donjons:OverrideText(Choisis())
 	f.creneau:GenerateMenu() f.duree:GenerateMenu()
-	local roles = {}
-	for _, r in ipairs(Opus.ListeRoles(Opus.MesRoles())) do roles[#roles + 1] = NOMS_ROLES[r] end
-	f.roles:SetText(Opus.Normal("Tes rôles : ") .. (#roles > 0 and table.concat(roles, ", ") or Opus.Gris("inconnus"))
-		.. Opus.Gris("  · à régler dans l'onglet Réglages"))
+	-- les rôles qu'on sait jouer (onglet Réglages), tous cochés ; sans rôle connu, les trois
+	local mesRoles = Opus.ListeRoles(Opus.MesRoles())
+	local connus = {}
+	for _, r in ipairs(mesRoles) do connus[r] = true end
+	local x = 0
+	for _, r in ipairs { "tank", "soin", "degats" } do
+		local c = f.casesRoles[r]
+		local montrer = #mesRoles == 0 or connus[r]
+		c:SetShown(montrer) c:SetChecked(montrer)
+		if montrer then c:ClearAllPoints() c:SetPoint("TOPLEFT", f.casesRoles.ancre, "TOPLEFT", x, 0) x = x + 100 end
+	end
+	f.roles:SetText(#mesRoles > 1 and "Décoche pour ne venir que dans un rôle. Tes rôles se règlent dans l'onglet Réglages."
+		or "Tes rôles se règlent dans l'onglet Réglages (plusieurs possibles).")
 	f:Show()
 	if creneau == "autre" then f.precision:SetFocus() end
 end
@@ -304,12 +335,27 @@ local function Carte (v, largeur)
 	c.moiAussi:SetWidth(110) c.moiAussi:SetPoint("TOPRIGHT", -10, -10)
 	c.moiAussi:SetDefaultText("Moi aussi")
 	c.moiAussi:SetupMenu(function (_, racine)
+		-- d'abord le rôle, si on en joue plusieurs (le menu reste ouvert), puis le créneau, qui publie
+		local mes = Opus.ListeRoles(Opus.MesRoles())
+		if #mes > 1 then
+			c.roleChoisi = c.roleChoisi or "tous"
+			local garder = MenuResponse and MenuResponse.Refresh
+			racine:CreateTitle("Je viens en")
+			racine:CreateRadio("Tous mes rôles", function () return c.roleChoisi == "tous" end, function () c.roleChoisi = "tous" return garder end)
+			for _, r in ipairs(mes) do
+				racine:CreateRadio(CreateAtlasMarkup(ATLAS_ROLES[r], 14, 14) .. " " .. (r == "tank" and "Tank" or r == "soin" and "Soigneur" or "Dégâts"),
+					function () return c.roleChoisi == r end, function () c.roleChoisi = r return garder end)
+			end
+			racine:CreateDivider()
+			racine:CreateTitle("Disponible")
+		end
 		for _, cr in ipairs(Opus.CRENEAUX) do
 			racine:CreateButton(cr[2], function ()
 				local cle = c.donjon and c.donjon.cle
 				if not cle then return end
 				if cr[1] == "autre" then Opus.EditerEnvie(cle, "autre") return end
-				Opus.PublierEnvie({ donjons = { cle }, pourquoi = {}, creneau = cr[1], duree = Opus.DureePourCreneau(cr[1]), suite = true })
+				local role = c.roleChoisi and c.roleChoisi ~= "tous" and c.roleChoisi or nil
+				Opus.PublierEnvie({ donjons = { cle }, pourquoi = {}, creneau = cr[1], duree = Opus.DureePourCreneau(cr[1]), suite = true, roles = role })
 			end)
 		end
 	end)

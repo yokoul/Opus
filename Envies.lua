@@ -272,7 +272,7 @@ function Opus.PublierEnvie (x)
 	local e = {
 		id = Opus.NouvelId(), par = Opus.MonNom(), m = time(), fin = Opus.FinEnvie(x.duree),
 		donjons = {}, pourquoi = x.pourquoi or {},
-		creneau = x.creneau or "maintenant", precision = x.precision, note = x.note, roles = Opus.MesRoles(), suite = x.suite,
+		creneau = x.creneau or "maintenant", precision = x.precision, note = x.note, roles = x.roles or Opus.MesRoles(), suite = x.suite,
 	}
 	for i = 1, math.min(#x.donjons, DONJONS_MAX) do e.donjons[i] = x.donjons[i] end
 	-- elle remplace ses envies précédentes qui ne portaient que sur ces donjons-là (un nouveau créneau, pas un doublon)

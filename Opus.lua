@@ -1,7 +1,7 @@
 -- Opus.lua : socle de l'addon (base de données, liste de guilde, commandes)
 local ADDON, Opus = ...
 _G.Opus = Opus
-Opus.version = "0.24.5"
+Opus.version = "0.24.6"
 
 local DEFAUTS = {
 	dureeEssai = { Apprenti = 14, Aspirant = 14 },
