@@ -1,4 +1,4 @@
--- PageRegistre.lua : les vues « Prêts » et « Remises » de l'onglet Banque (Registre.lua), et leur petit formulaire
+-- PageRegistre.lua : les vues « Prêts » et « Sorties » de l'onglet Banque (Registre.lua), et leur petit formulaire
 local _, Opus = ...
 
 local HAUTEUR = 20
@@ -120,7 +120,7 @@ local function FormulaireRemboursement (p)
 end
 
 local function FormulaireRemise (a)
-	Formulaire(("Remise : %s"):format(a.e.o or "objet"), {
+	Formulaire(("Sortie : %s"):format(a.e.o or "objet"), {
 		{ "dest", "Remis à", "", "Le joueur, ou un autre de tes personnages." },
 		{ "n", "Quantité", tostring(a.reste), ("Encore %d à remettre."):format(a.reste) },
 		{ "via", "Comment", "main", nil, { { "main", "En main propre" }, { "courrier", "Par courrier" }, { "echange", "Par échange" } } },
@@ -250,7 +250,7 @@ function Opus.ConstruireRegistre (parent, largeur)
 		r.attente[i] = l
 	end
 	r.titre = Opus.Section(r)
-	r.titre:SetText("Remises")
+	r.titre:SetText("Sorties d'objets")
 	r.entetes = CreateFrame("Frame", nil, r)
 	r.entetes:SetSize(largeur, 16)
 	Entetes(r.entetes, COL_REMISES, 0)
@@ -264,17 +264,17 @@ function Opus.ConstruireRegistre (parent, largeur)
 		end)
 		l:SetScript("OnClick", function (self)
 			if not Opus.PeutConfigurer() and self.x.de ~= Opus.MonNom() then return end
-			Contexte(self, self.x.o or "objet", { { "Supprimer cette remise", function () Opus.Supprimer(self.x) end } })
+			Contexte(self, self.x.o or "objet", { { "Supprimer cette sortie", function () Opus.Supprimer(self.x) end } })
 		end)
 		r.lignes[i] = l
 	end
 	r.ascenseur = Opus.Ascenseur(r, function (d) decalageRemises = d Opus.Rafraichir() end)
 	r.vide = r:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-	r.vide:SetText("Aucune remise notée.")
+	r.vide:SetText("Aucune sortie notée.")
 	r.aide = r:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	r.aide:SetWidth(largeur - 4) r.aide:SetJustifyH("LEFT")
 	r.aide:SetText("Un objet retiré de la banque puis envoyé par courrier ou par échange est noté tout seul, à qui que ce soit, "
-		.. "un autre de tes personnages compris. Pour une remise en main propre ou que l'addon n'a pas vue : « Remis à… » ci-dessus. "
+		.. "un autre de tes personnages compris. Pour un objet remis en main propre, ou que l'addon n'a pas vue : « Remis à… » ci-dessus. "
 		.. "Visible de toute la guilde.")
 	return v
 end
@@ -319,7 +319,7 @@ end
 
 local function RafraichirRemises (r, info)
 	local attente, remises = Opus.RetraitsEnAttente(), Opus.Remises()
-	info:SetText(("%d remise(s) notée(s)"):format(#remises))
+	info:SetText(("%d sortie(s) notée(s)"):format(#remises))
 	local y = 4
 	r.titreAttente:SetShown(#attente > 0)
 	if #attente > 0 then

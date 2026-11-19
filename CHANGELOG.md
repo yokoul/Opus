@@ -3,6 +3,9 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.25.4
+- Banque : la vue « Remises » devient « Sorties » (sorties d'objets), « remise » prêtant à confusion avec une réduction.
+
 ## 0.25.3
 - Banque : un onglet payé avec l'or de la guilde était compté deux fois (le jeu inscrit le retrait pour l'onglet, puis l'achat). Seul l'achat compte ; les relevés de la 0.25.1 sont oubliés et relus au prochain passage à la banque.
 - `/opus diagbanque` (banque ouverte) affiche le solde et le journal de l'or tel que le jeu le donne.

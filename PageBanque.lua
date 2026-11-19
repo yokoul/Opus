@@ -148,8 +148,8 @@ end
 local function Construire (cadre, barre)
 	local largeur = Opus.LARGEUR - 30
 
-	-- la vue : participation de chacun, prêts, remises d'objets
-	cadre.vue = Opus.Menu(barre, 130, { { "participation", "Participation" }, { "prets", "Prêts" }, { "remises", "Remises" } },
+	-- la vue : participation de chacun, prêts, sorties d'objets
+	cadre.vue = Opus.Menu(barre, 130, { { "participation", "Participation" }, { "prets", "Prêts" }, { "remises", "Sorties" } },
 		function () return vue end,
 		function (v) vue = v Opus.Rafraichir() end)
 	cadre.vue:SetPoint("LEFT", 0, 0)

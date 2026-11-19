@@ -399,7 +399,7 @@ local function Donnes (dest, objets, via)
 	end
 	if #notes > 0 then
 		local m = Opus.MembreDe(dest)
-		Msg(("remise notée : %s à %s."):format(table.concat(notes, ", "), m and m.nom or dest))
+		Msg(("sortie notée : %s remis à %s."):format(table.concat(notes, ", "), m and m.nom or dest))
 	end
 end
 
