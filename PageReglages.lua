@@ -198,14 +198,14 @@ local function Construire (cadre, barre)
 
 	-- les diagnostics
 	Section("Diagnostics")
-	Libelle("Résultats dans la discussion, pour signaler un problème.")
+	Libelle("Relevés", "Résultats dans la discussion, pour signaler un problème.")
 	local px = X_CONTROLE
 	for _, d in ipairs { { "Banque", "diagbanque" }, { "Droits", "diag" }, { "Spé", "diagspe" } } do
 		local b = Opus.Bouton(cadre, d[1], 90, function () Commande(d[2]) end)
 		b:SetPoint("TOPLEFT", px, y)
 		px = px + 98
 	end
-	Ligne(34)
+	Ligne(40)
 	cadre.hauteur = -y + 8
 end
 
