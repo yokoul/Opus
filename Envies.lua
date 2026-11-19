@@ -99,13 +99,29 @@ end
 Opus.Commande("diagdonjons", "diagdonjons", "les donjons tels que le jeu les donne (niveau d'entrée, tranche recommandée)", function ()
 	jeu = nil
 	local infos = InfosDuJeu()
-	Opus.Msg(#infos .. " activité(s) de donjon lues dans le jeu :")
-	for _, a in ipairs(infos) do
-		DEFAULT_CHAT_FRAME:AddMessage(("  %s : entrée %s, recommandé %s-%s"):format(a.nom, tostring(a.min), tostring(a.de), tostring(a.a)))
-	end
+	-- tout part dans les données sauvegardées (OpusDB.diagDonjons), lisibles après un /reload : la liste est trop longue
+	-- pour la discussion
 	local sans = {}
-	for _, d in ipairs(Opus.TousLesDonjons()) do if not d.entree then sans[#sans + 1] = d.nom end end
-	if #sans > 0 then DEFAULT_CHAT_FRAME:AddMessage("  sans niveau d'entrée reconnu : " .. table.concat(sans, ", ")) end
+	for _, d in ipairs(Opus.TousLesDonjons()) do if not d.entree then sans[#sans + 1] = d.cle end end
+	local brut = {}
+	local L = C_LFGList
+	if L and L.GetAvailableActivities and L.GetActivityInfoTable then
+		for _, categorie in ipairs { 1, 2, 3 } do
+			local ok, ids = pcall(L.GetAvailableActivities, categorie)
+			for _, id in ipairs(ok and ids or {}) do
+				local ok2, a = pcall(L.GetActivityInfoTable, id)
+				if ok2 and type(a) == "table" then
+					local copie = { id = id, categorie = categorie }
+					for k, v in pairs(a) do if type(v) ~= "table" and type(v) ~= "function" then copie[k] = v end end
+					brut[#brut + 1] = copie
+				end
+			end
+		end
+	end
+	Opus.db.diagDonjons = { t = time(), version = Opus.version, activites = infos, brut = brut, sansEntree = sans,
+		api = { C_LFGList = C_LFGList ~= nil, GetAvailableActivities = L and L.GetAvailableActivities ~= nil } }
+	Opus.Msg(("%d activité(s) de donjon lues dans le jeu, %d en tout ; %d donjon(s) sans niveau d'entrée reconnu. "):format(#infos, #brut, #sans)
+		.. "Détail enregistré : fais /reload pour l'écrire sur le disque.")
 end)
 
 function Opus.DonjonDe (cle)
