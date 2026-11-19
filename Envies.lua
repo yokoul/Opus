@@ -478,23 +478,9 @@ function Opus.VerifierGroupes ()
 		if complet and moiDedans and prevenus[cle] ~= signature and Opus.db.notifEnvies ~= "aucune" then
 			prevenus[cle] = signature
 			Opus.Notification("Groupe complet possible", Opus.Blanc(Opus.DonjonDe(cle).nom) .. " : tank, soigneur et dégâts sont disponibles maintenant.\n"
-				.. Opus.Gris("Clic : former le groupe."), function () Opus.FormerDepuisEnvie(cle) end)
+				.. Opus.Gris("Clic : voir la carte, et inviter les dispo."), function () Opus.OuvrirEnvies() end)
 		end
 	end
-end
-
--- remplit le panneau de groupe avec les joueurs disponibles pour ce donjon
-function Opus.FormerDepuisEnvie (cle)
-	local dispo, places = Opus.CompositionPossible(cle)
-	local d = Opus.DonjonDe(cle)
-	Opus.ViderGroupe()
-	if d.min then Opus.ChoisirDonjon(d) end
-	for i = 1, #Opus.PLACES do if places[i] then Opus.groupe.places[i] = places[i] end end
-	for _, j in ipairs(dispo) do
-		local m = Opus.TrouverMembre(j.nom)
-		if m then Opus.AjouterAuGroupe(m) end
-	end
-	Opus.OuvrirGroupe()
 end
 
 ------------------------------------------------------------------------

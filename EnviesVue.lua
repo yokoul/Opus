@@ -406,9 +406,19 @@ local function Carte (v, largeur)
 			racine:CreateButton("Clore pour mon groupe", function () Opus.DonjonFait(c.donjon.cle) end)
 		end
 	end)
-	c.former = Opus.Bouton(c, "Former le groupe", 110, function () if c.donjon then Opus.FormerDepuisEnvie(c.donjon.cle) end end, true)
-	c.former:SetPoint("TOPRIGHT", c.moiAussi, "BOTTOMRIGHT", 0, -6)
-	Opus.Bulle(c.former, "Former le groupe", "Remplit le panneau de groupe avec ceux qui sont disponibles maintenant et en ligne.")
+	-- inviter ceux qui sont disponibles maintenant, depuis la carte : /invite dans un bouton sécurisé (comme « Ton groupe »)
+	c.inviter = Opus.BoutonSecurise(c, 110, function (self)
+		GameTooltip:SetText("Inviter les dispo")
+		if #self.noms == 0 then
+			GameTooltip:AddLine("Personne d'autre n'est disponible maintenant et en ligne.", 1, 1, 1, true)
+		else
+			GameTooltip:AddLine("Invite ceux qui sont disponibles maintenant et en ligne, la composition d'abord :", 1, 1, 1, true)
+			for _, nom in ipairs(self.noms) do GameTooltip:AddLine(nom, 0.5, 0.5, 0.5) end
+		end
+	end)
+	c.inviter:SetText("Inviter les dispo")
+	c.inviter:SetPoint("TOPRIGHT", c.moiAussi, "BOTTOMRIGHT", 0, -6)
+	c.inviter.noms = {}
 
 	-- les joueurs intéressés, une ligne chacun sous l'en-tête
 	c.joueurs = {}
@@ -498,7 +508,21 @@ local function RemplirCarte (c, g)
 	c.etat:SetText(#g.dispo == 0 and Opus.Gris(#g.envies .. " intéressé(s) · personne de dispo")
 		or manque == 0 and Opus.Vert("Groupe complet possible maintenant !")
 		or (Opus.Vert(#g.dispo .. " disponible(s) maintenant") .. Opus.Gris(" · " .. #g.envies .. " intéressé(s)")))
-	c.former:SetEnabled(#g.dispo >= 2)
+	-- les invités : la composition d'abord, puis les autres disponibles, quatre au plus (on est le cinquième)
+	local noms, pris = {}, { [moi] = true }
+	local function Ajouter (nom)
+		if nom and not pris[nom] and #noms < #Opus.PLACES - 1 and not UnitInParty(nom) then noms[#noms + 1] = nom end
+		if nom then pris[nom] = true end
+	end
+	for i = 1, #Opus.PLACES do Ajouter(g.places[i]) end
+	for _, j in ipairs(g.dispo) do Ajouter(j.nom) end
+	c.inviter.noms = noms
+	if not InCombatLockdown() then
+		local lignes = {}
+		for _, nom in ipairs(noms) do lignes[#lignes + 1] = "/invite " .. nom end
+		c.inviter:SetAttribute("macrotext", table.concat(lignes, "\n"))
+		c.inviter:SetEnabled(#noms > 0)
+	end
 	-- le menu : « Mon envie » si on en a une sur ce donjon, sinon « Moi aussi » ; jamais le rôle choisi en titre
 	c.mienne = nil
 	for _, e in ipairs(g.envies) do if e.par == moi then c.mienne = e end end

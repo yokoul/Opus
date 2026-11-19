@@ -1,7 +1,7 @@
 -- PageGroupe.lua : l'onglet Groupe, une seule page qui défile. En haut, « Ton groupe » : le donjon (et sa tranche de
 -- niveaux face au sien), les cinq places, ce qui manque, l'alerte d'XP, inviter et annoncer ; replié en une ligne tant
--- qu'on y est seul. Puis les envies de donjon de la guilde, une carte par donjon (Envies.lua, EnviesVue.lua), dont
--- « Former le groupe » remplit la carte du haut. Enfin les membres en ligne à sa portée : un clic les place, « Écrire »
+-- qu'on y est seul ; il sert à monter un groupe à la main. Puis les envies de donjon de la guilde, une carte par donjon
+-- (Envies.lua, EnviesVue.lua), qui invite elle-même ceux qui sont disponibles. Enfin les membres en ligne à sa portée : un clic les place, « Écrire »
 -- ouvre un chuchotement tout prêt, « Proposer » ouvre une fenêtre chez ceux qui ont l'addon (Invitation.lua).
 local _, Opus = ...
 
