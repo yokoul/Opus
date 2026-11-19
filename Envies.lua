@@ -15,6 +15,9 @@ Opus.CRENEAUX = { { "maintenant", "Maintenant" }, { "soir", "Ce soir" }, { "week
 Opus.DUREES_ENVIE = { { "soir", "Jusqu'à ce soir" }, { "24h", "24 heures" }, { "3j", "3 jours" }, { "7j", "7 jours" } }
 Opus.POURQUOI = { { "quetes", "Quêtes" }, { "objets", "Objets" }, { "xp", "Expérience" } }
 local BITS = { quetes = 1, objets = 2, xp = 4 }
+-- « PL accepté » : le groupe veut bien d'un grand (un 60…) pour le booster, quitte à perdre l'XP des monstres ; dans le
+-- même champ que les raisons, un bit que les versions d'avant ignorent
+local BIT_PL = 8
 local NOMS_CRENEAUX = {}
 for _, c in ipairs(Opus.CRENEAUX) do NOMS_CRENEAUX[c[1]] = c[2] end
 
@@ -118,7 +121,7 @@ end
 
 ------------------------------------------------------------------------
 -- les envies : db.envies[guilde][id] = { id, par, m, fin, donjons = { cle }, pourquoi = { quetes = true }, creneau,
--- precision, note, roles, suite }
+-- precision, note, roles, suite, pl }
 ------------------------------------------------------------------------
 
 local function Donnees ()
@@ -155,6 +158,14 @@ function Opus.DureePourCreneau (creneau)
 	return (creneau == "maintenant" or creneau == "soir") and "soir" or "3j"
 end
 
+-- un donjon où une envie accepte le PL : un grand y est bienvenu pour booster
+function Opus.PLAccepte (cle)
+	for _, e in ipairs(Opus.Envies()) do
+		if e.pl then for _, c in ipairs(e.donjons) do if c == cle then return true end end end
+	end
+	return false
+end
+
 -- est-il disponible maintenant ? (« maintenant » vaut deux heures)
 function Opus.DispoMaintenant (e) return e.creneau == "maintenant" and time() - e.m <= MAINTENANT end
 
@@ -184,6 +195,7 @@ end
 local function Encoder (e)
 	local bits = 0
 	for cle, b in pairs(BITS) do if e.pourquoi[cle] then bits = bits + b end end
+	if e.pl then bits = bits + BIT_PL end
 	local donjons = {}
 	for _, cle in ipairs(e.donjons) do donjons[#donjons + 1] = (Opus.MotMsg(cle, 40):gsub(",", " ")) end
 	local debut = table.concat({ "V", e.id, Opus.MotMsg(e.par, 48), e.m, e.fin, table.concat(donjons, ","), bits, e.creneau,
@@ -204,6 +216,7 @@ local function Notifier (e)
 	local detail = { Opus.TexteCreneau(e) }
 	local pourquoi = Opus.TextePourquoi(e)
 	if pourquoi ~= "" then detail[#detail + 1] = pourquoi end
+	if e.pl then detail[#detail + 1] = "PL accepté" end
 	Opus.Notification(e.suite and "Partant pour un donjon" or "Envie de donjon",
 		nom .. (e.suite and " est partant pour " or " cherche ") .. Opus.Blanc(table.concat(donjons, ", ")) .. "\n" .. Opus.Gris(table.concat(detail, " · ")),
 		function () Opus.OuvrirEnvies() end)
@@ -235,6 +248,7 @@ Opus.recepteurs.V = function (_, champs, expediteur, canal)
 	for cle in donjons:gmatch("[^,]+") do if #e.donjons < DONJONS_MAX then e.donjons[#e.donjons + 1] = cle end end
 	if #e.donjons == 0 then return end
 	for cle, b in pairs(BITS) do if bit.band(bits, b) ~= 0 then e.pourquoi[cle] = true end end
+	e.pl = bit.band(bits, BIT_PL) ~= 0 or nil
 	local r = table.concat(Opus.ListeRoles(roles), ",")
 	e.roles = r ~= "" and r or nil
 	-- seul l'auteur publie ou retire son envie ; les autres ne font que la renvoyer telle quelle (rattrapage)
@@ -266,13 +280,14 @@ function Opus.MesRoles ()
 	return #liste > 0 and table.concat(liste, ",") or nil
 end
 
--- publie une envie : { donjons, pourquoi, creneau, precision, note, duree, suite }
+-- publie une envie : { donjons, pourquoi, creneau, precision, note, duree, suite, pl }
 function Opus.PublierEnvie (x)
 	if not IsInGuild() or #x.donjons == 0 then return end
 	local e = {
 		id = Opus.NouvelId(), par = Opus.MonNom(), m = time(), fin = Opus.FinEnvie(x.duree),
 		donjons = {}, pourquoi = x.pourquoi or {},
 		creneau = x.creneau or "maintenant", precision = x.precision, note = x.note, roles = x.roles or Opus.MesRoles(), suite = x.suite,
+		pl = x.pl or nil,
 	}
 	for i = 1, math.min(#x.donjons, DONJONS_MAX) do e.donjons[i] = x.donjons[i] end
 	-- elle remplace ses envies précédentes qui ne portaient que sur ces donjons-là (un nouveau créneau, pas un doublon)
@@ -298,6 +313,7 @@ local function Republier (e, champs)
 	local nouvelle = Opus.Copie(e)
 	for k, v in pairs(champs) do nouvelle[k] = v end
 	if champs.roles == false then nouvelle.roles = Opus.MesRoles() end
+	if champs.pl == false then nouvelle.pl = nil end
 	nouvelle.m = math.max(time(), e.m + 1)
 	if champs.creneau then nouvelle.fin = math.max(e.fin, Opus.FinEnvie(Opus.DureePourCreneau(champs.creneau))) end
 	if nouvelle.fin <= nouvelle.m then d[e.id] = nil else d[e.id] = nouvelle end

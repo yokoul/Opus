@@ -42,7 +42,7 @@ local function ConstruireFormulaire ()
 	f = CreateFrame("Frame", "OpusEnvie", UIParent, "ButtonFrameTemplate")
 	ButtonFrameTemplate_HidePortrait(f)
 	ButtonFrameTemplate_HideButtonBar(f)
-	f:SetSize(460, 400) f:SetPoint("CENTER") f:SetFrameStrata("DIALOG") f:SetToplevel(true)
+	f:SetSize(460, 430) f:SetPoint("CENTER") f:SetFrameStrata("DIALOG") f:SetToplevel(true)
 	f:EnableMouse(true) f:SetMovable(true) f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)
 	f:SetTitle("J'ai besoin d'un donjon")
@@ -86,6 +86,17 @@ local function ConstruireFormulaire ()
 		f.pourquoi[p[1]] = c
 	end
 	y = y - 32
+
+	-- le PL : un grand peut venir booster le groupe (les monstres gris ne rapportent plus d'XP)
+	Libelle("Booster")
+	f.pl = CreateFrame("CheckButton", nil, z, "UICheckButtonTemplate")
+	f.pl:SetSize(24, 24) f.pl:SetPoint("TOPLEFT", X - 4, y)
+	local tpl = f.pl.Text or f.pl.text
+	if tpl then tpl:SetText("PL accepté : un 60 (ou un grand) peut venir nous booster") tpl:SetFontObject("GameFontHighlightSmall") end
+	Opus.Bulle(f.pl, "PL accepté", "Le groupe veut bien d'un ou deux grands personnages pour faire le donjon vite. Avec eux, les monstres "
+		.. "sont gris : plus personne ne gagne d'XP en les tuant (les quêtes et les objets restent).")
+	f.pl:SetScript("OnClick", function (self) saisie.pl = self:GetChecked() or nil end)
+	y = y - 30
 
 	local function Champ (largeur, max, aide)
 		local s = CreateFrame("EditBox", nil, z, "InputBoxTemplate")
@@ -162,6 +173,7 @@ function Opus.EditerEnvie (cle, creneau, suite)
 	saisie = { donjons = cle and { cle } or {}, pourquoi = {}, creneau = creneau or "maintenant", suite = suite or nil }
 	saisie.duree = Opus.DureePourCreneau(saisie.creneau)
 	for _, c in pairs(f.pourquoi) do c:SetChecked(false) end
+	f.pl:SetChecked(false)
 	f.note:SetText("") f.precision:SetText("")
 	f.donjons:OverrideText(Choisis())
 	f.creneau:GenerateMenu() f.duree:GenerateMenu()
@@ -292,8 +304,10 @@ function Opus.PlacerBarre (c, d, joueurs)
 		local r = c.reperes[i] or c.barre:GetParent():CreateTexture(nil, "OVERLAY")
 		c.reperes[i] = r
 		r:SetWidth(2)
+		-- au-delà du seuil : rouge, ou doré si le groupe accepte le PL (il vient booster)
 		local rouge = j.niveau >= seuil
-		r:SetColorTexture(rouge and 1 or 0.45, rouge and 0.25 or 0.75, rouge and 0.25 or 1, 0.9)
+		if rouge and j.booste then r:SetColorTexture(1, 0.82, 0, 1)
+		else r:SetColorTexture(rouge and 1 or 0.45, rouge and 0.25 or 0.75, rouge and 0.25 or 1, 0.9) end
 		r:ClearAllPoints()
 		r:SetPoint("TOPLEFT", c.barre, "TOPLEFT", X(j.niveau) - 1, 2) r:SetPoint("BOTTOMLEFT", c.barre, "BOTTOMLEFT", X(j.niveau) - 1, -2)
 		r:Show()
@@ -358,6 +372,9 @@ local function Carte (v, largeur)
 				end
 			end
 			racine:CreateDivider()
+			racine:CreateCheckbox("PL accepté (un grand peut booster)", function () return mienne.pl == true end,
+				function () Opus.ModifierEnvie(mienne.id, { pl = not mienne.pl }, c.donjon.cle) end)
+			racine:CreateDivider()
 			racine:CreateButton("Retirer mon envie pour ce donjon", function () Opus.RetirerEnvie(mienne.id, c.donjon.cle) end)
 			return
 		end
@@ -417,9 +434,12 @@ local function Carte (v, largeur)
 			local quoi = Opus.TextePourquoi(e)
 			if quoi ~= "" then lignes[#lignes + 1] = "Pour : " .. quoi end
 			local m, d = Opus.TrouverMembre(e.par), self:GetParent().donjon
-			if m and d and d.max and m.niveau - d.max >= Opus.ECART_GRIS then
+			if m and d and d.max and m.niveau - d.max >= Opus.ECART_GRIS and Opus.PLAccepte(d.cle) then
+				lignes[#lignes + 1] = Opus.Normal("Vient booster : le groupe accepte le PL (avec lui, les monstres sont gris et ne rapportent plus d'XP).")
+			elseif m and d and d.max and m.niveau - d.max >= Opus.ECART_GRIS then
 				lignes[#lignes + 1] = Opus.Rouge(("Monstres gris pour lui (%d niveaux au-dessus du donjon) : avec lui, plus personne ne gagne d'XP. Un reroll ?"):format(m.niveau - d.max))
 			end
+			if e.pl then lignes[#lignes + 1] = Opus.Normal("PL accepté : un grand peut venir booster.") end
 			if e.note then lignes[#lignes + 1] = e.note end
 			lignes[#lignes + 1] = Opus.Gris("Publiée le " .. date("%d/%m à %H h %M", e.m) .. ", affichée jusqu'au " .. date("%d/%m à %H h", e.fin) .. ".")
 			return lignes
@@ -438,11 +458,13 @@ local function RemplirCarte (c, g)
 	for _, e in ipairs(g.envies) do for cle in pairs(e.pourquoi) do pourquoi[cle] = true end end
 	local raisons = {}
 	for _, p in ipairs(Opus.POURQUOI) do if pourquoi[p[1]] then raisons[#raisons + 1] = p[2]:lower() end end
-	c.sous:SetText(Opus.Gris((d.min and ("niveaux %d à %d"):format(d.min, d.max) or "") .. (d.entree and (", entrée dès " .. d.entree) or "") .. (#raisons > 0 and ("  ·  " .. table.concat(raisons, ", ")) or "")))
+	local pl = Opus.PLAccepte(d.cle)
+	c.sous:SetText(Opus.Gris((d.min and ("niveaux %d à %d"):format(d.min, d.max) or "") .. (d.entree and (", entrée dès " .. d.entree) or "") .. (#raisons > 0 and ("  ·  " .. table.concat(raisons, ", ")) or ""))
+		.. (pl and ("  ·  " .. Opus.Normal("PL accepté")) or ""))
 	local niveaux, moi = {}, Opus.MonNom()
 	for _, e in ipairs(g.envies) do
 		local m = e.par ~= moi and Opus.TrouverMembre(e.par)
-		if m and m.niveau then niveaux[#niveaux + 1] = { niveau = m.niveau } end
+		if m and m.niveau then niveaux[#niveaux + 1] = { niveau = m.niveau, booste = pl } end
 	end
 	Opus.PlacerBarre(c.niveaux, d, niveaux)
 	-- une place pleine : quelqu'un est disponible maintenant pour la tenir ; à demi teintée : un intéressé s'y est
@@ -487,7 +509,8 @@ local function RemplirCarte (c, g)
 			if atlas then l.icone:SetAtlas(atlas) end
 			l.icone:SetShown(atlas ~= nil)
 			local gris = m and m.niveau and d.max and m.niveau - d.max >= Opus.ECART_GRIS
-			l.nom:SetText((classe and Opus.Couleur(classe) or "") .. e.par .. "|r" .. (m and m.niveau and (gris and Opus.Rouge("  " .. m.niveau) or Opus.Gris("  " .. m.niveau)) or "")
+			local niveau = m and m.niveau and (gris and (pl and Opus.Normal("  " .. m.niveau .. " booste") or Opus.Rouge("  " .. m.niveau)) or Opus.Gris("  " .. m.niveau)) or ""
+			l.nom:SetText((classe and Opus.Couleur(classe) or "") .. e.par .. "|r" .. niveau
 				.. ((m and m.enLigne) and "" or Opus.Gris("  hors ligne")))
 			l.roles:SetText(IconesRoles(e.roles))
 			l.quand:SetText(Opus.TexteCreneau(e))
@@ -524,8 +547,8 @@ function Opus.MacroEnvie ()
 			for _, cle in ipairs(e.donjons) do noms[#noms + 1] = Opus.DonjonDe(cle).nom end
 			local quoi = Opus.TextePourquoi(e)
 			local quand = Opus.TexteCreneau(e):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
-			return (("/g [Opus] Je cherche du monde pour %s%s, %s : les détails dans l'addon Opus, onglet Groupe !"):format(table.concat(noms, ", "),
-				quoi ~= "" and (" (" .. quoi .. ")") or "", quand)):sub(1, 255)
+			return (("/g [Opus] Je cherche du monde pour %s%s, %s%s : les détails dans l'addon Opus, onglet Groupe !"):format(table.concat(noms, ", "),
+				quoi ~= "" and (" (" .. quoi .. ")") or "", quand, e.pl and ", PL accepté" or "")):sub(1, 255)
 		end
 	end
 	return ""

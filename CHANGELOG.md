@@ -3,6 +3,9 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.28.0
+- Envies : « PL accepté ». Une case du formulaire (et du menu « Mon envie ») dit que le groupe veut bien d'un 60, ou d'un grand, pour le booster dans le donjon, quitte à perdre l'XP des monstres (gris pour lui). La carte l'affiche, les grands qui s'y joignent apparaissent en doré « booste » au lieu du rouge, leur repère sur la barre de niveaux aussi, et la notification comme l'annonce en /g le précisent.
+
 ## 0.27.1
 - Guilde et Roster : les vues et les filtres passent aussi en onglets dans le bandeau (Par voie, En ligne, Calendrier, Journal, Grades ; Tous, Niveau 60, Raiders, En ligne).
 - Les onglets du haut sont posés sur un filet doré, pour les distinguer des onglets de navigation du bas.
