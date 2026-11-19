@@ -3,6 +3,10 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.25.2
+- Notifications : elles restent 10 secondes au lieu de 4, réglable dans l'onglet Réglages (5, 10 ou 20 secondes, ou jusqu'à un clic) ; le survol les retient toujours.
+- Montées de niveau : chaque niveau annoncé s'affiche aussi en notification en haut de l'écran ; un clic ouvre la fiche du membre. Les annonces restent chez toi, jamais en /g.
+
 ## 0.25.1
 - Banque : le solde réel de la banque s'affiche sous le tableau de participation, lu à chaque passage à la banque et partagé à toute la guilde (le total du tableau n'additionne que les opérations des joueurs).
 - Banque : l'achat d'un onglet est relevé dans le journal (« achat d'onglet ») et affiché à côté du solde ; il ne compte plus comme un retrait du joueur qui l'a acheté.

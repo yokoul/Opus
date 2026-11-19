@@ -1,5 +1,5 @@
 -- Niveaux.lua : les montées de niveau des membres de la guilde. L'addon relève le roster chaque minute et note chaque
--- niveau gagné depuis le relevé précédent ; il annonce le niveau 60 dans la discussion et au milieu de l'écran (au choix,
+-- niveau gagné depuis le relevé précédent ; il annonce le niveau 60 dans la discussion, en notification et au milieu de l'écran (au choix,
 -- aussi les paliers de 10, ou tous les niveaux : /opus niveaux).
 -- Un niveau vu juste après un relevé récent est daté à la minute près ; vu après une absence (le joueur a monté pendant
 -- qu'on n'était pas connecté), il est seulement « vu le » et n'est pas annoncé.
@@ -71,6 +71,11 @@ local function Annoncer (m, avant, niveau)
 		pcall(PlaySound, 888)       -- le son de montée de niveau
 	else
 		Opus.Msg(("%s passe niveau %d."):format(nom, niveau))
+	end
+	-- la notification en haut de l'écran ; un clic ouvre sa fiche
+	if Opus.Notification then
+		Opus.Notification(niveau >= NIVEAU_MAX and "Niveau 60 !" or "Montée de niveau", ("%s passe niveau %d."):format(nom, niveau),
+			Opus.OuvrirGuilde and function () Opus.OuvrirGuilde("voies", m.nom) end)
 	end
 end
 

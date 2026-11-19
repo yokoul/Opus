@@ -7,6 +7,7 @@ local function Commande (texte) SlashCmdList.OPUS(texte) end
 
 local NIVEAUX = { { "60", "Le niveau 60 seulement" }, { "paliers", "Les paliers de 10" }, { "tous", "Tous les niveaux" }, { "aucun", "Aucune" } }
 local NOTIFS = { { "toutes", "Toutes" }, { "aucune", "Aucune" } }
+local DUREES = { { 5, "5 secondes" }, { 10, "10 secondes" }, { 20, "20 secondes" }, { 0, "Jusqu'à un clic" } }
 local ROLES = { { "tank", "Tank" }, { "soin", "Soigneur" }, { "degats", "Dégâts" } }
 local NOMS_ROLES = { tank = "tank", soin = "soigneur", degats = "dégâts" }
 
@@ -15,6 +16,7 @@ local X_CONTROLE = 300           -- colonne des réglages, à droite des libell�
 local function Rafraichir (cadre)
 	cadre.niveaux:GenerateMenu()
 	cadre.notifs:GenerateMenu()
+	cadre.dureeNotif:GenerateMenu()
 	-- ses rôles : ceux qu'il a cochés ; rien de coché, celui de sa spé
 	-- sans déclaration, la case du rôle de sa spé est cochée : on n'a plus qu'à ajouter les autres
 	local declares = {}
@@ -82,13 +84,17 @@ local function Construire (cadre, barre)
 
 	-- ses préférences
 	Section("Mes préférences")
-	Libelle("Annonce des montées de niveau", "Dans la discussion ; le 60 aussi à l'écran.")
+	Libelle("Annonce des montées de niveau", "Dans ta discussion et en notification, jamais en /g ; le 60 aussi au milieu de l'écran.")
 	cadre.niveaux = Opus.Menu(cadre, 220, NIVEAUX, function () return Opus.db.annonceNiveaux or "60" end, function (v) Commande("niveaux " .. v) end)
 	cadre.niveaux:SetPoint("TOPLEFT", X_CONTROLE, y)
 	Ligne(40)
 	Libelle("Envies de donjon", "Notification quand un membre annonce une envie.")
 	cadre.notifs = Opus.Menu(cadre, 220, NOTIFS, function () return Opus.db.notifEnvies or "toutes" end, function (v) Opus.db.notifEnvies = v end)
 	cadre.notifs:SetPoint("TOPLEFT", X_CONTROLE, y)
+	Ligne(40)
+	Libelle("Durée des notifications", "Envies et montées de niveau ; le survol les retient.")
+	cadre.dureeNotif = Opus.Menu(cadre, 220, DUREES, function () return Opus.db.dureeNotif or 10 end, function (v) Opus.db.dureeNotif = v end)
+	cadre.dureeNotif:SetPoint("TOPLEFT", X_CONTROLE, y)
 	Ligne(40)
 	local _, aide = Libelle("Mes rôles en groupe", " ")
 	cadre.roleAide = aide

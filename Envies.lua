@@ -412,10 +412,11 @@ function Opus.FormerDepuisEnvie (cle)
 end
 
 ------------------------------------------------------------------------
--- la notification : une petite fenêtre en haut de l'écran, quelques secondes
+-- la notification : une petite fenêtre en haut de l'écran, 10 secondes par défaut (onglet Réglages ; 0 = jusqu'au clic)
 ------------------------------------------------------------------------
 
-local toast, file, DUREE = nil, {}, 4
+local toast, file = nil, {}
+local function Duree () return Opus.db and Opus.db.dureeNotif or 10 end
 local function Suivante ()
 	local n = table.remove(file, 1)
 	if not n then toast:Hide() return end
@@ -448,10 +449,10 @@ local function Construire ()
 	toast.texte:SetPoint("TOPLEFT", toast.titre, "BOTTOMLEFT", 0, -3)
 	toast.texte:SetWidth(270) toast.texte:SetJustifyH("LEFT") toast.texte:SetSpacing(2)
 	toast:SetScript("OnUpdate", function (self)
-		local t = GetTime() - (self.debut or 0)
-		if self:IsMouseOver() then self.debut = GetTime() - 0.3 t = 0.3 end
-		self:SetAlpha(t < 0.3 and t / 0.3 or t > DUREE - 0.5 and math.max(0, (DUREE - t) / 0.5) or 1)
-		if t >= DUREE then Suivante() end
+		local t, duree = GetTime() - (self.debut or 0), Duree()
+		if self:IsMouseOver() or duree == 0 then self.debut = GetTime() - 0.3 t = 0.3 end
+		self:SetAlpha(t < 0.3 and t / 0.3 or duree > 0 and t > duree - 0.5 and math.max(0, (duree - t) / 0.5) or 1)
+		if duree > 0 and t >= duree then Suivante() end
 	end)
 	toast:SetScript("OnClick", function (self)
 		local clic = self.clic
