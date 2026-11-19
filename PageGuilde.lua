@@ -69,7 +69,10 @@ local function Elements ()
 	for _, m in ipairs(Opus.Membres()) do
 		if vue ~= "enligne" or m.enLigne then
 			local g = Opus.GRADES[m.grade] or {}
-			local cle = (g.essai or Opus.db.montees[m.nom]) and "essai" or (g.voie or "commun")
+			-- hors voie : le chef et les officiers forment la direction ; les autres grades sans voie (les rerolls…) ont
+			-- chacun leur groupe, à leur nom
+			local cle = (g.essai or Opus.db.montees[m.nom]) and "essai" or g.voie
+				or ((m.grade == 1 or g.officier) and "direction") or ("grade:" .. m.nomGrade)
 			if not groupes[cle] then groupes[cle] = { cle = cle, membres = {}, rang = 99 } ordre[#ordre + 1] = groupes[cle] end
 			local gr = groupes[cle]
 			gr.membres[#gr.membres + 1] = m
@@ -83,7 +86,8 @@ local function Elements ()
 	end)
 	local elements = {}
 	for _, gr in ipairs(ordre) do
-		local titre = gr.cle == "essai" and "À l'essai" or gr.cle == "commun" and "Commun" or (Opus.NomVoie(gr.cle):gsub("^%l", string.upper))
+		local titre = gr.cle == "essai" and "À l'essai" or gr.cle == "direction" and "Direction"
+			or gr.cle:match("^grade:(.+)$") or (Opus.NomVoie(gr.cle):gsub("^%l", string.upper))
 		elements[#elements + 1] = { titre = titre, n = #gr.membres }
 		table.sort(gr.membres, function (a, b)
 			if a.grade ~= b.grade then return a.grade < b.grade end
@@ -368,8 +372,8 @@ local function Construire (cadre, barre)
 		l.joueur = Texte("GameFontHighlightSmall", 172, 110)
 		l.grade = Texte("GameFontHighlightSmall", 286, 90)
 		l.niveau = Texte("GameFontHighlightSmall", 378, 24, "RIGHT")
-		l.depuis = Texte("GameFontHighlightSmall", 408, 62, "RIGHT")
-		l.statut = Texte("GameFontHighlightSmall", 482, 192)
+		l.depuis = Texte("GameFontHighlightSmall", 408, 92, "RIGHT")
+		l.statut = Texte("GameFontHighlightSmall", 510, 164)
 		l.quand = Texte("GameFontDisableSmall", 2, 52, "RIGHT")
 		l.texte = Texte("GameFontHighlightSmall", 64)
 		l.texte:SetPoint("RIGHT", -2, 0)
