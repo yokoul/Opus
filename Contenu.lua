@@ -4,7 +4,9 @@
 -- photo la plus récente de chaque onglet l'emporte. Un onglet lu vide alors qu'il ne l'était pas n'efface la photo que
 -- s'il est affiché (sinon, ses données ne sont peut-être pas encore arrivées).
 -- Un membre ne voit que les onglets que son grade peut voir d'après la grille de la guilde (Config.lua).
--- Messages : « I » (un onglet, en morceaux), « i » (demande de rattrapage à la connexion).
+-- Chaque objet garde sa case (1 à 98), pour la grille de la vue Contenu.
+-- Messages : « W » (un onglet, en morceaux : case:objet:nombre), « i » (demande de rattrapage à la connexion) ; « I »
+-- (sans les cases, 0.26.0) est encore lu.
 local _, Opus = ...
 
 local FS = Opus.FS
@@ -53,9 +55,9 @@ local function Partager (tab)
 	local o = (Contenu() or {})[tab]
 	if not o or not IsInGuild() then return end
 	local liste = {}
-	for id, n in pairs(o.objets) do liste[#liste + 1] = id .. ":" .. n end
+	for case, x in pairs(o.cases or {}) do liste[#liste + 1] = case .. ":" .. x[1] .. ":" .. x[2] end
 	table.sort(liste)
-	local entete = table.concat({ "I", tab, o.t, Opus.MotMsg(o.par or "", 48), (Opus.MotMsg(o.nom or "", 24):gsub(",", " ")) }, FS)
+	local entete = table.concat({ "W", tab, o.t, Opus.MotMsg(o.par or "", 48), (Opus.MotMsg(o.nom or "", 24):gsub(",", " ")) }, FS)
 	local place, morceaux, courant, taille = Opus.MAX_MSG - #entete - 12, {}, {}, 0
 	for _, r in ipairs(liste) do
 		if taille + #r + 1 > place then morceaux[#morceaux + 1] = courant courant, taille = {}, 0 end
@@ -69,7 +71,7 @@ local function Partager (tab)
 end
 
 local enCours = {}
-Opus.recepteurs.I = function (_, champs, _, canal)
+local function Recevoir (genre, champs, canal)
 	local tab, t, par, nom, i, total = tonumber(champs[2]), tonumber(champs[3]), champs[4], champs[5], tonumber(champs[6]), tonumber(champs[7])
 	if canal ~= "GUILD" or not tab or tab < 1 or tab > ONGLETS_MAX or not t or t > time() + 86400 or not i or not total or total < 1 or total > 20 then return end
 	local c = Contenu()
@@ -81,16 +83,28 @@ Opus.recepteurs.I = function (_, champs, _, canal)
 	for k = 1, total do if not r.morceaux[k] then return end end
 	enCours[cle] = nil
 	if not Opus.TrouverMembre(par) then return end
-	local objets = {}
+	local objets, cases = {}, genre == "W" and {} or nil
 	for k = 1, total do
-		for a, b in r.morceaux[k]:gmatch("(%d+):(%d+)") do
-			local id, n = tonumber(a), tonumber(b)
-			if n > 0 and n < 100000 then objets[id] = n end
+		if cases then
+			for a, b, d in r.morceaux[k]:gmatch("(%d+):(%d+):(%d+)") do
+				local case, id, n = tonumber(a), tonumber(b), tonumber(d)
+				if case >= 1 and case <= CASES and n > 0 and n < 10000 then
+					cases[case] = { id, n }
+					objets[id] = (objets[id] or 0) + n
+				end
+			end
+		else
+			for a, b in r.morceaux[k]:gmatch("(%d+):(%d+)") do
+				local id, n = tonumber(a), tonumber(b)
+				if n > 0 and n < 100000 then objets[id] = n end
+			end
 		end
 	end
-	c[tab] = { t = t, par = par, nom = nom ~= "" and nom or nil, objets = objets }
+	c[tab] = { t = t, par = par, nom = nom ~= "" and nom or nil, objets = objets, cases = cases }
 	if Opus.Rafraichir then Opus.Rafraichir() end
 end
+Opus.recepteurs.W = function (_, champs, _, canal) Recevoir("W", champs, canal) end
+Opus.recepteurs.I = function (_, champs, _, canal) Recevoir("I", champs, canal) end
 
 -- rattrapage : la date de chaque onglet du demandeur ; qui a plus récent renvoie ces onglets
 Opus.recepteurs.i = function (_, champs, _, canal)
@@ -121,22 +135,25 @@ end)
 -- photo des onglets, banque ouverte
 ------------------------------------------------------------------------
 
+-- même contenu, case par case
 local function Pareil (a, b)
-	for id, n in pairs(a) do if b[id] ~= n then return false end end
-	for id in pairs(b) do if not a[id] then return false end end
+	if not a or not b then return false end
+	for case, x in pairs(a) do if not b[case] or b[case][1] ~= x[1] or b[case][2] ~= x[2] then return false end end
+	for case in pairs(b) do if not a[case] then return false end end
 	return true
 end
 
 local function Photographier (tab, affiche)
 	local nom, _, visible = GetGuildBankTabInfo(tab)
 	if not visible then return end
-	local objets, n = {}, 0
+	local objets, cases, n = {}, {}, 0
 	for case = 1, CASES do
 		local lien = GetGuildBankItemLink(tab, case)
 		local id = lien and tonumber(lien:match("item:(%d+)"))
 		if id then
 			local _, nombre = GetGuildBankItemInfo(tab, case)
 			objets[id] = (objets[id] or 0) + (nombre or 1)
+			cases[case] = { id, nombre or 1 }
 			Opus.db.objets[id] = lien:match("%[(.-)%]") or Opus.db.objets[id]
 			n = n + 1
 		end
@@ -145,8 +162,8 @@ local function Photographier (tab, affiche)
 	local ancien = c[tab]
 	if n == 0 and not affiche and ancien and next(ancien.objets) then return end
 	-- partagé si le contenu a changé, ou si la photo partagée date (les autres la croient vieille)
-	local partager = not ancien or not Pareil(ancien.objets, objets) or ancien.nom ~= nom or time() - ancien.t > 3600
-	c[tab] = { t = time(), par = Opus.MonNom(), nom = nom, objets = objets }
+	local partager = not ancien or not Pareil(ancien.cases, cases) or ancien.nom ~= nom or time() - ancien.t > 3600
+	c[tab] = { t = time(), par = Opus.MonNom(), nom = nom, objets = objets, cases = cases }
 	if partager then Partager(tab) end
 end
 

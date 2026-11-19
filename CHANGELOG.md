@@ -3,6 +3,10 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.27.0
+- Banque : les vues (Participation, Contenu, Journal, Prêts, Sorties) passent en onglets dans le bandeau, à la place du menu ; la ligne d'état (relevé, photo, nombre) passe sous le contenu.
+- Contenu : vue en grille, comme la banque du jeu (98 cases, un onglet à la fois), ou en liste. La recherche et « Pour moi » éteignent ce qui ne correspond pas. La photo garde maintenant la case de chaque objet ; une photo de la 0.26.0 se refait au prochain passage à la banque.
+
 ## 0.26.0
 - Banque, vue « Contenu » : ce que contient chaque onglet, sans aller à la banque. À l'ouverture de la banque, l'addon photographie chaque onglet visible et partage la photo à la guilde. Recherche par nom, filtre par onglet ; le survol montre l'infobulle de l'objet (avec celle de Pawn s'il est installé), maj-clic le met dans la discussion. Chacun ne voit que les onglets que son grade peut voir d'après la grille.
 - « Pour moi » : ce que ta classe peut porter à ton niveau (ou dans 5 niveaux) et qui vaut mieux que ce que tu portes, d'après Pawn s'il est installé, sinon d'après le niveau d'objet ; les améliorations d'abord.

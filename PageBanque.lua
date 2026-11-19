@@ -66,8 +66,20 @@ local function Bulle (l)
 	return lignesBulle
 end
 
+local RafraichirVue
+
+-- la vue choisie, puis la ligne d'état (relevé, photo, nombre…) sous son contenu
 local function Rafraichir (cadre)
-	cadre.vue:GenerateMenu()
+	for _, o in ipairs(cadre.vues) do
+		if o.cle == vue then PanelTemplates_SelectTab(o) else PanelTemplates_DeselectTab(o) end
+	end
+	local h = RafraichirVue(cadre)
+	cadre.info:ClearAllPoints()
+	cadre.info:SetPoint("TOPLEFT", 2, -h)
+	return h + 16
+end
+
+RafraichirVue = function (cadre)
 	cadre.vp:SetShown(vue == "participation")
 	cadre.periode:SetShown(vue == "participation")
 	local registre, contenu = vue == "prets" or vue == "remises", vue == "contenu" or vue == "journal"
@@ -152,17 +164,31 @@ local function Construire (cadre, barre)
 	local largeur = Opus.LARGEUR - 30
 
 	-- la vue : participation de chacun, contenu, journal, prêts, sorties d'objets
-	cadre.vue = Opus.Menu(barre, 130, { { "participation", "Participation" }, { "contenu", "Contenu" }, { "journal", "Journal" }, { "prets", "Prêts" }, { "remises", "Sorties" } },
-		function () return vue end,
-		function (v) vue = v Opus.Rafraichir() end)
-	cadre.vue:SetPoint("LEFT", 0, 0)
+	-- les vues, en onglets dans le bandeau ; la période (participation) à droite
+	cadre.vues = {}
+	local precedent
+	for i, v in ipairs { { "participation", "Participation" }, { "contenu", "Contenu" }, { "journal", "Journal" }, { "prets", "Prêts" }, { "remises", "Sorties" } } do
+		-- onglets du haut du client (ceux des macros) ; à défaut, ceux des cadres plus récents
+		local ok, o = pcall(CreateFrame, "Button", "OpusBanqueVue" .. i, barre, "TabButtonTemplate")
+		if not ok then o = CreateFrame("Button", "OpusBanqueVue" .. i, barre, "PanelTopTabButtonTemplate") end
+		o.cle = v[1]
+		o:SetText(v[2])
+		PanelTemplates_TabResize(o, 0)
+		if precedent then o:SetPoint("BOTTOMLEFT", precedent, "BOTTOMRIGHT", -2, 0) else o:SetPoint("BOTTOMLEFT", 0, -4) end
+		o:SetScript("OnClick", function (self)
+			PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
+			vue = self.cle
+			Opus.Rafraichir()
+		end)
+		cadre.vues[i] = o
+		precedent = o
+	end
 	-- la période, en menu du client ; « Tout » vaut 0 (le menu ne garde pas nil)
 	cadre.periode = Opus.Menu(barre, 130, { { 7, "7 derniers jours" }, { 30, "30 derniers jours" }, { 0, "Depuis le début" } },
 		function () return periode or 0 end,
 		function (v) periode = v > 0 and v or nil Opus.Rafraichir() end)
-	cadre.periode:SetPoint("LEFT", cadre.vue, "RIGHT", 8, 0)
-	cadre.info = barre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	cadre.info:SetPoint("RIGHT", 0, 0)
+	cadre.periode:SetPoint("RIGHT", 0, 0)
+	cadre.info = cadre:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	cadre.registre = Opus.ConstruireRegistre(cadre, largeur)
 	cadre.contenu = Opus.ConstruireContenu(cadre, largeur)
 

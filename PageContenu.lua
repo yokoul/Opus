@@ -1,12 +1,13 @@
 -- PageContenu.lua : les vues « Contenu » et « Journal » de l'onglet Banque (Contenu.lua, Banque.lua)
--- Contenu : les objets des onglets photographiés, à chercher par nom, par onglet, ou « pour moi » (ce que sa classe peut
+-- Contenu : les objets des onglets photographiés, en grille comme la banque (un onglet) ou en liste, à chercher par nom, par onglet, ou « pour moi » (ce que sa classe peut
 -- porter à son niveau, mieux que ce qu'il porte ; Pawn décide s'il est installé). L'infobulle est celle de l'objet.
 -- Journal : les entrées et sorties de la banque, objets et or, de la plus récente à la plus ancienne.
 local _, Opus = ...
 
 local HAUTEUR, LIGNES = 20, 14
 local decalages = { contenu = 0, journal = 0 }
-local recherche, onglet, pourMoi, genre = "", 0, false, "objets"
+local recherche, onglet, pourMoi, genre, mode = "", 0, false, "objets", "grille"
+local CASE, ECART = 36, 8              -- la grille : 98 cases, 7 groupes de 2 colonnes sur 7 rangs, comme la banque
 local LIBELLES = { ["or+"] = "dépôt", ["or-"] = "retrait", rep = "réparations", ong = "achat d'onglet", ["obj+"] = "dépôt", ["obj-"] = "retrait" }
 
 local function Qualite (id)
@@ -140,6 +141,43 @@ function Opus.ConstruireContenu (parent, largeur)
 	v.pourMoi:SetScript("OnClick", function (self) pourMoi = self:GetChecked() and true or false decalages.contenu = 0 Opus.Rafraichir() end)
 	Opus.Bulle(v.pourMoi, "Pour moi", "Ce que ta classe peut porter à ton niveau (ou dans 5 niveaux) et qui vaut mieux que ce que tu portes : "
 		.. "d'après Pawn s'il est installé, sinon d'après le niveau d'objet.")
+	v.mode = Opus.Menu(v, 90, { { "grille", "Grille" }, { "liste", "Liste" } }, function () return mode end,
+		function (x) mode = x Opus.Rafraichir() end)
+	v.mode:SetPoint("TOPRIGHT", -2, 0)
+	v.grille = CreateFrame("Frame", nil, v)
+	v.grille:SetSize(14 * CASE + 6 * ECART, 7 * CASE)
+	v.grille:SetPoint("TOP", 0, -34)
+	v.cases = {}
+	for case = 1, 98 do
+		local b = CreateFrame("Button", nil, v.grille)
+		b:SetSize(CASE - 2, CASE - 2)
+		local groupe, dans = math.floor((case - 1) / 14), (case - 1) % 14
+		local x = (groupe * 2 + math.floor(dans / 7)) * CASE + groupe * ECART
+		b:SetPoint("TOPLEFT", x, -(dans % 7) * CASE)
+		b.fond = b:CreateTexture(nil, "BACKGROUND")
+		b.fond:SetTexture("Interface\\Buttons\\UI-EmptySlot-Disabled")
+		b.fond:SetPoint("TOPLEFT", -9, 9) b.fond:SetPoint("BOTTOMRIGHT", 9, -9)
+		b.icone = b:CreateTexture(nil, "ARTWORK")
+		b.icone:SetAllPoints()
+		b.bord = b:CreateTexture(nil, "OVERLAY")
+		b.bord:SetTexture("Interface\\Common\\WhiteIconFrame")
+		b.bord:SetAllPoints()
+		b.nombre = b:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+		b.nombre:SetPoint("BOTTOMRIGHT", -2, 2)
+		local h = b:CreateTexture(nil, "HIGHLIGHT")
+		h:SetTexture("Interface\\Buttons\\ButtonHilight-Square") h:SetBlendMode("ADD") h:SetAllPoints()
+		b:SetScript("OnEnter", BulleObjet)
+		b:SetScript("OnLeave", GameTooltip_Hide)
+		b:SetScript("OnClick", function (self)
+			if self.id and IsModifiedClick and IsModifiedClick("CHATLINK") then
+				local _, lien = GetItemInfo(self.id)
+				if lien and ChatEdit_InsertLink then ChatEdit_InsertLink(lien) end
+			end
+		end)
+		v.cases[case] = b
+	end
+	v.legende = v:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	v.legende:SetPoint("TOPLEFT", v.grille, "BOTTOMLEFT", 0, -6)
 	v.genre = Opus.Menu(v, 120, { { "objets", "Objets" }, { "or", "Or" }, { "tout", "Tout" } },
 		function () return genre end, function (x) genre = x decalages.journal = 0 Opus.Rafraichir() end)
 	v.genre:SetPoint("LEFT", v.onglet, "RIGHT", 12, 0)
@@ -211,6 +249,43 @@ local function RemplirContenu (v, info)
 	return liste
 end
 
+-- la grille d'un onglet : l'onglet choisi, ou le premier ; recherche et « pour moi » éteignent ce qui ne correspond pas
+local function RemplirGrille (v, info)
+	local banque, tab = Opus.OngletsBanque(), onglet
+	if tab == 0 or not banque[tab] then
+		tab = nil
+		for t in pairs(banque) do if not tab or t < tab then tab = t end end
+	end
+	local o = tab and banque[tab]
+	info:SetText(o and ("%s · photo il y a %s par %s"):format(NomOnglet(tab, o), Opus.Depuis(math.floor(o.t / 3600)), o.par or "?")
+		or Opus.Rouge("aucune photo : passe à la banque de guilde"))
+	local filtre, trouves = recherche ~= "" or pourMoi, 0
+	for case, b in ipairs(v.cases) do
+		local x = o and o.cases and o.cases[case]
+		b.id = x and x[1]
+		b.detail = x and { NomOnglet(tab, o), Opus.Gris("Maj-clic : le lien dans la discussion.") } or nil
+		b.icone:SetShown(x ~= nil) b.bord:SetShown(x ~= nil) b.nombre:SetShown(x ~= nil and x[2] > 1)
+		b:SetAlpha(1)
+		if x then
+			local icone = (C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(x[1])) or (GetItemIcon and GetItemIcon(x[1]))
+			b.icone:SetTexture(icone or "Interface\\Icons\\INV_Misc_QuestionMark")
+			b.nombre:SetText(x[2])
+			local q = GetItemInfo and select(3, GetItemInfo(x[1]))
+			local c = q and q >= 2 and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+			b.bord:SetShown(c ~= nil)
+			if c then b.bord:SetVertexColor(c.r, c.g, c.b) end
+			if filtre then
+				local utile = pourMoi and Opus.UtilePourMoi(x[1])
+				local ok = Cherche(Opus.NomObjet(x[1])) and (not pourMoi or utile)
+				if utile then b.detail[#b.detail + 1] = Opus.Vert("Pour toi : " .. utile[2]) end
+				if ok then trouves = trouves + 1 else b:SetAlpha(0.2) end
+			end
+		end
+	end
+	v.legende:SetText(o and not o.cases and "Photo d'une version précédente, sans les cases : elle se refait au prochain passage à la banque."
+		or filtre and ("%d objet(s) correspondent."):format(trouves) or "")
+end
+
 local function RemplirJournal (v, info)
 	local liste = Operations()
 	info:SetText(("%d opération(s)"):format(#liste))
@@ -246,6 +321,23 @@ function Opus.RafraichirContenu (v, vue, info)
 	v.genre:SetShown(vue == "journal")
 	v.genre:GenerateMenu()
 	v.onglet:GenerateMenu()
+	local grille = vue == "contenu" and mode == "grille"
+	v.mode:SetShown(vue == "contenu")
+	v.mode:GenerateMenu()
+	v.grille:SetShown(grille)
+	v.legende:SetShown(grille)
+	for _, h in ipairs(v.entetes) do h:SetShown(not grille) end
+	if grille then
+		for _, l in ipairs(v.lignes) do l:Hide() end
+		v.ascenseur:Hide() v.vide:Hide()
+		RemplirGrille(v, info)
+		local y = 34 + 7 * CASE + 26
+		v.aide:SetPoint("TOPLEFT", 2, -y)
+		v.aide:SetText("Le contenu de chaque onglet est photographié quand un membre qui a l'addon ouvre la banque, puis partagé à la guilde. "
+			.. "Tu ne vois que les onglets que ton grade peut voir.")
+		local h = v.aide:GetStringHeight()
+		return y + math.ceil(type(h) == "number" and h or 36) + 8
+	end
 	local liste = vue == "contenu" and RemplirContenu(v, info) or RemplirJournal(v, info)
 	local n = math.min(#liste, LIGNES)
 	v.ascenseur:SetHeight(math.max(n, 1) * HAUTEUR)
