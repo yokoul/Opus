@@ -3,7 +3,8 @@
 -- combien de temps l'envie reste affichée (3 jours par défaut). « Moi aussi » publie la même envie pour soi. Toute la
 -- guilde voit toutes les envies (un reroll peut être du bon niveau) ; une notification annonce les nouvelles, et prévient
 -- quand assez de monde est disponible maintenant pour former un groupe.
--- Messages : « V » (une envie, publiée, modifiée ou retirée : une fin passée la retire), « e » (rattrapage à la connexion).
+-- Messages : « V » (une envie, publiée, modifiée ou retirée : une fin passée la retire), « e » (rattrapage à la connexion),
+-- « F » (donjon fait : ceux du groupe qui y avaient une envie la retirent).
 local _, Opus = ...
 
 local FS = Opus.FS
@@ -148,7 +149,8 @@ function Opus.FinEnvie (duree)
 	local maintenant = time()
 	if duree == "soir" then
 		local d = date("*t", maintenant)
-		return time({ year = d.year, month = d.month, day = d.day, hour = 23, min = 59 })
+		-- tard le soir, elle dure au moins autant que « maintenant »
+		return math.max(time({ year = d.year, month = d.month, day = d.day, hour = 23, min = 59 }), maintenant + MAINTENANT)
 	end
 	return maintenant + (duree == "24h" and 86400 or duree == "7j" and 7 * 86400 or 3 * 86400)
 end
@@ -360,6 +362,74 @@ function Opus.RetirerEnvie (id, cle)
 	Apres()
 end
 
+-- donjon fait : on retire son envie, et on prévient les membres de son groupe qui en avaient une sur ce donjon, pour
+-- qu'ils retirent la leur (seul l'auteur d'une envie peut la retirer)
+local function MesEnviesSur (cle)
+	local moi, liste = Opus.MonNom(), {}
+	for _, e in ipairs(Opus.Envies()) do
+		if e.par == moi then for _, c in ipairs(e.donjons) do if c == cle then liste[#liste + 1] = e break end end end
+	end
+	return liste
+end
+
+-- les membres de la guilde dans son groupe, qui ont une envie sur ce donjon
+function Opus.GroupeAvecEnvie (cle)
+	local interesses, noms = {}, {}
+	for _, e in ipairs(Opus.Envies()) do
+		for _, c in ipairs(e.donjons) do if c == cle then interesses[e.par] = true end end
+	end
+	local moi = Opus.MonNom()
+	for i = 1, (GetNumSubgroupMembers and GetNumSubgroupMembers() or 0) do
+		local unite = "party" .. i
+		local guid, nom = UnitGUID(unite), UnitName(unite)
+		for _, m in ipairs(Opus.Membres()) do
+			if (guid and m.guid == guid) or (not m.guid and Opus.EstMembre(m.nom, nom)) then
+				if interesses[m.nom] and m.nom ~= moi then noms[#noms + 1] = m.nom end
+				break
+			end
+		end
+	end
+	return noms
+end
+
+function Opus.DonjonFait (cle)
+	for _, e in ipairs(MesEnviesSur(cle)) do Opus.RetirerEnvie(e.id, cle) end
+	local noms, morceaux = Opus.GroupeAvecEnvie(cle), {}
+	if #noms > 0 then
+		local debut = table.concat({ "F", (Opus.MotMsg(cle, 40):gsub(",", " ")), "" }, FS)
+		for _, n in ipairs(noms) do
+			local mot = (Opus.MotMsg(n, 48):gsub(",", " "))
+			if #debut + #table.concat(morceaux, ",") + #mot + 1 <= Opus.MAX_MSG then morceaux[#morceaux + 1] = mot end
+		end
+		Opus.Envoyer(debut .. table.concat(morceaux, ","))
+	end
+	local nom = Opus.DonjonDe(cle).nom
+	if #morceaux > 0 then
+		Opus.Msg(("%s fait : ton envie est retirée, et celles de %s le seront aussi (s'ils ont l'addon à jour)."):format(nom, table.concat(morceaux, ", ")))
+	else
+		Opus.Msg(("%s fait : ton envie est retirée."):format(nom))
+	end
+	Apres()
+end
+
+Opus.recepteurs.F = function (_, champs, expediteur, canal)
+	if canal ~= "GUILD" or not Opus.TrouverExpediteur(expediteur) then return end
+	local cle, moi = champs[2], Opus.MonNom()
+	if not cle or cle == "" then return end
+	for n in (champs[3] or ""):gmatch("[^,]+") do
+		if n == moi then
+			local miennes = MesEnviesSur(cle)
+			for _, e in ipairs(miennes) do Opus.RetirerEnvie(e.id, cle) end
+			if #miennes > 0 then
+				local par = Opus.TrouverExpediteur(expediteur)
+				Opus.Msg(("%s a marqué %s comme fait : ton envie est retirée."):format(par.nom, Opus.DonjonDe(cle).nom))
+				Apres()
+			end
+			return
+		end
+	end
+end
+
 ------------------------------------------------------------------------
 -- groupes possibles : assez de monde disponible maintenant, en ligne, pour un même donjon
 ------------------------------------------------------------------------
@@ -428,18 +498,21 @@ function Opus.FormerDepuisEnvie (cle)
 end
 
 ------------------------------------------------------------------------
--- la notification : une petite fenêtre en haut de l'écran, 10 secondes par défaut (onglet Réglages ; 0 = jusqu'au clic)
+-- la notification : une petite fenêtre en haut de l'écran, 10 secondes par défaut (onglet Réglages ; 0 = jusqu'au clic).
+-- Clic droit : la passer ; maj + clic droit : passer aussi celles en attente.
 ------------------------------------------------------------------------
 
 local toast, file = nil, {}
 local function Duree () return Opus.db and Opus.db.dureeNotif or 10 end
+local function Aide () toast.aide:SetText(#file > 0 and ("clic droit : passer · %d en attente"):format(#file) or "clic droit : passer") end
 local function Suivante ()
 	local n = table.remove(file, 1)
 	if not n then toast:Hide() return end
 	toast.titre:SetText(n.titre)
 	toast.texte:SetText(n.texte)
 	toast.clic = n.clic
-	toast:SetHeight(math.max(56, 30 + (tonumber(toast.texte:GetStringHeight()) or 14)))
+	Aide()
+	toast:SetHeight(math.max(62, 42 + (tonumber(toast.texte:GetStringHeight()) or 14)))
 	toast:SetAlpha(0)
 	toast:Show()
 	toast.debut = GetTime()
@@ -464,13 +537,22 @@ local function Construire ()
 	toast.texte = toast:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	toast.texte:SetPoint("TOPLEFT", toast.titre, "BOTTOMLEFT", 0, -3)
 	toast.texte:SetWidth(270) toast.texte:SetJustifyH("LEFT") toast.texte:SetSpacing(2)
+	toast.aide = toast:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	toast.aide:SetPoint("BOTTOMRIGHT", -10, 7)
+	-- clic gauche : l'action de la notification ; clic droit : la passer ; maj + clic droit : tout passer
+	toast:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	toast:SetScript("OnUpdate", function (self)
 		local t, duree = GetTime() - (self.debut or 0), Duree()
 		if self:IsMouseOver() or duree == 0 then self.debut = GetTime() - 0.3 t = 0.3 end
 		self:SetAlpha(t < 0.3 and t / 0.3 or duree > 0 and t > duree - 0.5 and math.max(0, (duree - t) / 0.5) or 1)
 		if duree > 0 and t >= duree then Suivante() end
 	end)
-	toast:SetScript("OnClick", function (self)
+	toast:SetScript("OnClick", function (self, bouton)
+		if bouton == "RightButton" then
+			if IsShiftKeyDown() then wipe(file) end
+			Suivante()
+			return
+		end
 		local clic = self.clic
 		Suivante()
 		if clic then clic() end
@@ -482,7 +564,7 @@ function Opus.Notification (titre, texte, clic)
 	if not toast then Construire() end
 	file[#file + 1] = { titre = titre, texte = texte, clic = clic }
 	pcall(PlaySound, SOUNDKIT and SOUNDKIT.TELL_MESSAGE or 3081)
-	if not toast:IsShown() then Suivante() end
+	if not toast:IsShown() then Suivante() else Aide() end
 end
 
 ------------------------------------------------------------------------

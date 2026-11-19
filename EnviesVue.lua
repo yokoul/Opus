@@ -375,6 +375,8 @@ local function Carte (v, largeur)
 			racine:CreateCheckbox("PL accepté (un grand peut booster)", function () return mienne.pl == true end,
 				function () Opus.ModifierEnvie(mienne.id, { pl = not mienne.pl }, c.donjon.cle) end)
 			racine:CreateDivider()
+			-- retire aussi les envies des membres de son groupe sur ce donjon
+			racine:CreateButton("Donjon fait (retire les envies du groupe)", function () Opus.DonjonFait(c.donjon.cle) end)
 			racine:CreateButton("Retirer mon envie pour ce donjon", function () Opus.RetirerEnvie(mienne.id, c.donjon.cle) end)
 			return
 		end
@@ -397,6 +399,11 @@ local function Carte (v, largeur)
 				local role = c.roleChoisi and c.roleChoisi ~= "tous" and c.roleChoisi or nil
 				Opus.PublierEnvie({ donjons = { cle }, pourquoi = {}, creneau = cr[1], duree = Opus.DureePourCreneau(cr[1]), suite = true, roles = role })
 			end)
+		end
+		-- sans envie sur ce donjon, mais en groupe avec des intéressés (celui qui a mené le groupe, un booster…)
+		if c.donjon and #Opus.GroupeAvecEnvie(c.donjon.cle) > 0 then
+			racine:CreateDivider()
+			racine:CreateButton("Donjon fait avec mon groupe", function () Opus.DonjonFait(c.donjon.cle) end)
 		end
 	end)
 	c.former = Opus.Bouton(c, "Former le groupe", 110, function () if c.donjon then Opus.FormerDepuisEnvie(c.donjon.cle) end end, true)
