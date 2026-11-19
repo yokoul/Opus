@@ -292,6 +292,22 @@ function Opus.PublierEnvie (x)
 	if Opus.Rafraichir then Opus.Rafraichir() end
 end
 
+-- modifie sa propre envie (rôles, créneau) et la repartage ; elle couvre tous ses donjons
+function Opus.ModifierEnvie (id, champs)
+	local d = Donnees()
+	local e = d and d[id]
+	if not e or e.par ~= Opus.MonNom() then return end
+	local nouvelle = Opus.Copie(e)
+	for k, v in pairs(champs) do nouvelle[k] = v end
+	if champs.roles == false then nouvelle.roles = Opus.MesRoles() end
+	nouvelle.m = math.max(time(), e.m + 1)
+	if champs.creneau then nouvelle.fin = math.max(e.fin, Opus.FinEnvie(Opus.DureePourCreneau(champs.creneau))) end
+	d[id] = nouvelle
+	Envoyer(nouvelle)
+	if Opus.VerifierGroupes then Opus.VerifierGroupes() end
+	if Opus.Rafraichir then Opus.Rafraichir() end
+end
+
 function Opus.RetirerEnvie (id)
 	local d = Donnees()
 	local e = d and d[id]

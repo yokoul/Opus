@@ -335,16 +335,39 @@ local function Carte (v, largeur)
 	c.moiAussi:SetWidth(110) c.moiAussi:SetPoint("TOPRIGHT", -10, -10)
 	c.moiAussi:SetDefaultText("Moi aussi")
 	c.moiAussi:SetupMenu(function (_, racine)
-		-- d'abord le rôle, si on en joue plusieurs (le menu reste ouvert), puis le créneau, qui publie
+		local garder = MenuResponse and MenuResponse.Refresh
 		local mes = Opus.ListeRoles(Opus.MesRoles())
+		local function NomRole (r) return CreateAtlasMarkup(ATLAS_ROLES[r], 14, 14) .. " " .. (r == "tank" and "Tank" or r == "soin" and "Soigneur" or "Dégâts") end
+		-- sa propre envie sur ce donjon : le rôle et le créneau se changent tout de suite
+		local mienne = c.mienne
+		if mienne then
+			local actuels = Opus.ListeRoles(mienne.roles)
+			local tous = #actuels ~= 1
+			if #mes > 1 then
+				racine:CreateTitle("Je viens en")
+				racine:CreateRadio("Tous mes rôles", function () return tous end, function () Opus.ModifierEnvie(mienne.id, { roles = false }) return garder end)
+				for _, r in ipairs(mes) do
+					racine:CreateRadio(NomRole(r), function () return not tous and actuels[1] == r end, function () Opus.ModifierEnvie(mienne.id, { roles = r }) return garder end)
+				end
+				racine:CreateDivider()
+			end
+			racine:CreateTitle("Disponible")
+			for _, cr in ipairs(Opus.CRENEAUX) do
+				if cr[1] ~= "autre" then
+					racine:CreateRadio(cr[2], function () return mienne.creneau == cr[1] end, function () Opus.ModifierEnvie(mienne.id, { creneau = cr[1] }) end)
+				end
+			end
+			racine:CreateDivider()
+			racine:CreateButton("Retirer mon envie", function () Opus.RetirerEnvie(mienne.id) end)
+			return
+		end
+		-- sinon « Moi aussi » : d'abord le rôle, si on en joue plusieurs (le menu reste ouvert), puis le créneau, qui publie
 		if #mes > 1 then
 			c.roleChoisi = c.roleChoisi or "tous"
-			local garder = MenuResponse and MenuResponse.Refresh
 			racine:CreateTitle("Je viens en")
 			racine:CreateRadio("Tous mes rôles", function () return c.roleChoisi == "tous" end, function () c.roleChoisi = "tous" return garder end)
 			for _, r in ipairs(mes) do
-				racine:CreateRadio(CreateAtlasMarkup(ATLAS_ROLES[r], 14, 14) .. " " .. (r == "tank" and "Tank" or r == "soin" and "Soigneur" or "Dégâts"),
-					function () return c.roleChoisi == r end, function () c.roleChoisi = r return garder end)
+				racine:CreateRadio(NomRole(r), function () return c.roleChoisi == r end, function () c.roleChoisi = r return garder end)
 			end
 			racine:CreateDivider()
 			racine:CreateTitle("Disponible")
@@ -447,6 +470,11 @@ local function RemplirCarte (c, g)
 		or manque == 0 and Opus.Vert("Groupe complet possible maintenant !")
 		or (Opus.Vert(#g.dispo .. " disponible(s) maintenant") .. Opus.Gris(" · " .. #g.envies .. " intéressé(s)")))
 	c.former:SetEnabled(#g.dispo >= 2)
+	-- le menu : « Mon envie » si on en a une sur ce donjon, sinon « Moi aussi » ; jamais le rôle choisi en titre
+	c.mienne = nil
+	for _, e in ipairs(g.envies) do if e.par == moi then c.mienne = e end end
+	c.moiAussi:GenerateMenu()
+	c.moiAussi:OverrideText(c.mienne and "Mon envie" or "Moi aussi")
 	local montres = math.min(#g.envies, JOUEURS_MAX)
 	for i, l in ipairs(c.joueurs) do
 		local e = g.envies[i]

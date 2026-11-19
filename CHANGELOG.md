@@ -3,6 +3,9 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.24.8
+- Envies : sur un donjon où tu as déjà une envie, le menu de la carte devient « Mon envie » : changer ton rôle ou ton créneau met l'envie à jour tout de suite (et la partage), « Retirer mon envie » y est aussi. Le menu n'affiche plus le rôle choisi en guise de titre.
+
 ## 0.24.7
 - Groupe : un seul bouton pour prévenir la guilde. « J'ai besoin d'un donjon… » reprend le donjon choisi dans « Ton groupe » ; « Proposer à la guilde » disparaît.
 
