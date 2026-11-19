@@ -3,11 +3,14 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.24.7
+- Groupe : un seul bouton pour prévenir la guilde. « J'ai besoin d'un donjon… » reprend le donjon choisi dans « Ton groupe » ; « Proposer à la guilde » disparaît.
+
 ## 0.24.6
 - Envies : choisis avec quel rôle tu viens. Le formulaire coche tous les rôles que tu sais jouer (décoche pour n'en garder qu'un) ; « Moi aussi » propose le rôle en haut du menu avant le créneau.
 
 ## 0.24.5
-- Groupe : le donjon choisi dans « Ton groupe » est expliqué (il règle qui t'est proposé plus bas) et se propose à la guilde en un clic (« Proposer à la guilde », formulaire déjà rempli).
+- Groupe : le donjon choisi dans « Ton groupe » est expliqué (il règle qui t'est proposé plus bas).
 - Envies : une nouvelle envie remplace tes envies précédentes sur les mêmes donjons au lieu de s'y ajouter, et une carte ne montre qu'une ligne par joueur (disponible maintenant d'abord).
 
 ## 0.24.4

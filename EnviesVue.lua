@@ -156,10 +156,10 @@ local function ConstruireFormulaire ()
 	f:Hide()
 end
 
--- ouvre le formulaire ; avec un donjon déjà choisi (« Moi aussi » → autre créneau)
-function Opus.EditerEnvie (cle, creneau)
+-- ouvre le formulaire ; avec un donjon déjà choisi (celui de « Ton groupe », ou « Moi aussi » → autre créneau : suite)
+function Opus.EditerEnvie (cle, creneau, suite)
 	if not f then ConstruireFormulaire() end
-	saisie = { donjons = cle and { cle } or {}, pourquoi = {}, creneau = creneau or "maintenant", suite = cle ~= nil or nil }
+	saisie = { donjons = cle and { cle } or {}, pourquoi = {}, creneau = creneau or "maintenant", suite = suite or nil }
 	saisie.duree = Opus.DureePourCreneau(saisie.creneau)
 	for _, c in pairs(f.pourquoi) do c:SetChecked(false) end
 	f.note:SetText("") f.precision:SetText("")
@@ -353,7 +353,7 @@ local function Carte (v, largeur)
 			racine:CreateButton(cr[2], function ()
 				local cle = c.donjon and c.donjon.cle
 				if not cle then return end
-				if cr[1] == "autre" then Opus.EditerEnvie(cle, "autre") return end
+				if cr[1] == "autre" then Opus.EditerEnvie(cle, "autre", true) return end
 				local role = c.roleChoisi and c.roleChoisi ~= "tous" and c.roleChoisi or nil
 				Opus.PublierEnvie({ donjons = { cle }, pourquoi = {}, creneau = cr[1], duree = Opus.DureePourCreneau(cr[1]), suite = true, roles = role })
 			end)

@@ -63,14 +63,7 @@ local function CarteGroupe (parent, largeur)
 	c.niveaux.barre:SetPoint("TOPLEFT", 375, -26)
 	c.seul = c:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	c.seul:SetPoint("TOPLEFT", 395, -10) c.seul:SetWidth(largeur - 410) c.seul:SetJustifyH("LEFT")
-	c.seul:SetText("Le donjon visé règle qui t'est proposé plus bas. Pour prévenir la guilde : « J'ai besoin d'un donjon… », ou choisis un donjon ici puis « Proposer à la guilde ».")
-	-- le donjon visé, proposé à la guilde : le formulaire d'envie, déjà rempli
-	c.proposer = Opus.Bouton(c, "Proposer à la guilde", 130, function ()
-		local d = Opus.groupe.donjon
-		if d then Opus.EditerEnvie(d.cle, "maintenant") end
-	end, true)
-	c.proposer:SetPoint("TOPRIGHT", -10, -14)
-	Opus.Bulle(c.proposer, "Proposer à la guilde", "Publie une envie pour ce donjon (formulaire déjà rempli, créneau « maintenant ») : la guilde est prévenue.")
+	c.seul:SetText("Le donjon visé règle qui t'est proposé plus bas ; « J'ai besoin d'un donjon… » le reprend pour prévenir la guilde.")
 
 	-- les cinq places
 	c.places = {}
@@ -125,12 +118,6 @@ local function RemplirGroupe (c)
 	end
 	Opus.PlacerBarre(c.niveaux, d, niveaux)
 	c.seul:SetShown(replie and not d)
-	-- proposer ce donjon à la guilde, sauf si on en a déjà une envie
-	local dejaPropose = false
-	for _, e in ipairs(d and Opus.Envies() or {}) do
-		if e.par == moi then for _, cle in ipairs(e.donjons) do if cle == d.cle then dejaPropose = true end end end
-	end
-	c.proposer:SetShown(d ~= nil and not dejaPropose)
 	for _, w in ipairs { c.manque, c.inviter, c.annoncer, c.vider } do w:SetShown(not replie) end
 	for i, r in ipairs(Opus.PLACES) do
 		local p, nom = c.places[i], Opus.groupe.places[i]
@@ -298,7 +285,11 @@ end
 local function Construire (cadre, barre)
 	local largeur = Opus.LARGEUR - 30
 	-- la bande du haut : annoncer une envie
-	local nouveau = Opus.Bouton(barre, "J'ai besoin d'un donjon…", 200, function () Opus.EditerEnvie() end)
+	-- le formulaire reprend le donjon visé dans « Ton groupe », s'il y en a un
+	local nouveau = Opus.Bouton(barre, "J'ai besoin d'un donjon…", 200, function ()
+		local d = Opus.groupe.donjon
+		Opus.EditerEnvie(d and d.cle, "maintenant")
+	end)
 	nouveau:SetPoint("LEFT", 0, 0)
 	cadre.annoncerEnvie = Opus.Bouton(barre, "Annoncer mon envie en /g", 180, function () Opus.PreRemplir(Opus.MacroEnvie()) end)
 	Opus.Bulle(cadre.annoncerEnvie, "Annoncer mon envie en /g", { "Ta dernière envie de donjon, pour ceux qui ne regardent pas l'addon.",
