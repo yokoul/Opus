@@ -52,15 +52,15 @@ function Opus.Bulle (cadre, titre, texte)
 end
 
 -- bouton rouge du client ; petit = la taille des lignes de liste
--- Le style d'Opus : fond lie-de-vin, filet doré qui s'éclaire au survol, texte or (la planche de marque : écarlate, or,
--- parchemin). On garde le modèle du client pour son comportement et on éteint ses textures (SetAlpha plutôt que Hide :
+-- Le style d'Opus : fond vert-bleu profond des bannières, filet doré des cadres qui s'éclaire au survol, texte or (la
+-- bannière du bot ; le rouge n'y est que l'éclat de la gemme). On garde le modèle du client pour son comportement et on éteint ses textures (SetAlpha plutôt que Hide :
 -- le modèle les remontre à chaque état). « Classique » dans Réglages garde le bouton rouge du jeu, au prochain /reload.
 local BLANC = "Interface\\Buttons\\WHITE8X8"
 local TEINTES = {
-	normal = { fond = { 0.20, 0.06, 0.05, 0.95 }, filet = { 0.55, 0.42, 0.18, 1 } },
-	survol = { fond = { 0.30, 0.09, 0.07, 0.95 }, filet = { 0.95, 0.78, 0.30, 1 } },
-	appui = { fond = { 0.12, 0.03, 0.03, 0.95 }, filet = { 0.83, 0.69, 0.22, 1 } },
-	eteint = { fond = { 0.10, 0.09, 0.08, 0.85 }, filet = { 0.30, 0.27, 0.23, 1 } },
+	normal = { fond = { 0.05, 0.16, 0.16, 0.95 }, filet = { 0.62, 0.48, 0.24, 1 } },
+	survol = { fond = { 0.08, 0.24, 0.23, 0.95 }, filet = { 0.98, 0.80, 0.42, 1 } },
+	appui = { fond = { 0.03, 0.10, 0.10, 0.95 }, filet = { 0.85, 0.68, 0.32, 1 } },
+	eteint = { fond = { 0.08, 0.10, 0.10, 0.85 }, filet = { 0.30, 0.28, 0.24, 1 } },
 }
 
 local function Teinter (b, etat)
@@ -84,7 +84,7 @@ function Opus.HabillerBouton (b)
 	-- un reflet en haut, pour le relief
 	local reflet = b:CreateTexture(nil, "BORDER", nil, 7)
 	reflet:SetTexture(BLANC) reflet:SetPoint("TOPLEFT", 1, -1) reflet:SetPoint("TOPRIGHT", -1, -1) reflet:SetHeight(1)
-	reflet:SetVertexColor(1, 0.85, 0.5, 0.18)
+	reflet:SetVertexColor(1, 0.88, 0.6, 0.14)
 	b.opusFilet = {}
 	for _, cote in ipairs { { "TOPLEFT", "TOPRIGHT", true }, { "BOTTOMLEFT", "BOTTOMRIGHT", true }, { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } } do
 		local l = b:CreateTexture(nil, "BORDER", nil, 7)
