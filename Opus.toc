@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: |cffd4af37Opus|r
-## Notes: Outils de la guilde Opus : essais et promotions, participation à la banque, journal de guilde, grille des grades et droits.
+## Notes: Outils de guilde pour WoW Forever : tableau de la guilde (persos, niveaux, notes, liens Discord), groupes et envies de donjon, banque partagée, essais et promotions, grille des grades.
 ## Author: Yan
 ## Version: 0.24.9
 ## IconTexture: Interface\AddOns\Opus\Media\Icone
