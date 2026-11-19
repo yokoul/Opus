@@ -3,6 +3,10 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.24.5
+- Groupe : le donjon choisi dans « Ton groupe » est expliqué (il règle qui t'est proposé plus bas) et se propose à la guilde en un clic (« Proposer à la guilde », formulaire déjà rempli).
+- Envies : une nouvelle envie remplace tes envies précédentes sur les mêmes donjons au lieu de s'y ajouter, et une carte ne montre qu'une ligne par joueur (disponible maintenant d'abord).
+
 ## 0.24.4
 - Envies : les places d'une carte montrent aussi la composition prévue. Pleine : quelqu'un est disponible maintenant ; à demi teintée : un intéressé s'y est déclaré pour un autre créneau (ton envie compte, toi compris) ; grisée : personne. Au survol, qui tient la place.
 

@@ -275,6 +275,16 @@ function Opus.PublierEnvie (x)
 		creneau = x.creneau or "maintenant", precision = x.precision, note = x.note, roles = Opus.MesRoles(), suite = x.suite,
 	}
 	for i = 1, math.min(#x.donjons, DONJONS_MAX) do e.donjons[i] = x.donjons[i] end
+	-- elle remplace ses envies précédentes qui ne portaient que sur ces donjons-là (un nouveau créneau, pas un doublon)
+	local nouveaux = {}
+	for _, cle in ipairs(e.donjons) do nouveaux[cle] = true end
+	for _, ancienne in ipairs(Opus.Envies()) do
+		if ancienne.par == e.par then
+			local incluse = true
+			for _, cle in ipairs(ancienne.donjons) do if not nouveaux[cle] then incluse = false end end
+			if incluse then Opus.RetirerEnvie(ancienne.id) end
+		end
+	end
 	Retenir(e)
 	Envoyer(e)
 	Opus.Msg("envie publiée : la guilde est prévenue.")

@@ -171,12 +171,17 @@ local function Donjons ()
 		return (a.d.min or 99) < (b.d.min or 99)
 	end)
 	for _, g in ipairs(ordre) do
-		-- les disponibles maintenant d'abord
+		-- les disponibles maintenant d'abord ; une seule ligne par joueur, la plus utile
 		table.sort(g.envies, function (a, b)
 			local x, y = Opus.DispoMaintenant(a), Opus.DispoMaintenant(b)
 			if x ~= y then return x end
 			return a.m > b.m
 		end)
+		local vus, uniques = {}, {}
+		for _, e in ipairs(g.envies) do
+			if not vus[e.par] then vus[e.par] = true uniques[#uniques + 1] = e end
+		end
+		g.envies = uniques
 		g.dispo, g.places = Opus.CompositionPossible(g.d.cle)
 		g.interesses, g.prevues = Opus.CompositionPossible(g.d.cle, true)
 	end
