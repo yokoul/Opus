@@ -1,11 +1,13 @@
 -- PageGuilde.lua : le tableau de la guilde. Les membres regroupés par voie (et les essais à part), avec leur classe,
--- joueur Discord, grade, niveau, ancienneté et participation à la banque ; un clic ouvre la fiche du membre (son histoire dans la guilde,
--- sa banque, ses notes). Le journal de guilde brut reste une des vues du menu.
+-- joueur Discord, grade, niveau, ancienneté et dernière connexion ; un clic ouvre la fiche du membre (ses persos, ses
+-- niveaux, ses notes, son histoire dans la guilde). Le journal de guilde brut reste une des vues du menu.
 local _, Opus = ...
 
 local LIGNES, HAUTEUR = 16, 22
 local lignes, decalage = {}, 0
 local vue, fiche = "voies", nil         -- vue du menu ; fiche = nom du membre ouvert
+local tousNiveaux = false              -- fiche : la liste de tous ses niveaux est dépliée
+local PERSOS_MAX = 8                   -- persos du même joueur montrés dans la fiche
 
 local VUES = {
 	{ "voies", "Membres par voie" }, { "enligne", "Membres en ligne" },
@@ -53,8 +55,9 @@ end
 
 local function Statut (m)
 	if m.enLigne then return Opus.Vert("en ligne") .. (m.zone and (" · " .. m.zone) or "") end
-	if m.absent then return Opus.Gris("vu il y a " .. Opus.Depuis(math.floor(time() / 3600) - m.absent)) end
-	return Opus.Gris("hors ligne")
+	local zone = m.zone and m.zone ~= "" and (" · " .. m.zone) or ""
+	if m.absent then return Opus.Gris("vu il y a " .. Opus.Depuis(math.floor(time() / 3600) - m.absent) .. zone) end
+	return Opus.Gris("hors ligne" .. zone)
 end
 
 ------------------------------------------------------------------------
@@ -62,8 +65,6 @@ end
 ------------------------------------------------------------------------
 
 local function Elements ()
-	local banque = {}
-	for _, p in ipairs(Opus.Participation(30)) do banque[p.nom] = p end
 	local groupes, ordre = {}, {}
 	for _, m in ipairs(Opus.Membres()) do
 		if vue ~= "enligne" or m.enLigne then
@@ -73,7 +74,6 @@ local function Elements ()
 			local gr = groupes[cle]
 			gr.membres[#gr.membres + 1] = m
 			gr.rang = math.min(gr.rang, m.grade)
-			m.banque = banque[m.nom]
 		end
 	end
 	-- les voies dans l'ordre de leur meilleur grade, les essais à la fin
@@ -101,15 +101,14 @@ local function LigneMembre (l, m)
 	if atlas then l.icone:SetAtlas(atlas) end
 	l.icone:SetShown(atlas ~= nil)
 	l.nom:SetText(Opus.Couleur(m.classe) .. m.nom .. "|r")
-	-- son joueur Discord (dernier import) : en blanc avec une étoile sur un main, en gris sur un reroll
+	-- son joueur Discord (dernier import) : en blanc avec une étoile sur un main, en gris sur un reroll ; « +2 » : ses
+	-- autres persos connus
 	local j, _, main = Opus.Discord(m.nom)
-	l.joueur:SetText(j and (main and (Opus.Blanc(j.pseudo) .. " " .. ETOILE) or Opus.Gris(j.pseudo)) or Opus.Gris("–"))
+	local autres = j and #j.persos - 1 or 0
+	l.joueur:SetText(j and ((main and (Opus.Blanc(j.pseudo) .. " " .. ETOILE) or Opus.Gris(j.pseudo)) .. (autres > 0 and Opus.Gris(" +" .. autres) or "")) or Opus.Gris("–"))
 	l.grade:SetText(m.nomGrade)
 	l.niveau:SetText(m.niveau)
 	l.depuis:SetText(TexteAnciennete(Anciennete(m)))
-	local b = m.banque
-	l.banque:SetText(b and (b.orPlus > 0 or b.objPlus > 0) and
-		((b.orPlus > 0 and Opus.Or(b.orPlus) or "") .. (b.objPlus > 0 and ((b.orPlus > 0 and " · " or "") .. b.objPlus .. " obj.") or "")) or Opus.Gris("–"))
 	l.statut:SetText(Statut(m))
 end
 
@@ -182,37 +181,68 @@ local function Fiche (cadre)
 				or sorte == "avant" and ("arrivé avant le " .. date("%d/%m/%Y", t) .. ", début du journal relevé")
 				or ("depuis le " .. date("%d/%m/%Y", t) .. " (" .. Duree(time() - t) .. ")"))
 		end
-		-- son joueur : Discord (Lien.lua) et personnages vus sur le même compte
-		local j = Opus.Discord(m.nom)
-		local autres = {}
-		for _, p in ipairs(Opus.PersosDuJoueur(m.nom)) do
-			if p.nom ~= m.nom then autres[#autres + 1] = nom(p.nom) .. (p.main and (" " .. ETOILE) or "") end
-		end
-		local _, _, main = Opus.Discord(m.nom)
+		-- son joueur Discord (Lien.lua) ; ses persos sont dans le bloc « Ses persos »
+		local j, _, main = Opus.Discord(m.nom)
 		if j then
 			infos[#infos + 1] = Opus.Normal("Discord : ") .. Opus.Blanc(j.pseudo) .. (main and (Opus.Gris(" · son main ") .. ETOILE) or Opus.Gris(" · reroll"))
 		end
-		if #autres > 0 then infos[#infos + 1] = Opus.Normal("Ses autres persos : ") .. table.concat(autres, ", ") end
 		if m.note ~= "" then infos[#infos + 1] = Opus.Normal("Note du jeu : ") .. m.note end
 		if m.noteOff ~= "" then infos[#infos + 1] = Opus.Normal("Note d'officier du jeu : ") .. m.noteOff end
 	end
-	-- sa banque : sur 30 jours et depuis le début
-	local tout, mois
-	for _, p in ipairs(Opus.Participation(nil)) do if p.nom == fiche then tout = p end end
-	for _, p in ipairs(Opus.Participation(30)) do if p.nom == fiche then mois = p end end
-	local function Bilan (p)
-		if not p then return Opus.Gris("rien") end
-		local morceaux = {}
-		if p.orPlus > 0 then morceaux[#morceaux + 1] = Opus.Or(p.orPlus) .. " déposés" end
-		if p.orMoins > 0 then morceaux[#morceaux + 1] = Opus.Or(p.orMoins) .. " retirés" end
-		if p.rep > 0 then morceaux[#morceaux + 1] = Opus.Or(p.rep) .. " de réparations" end
-		if p.objPlus > 0 then morceaux[#morceaux + 1] = p.objPlus .. " objets déposés" end
-		if p.objMoins > 0 then morceaux[#morceaux + 1] = p.objMoins .. " retirés" end
-		return #morceaux > 0 and table.concat(morceaux, " · ") or Opus.Gris("rien")
-	end
-	infos[#infos + 1] = Opus.Normal("Banque, 30 jours : ") .. Bilan(mois)
-	infos[#infos + 1] = Opus.Normal("Banque, depuis le début : ") .. Bilan(tout)
 	c.infos:SetText(table.concat(infos, "\n"))
+	local function H (t) local h = t:GetStringHeight() return type(h) == "number" and h or 14 end
+	local y = 60 + (#infos > 0 and H(c.infos) or 0) + 16
+
+	-- ses persos (Discord et même compte), une ligne chacun ; un clic ouvre sa fiche
+	local persos = m and Opus.PersosDuJoueur(m.nom) or {}
+	local montrer = #persos > 1
+	c.persosTitre:SetShown(montrer)
+	for i = 1, PERSOS_MAX do
+		local l, p = c.persos[i], montrer and persos[i]
+		l:SetShown(p ~= nil and p ~= false)
+		if p then
+			local x = p.membre
+			l.nom = p.nom
+			local atlas = x.classe and GetClassAtlas and GetClassAtlas(x.classe:lower())
+			if atlas then l.icone:SetAtlas(atlas) end
+			l.icone:SetShown(atlas ~= nil)
+			l.texte:SetText(Opus.Couleur(x.classe) .. p.nom .. "|r" .. (p.main and (" " .. ETOILE) or "") .. (p.nom == m.nom and Opus.Gris("  (cette fiche)") or ""))
+			l.niveau:SetText(x.niveau or "")
+			l.grade:SetText(x.nomGrade or "")
+			l.statut:SetText(x.enLigne ~= nil and Statut(x) or "")
+			l:ClearAllPoints() l:SetPoint("TOPLEFT", c, "TOPLEFT", 0, -(y + 20 + (i - 1) * 20))
+		end
+	end
+	if montrer then
+		c.persosTitre:ClearAllPoints() c.persosTitre:SetPoint("TOPLEFT", c, "TOPLEFT", 4, -y)
+		y = y + 20 + math.min(#persos, PERSOS_MAX) * 20 + 14
+	end
+
+	-- ses niveaux (Niveaux.lua) : le 60 en avant, la liste complète en dépliant
+	local montees = Opus.Montees(fiche)
+	local resume
+	if montees[1] and montees[1].niveau >= 60 then
+		local e = montees[1]
+		resume = ETOILE .. " |cffffd100Niveau 60|r " .. (e.approche and Opus.Gris("vu le " .. date("%d/%m/%Y", e.t)) or ("le " .. date("%d/%m/%Y à %H h %M", e.t)))
+	elseif montees[1] then
+		local e = montees[1]
+		resume = "Dernier niveau : " .. Opus.Blanc(e.niveau) .. (e.approche and Opus.Gris(", vu le " .. date("%d/%m", e.t)) or (", le " .. date("%d/%m à %H h %M", e.t)))
+	else
+		resume = Opus.Gris("Aucune montée relevée pour l'instant : l'addon les note quand il les voit passer.")
+	end
+	if tousNiveaux and #montees > 0 then
+		local liste = {}
+		for _, e in ipairs(montees) do
+			local quand = date(e.approche and "%d/%m" or "%d/%m %H:%M", e.t)
+			liste[#liste + 1] = Opus.Blanc(e.niveau) .. " " .. (e.approche and Opus.Gris(quand) or quand)
+		end
+		resume = resume .. "\n" .. table.concat(liste, Opus.Gris("  ·  ")) .. "\n" .. Opus.Gris("En gris : vu après coup, au retour de quelqu'un qui a l'addon.")
+	end
+	c.niveauxTitre:ClearAllPoints() c.niveauxTitre:SetPoint("TOPLEFT", c, "TOPLEFT", 4, -y)
+	c.niveaux:SetText(resume)
+	c.niveauxBouton:SetShown(#montees > 1)
+	c.niveauxBouton:SetText(tousNiveaux and "Replier" or ("Tous (" .. #montees .. ")"))
+	y = y + 20 + H(c.niveaux) + 16
 
 	-- les notes de l'addon (Notes.lua), sans limite de longueur : publique | officiers
 	local function Texte (note)
@@ -220,6 +250,7 @@ local function Fiche (cadre)
 		return (note.x:gsub("|", "||")) .. "\n" .. Opus.Gris(("— %s, %s"):format(note.par or "?", date("%d/%m/%Y", note.t)))
 	end
 	local officier = Opus.PeutConfigurer()
+	c.colPub.titre:ClearAllPoints() c.colPub.titre:SetPoint("TOPLEFT", c, "TOPLEFT", 4, -y)
 	local largeurCol = officier and math.floor((c.largeurNotes - 16) / 2) or c.largeurNotes
 	local hPub = c.colPub.Placer(4, largeurCol, Texte(Opus.Note("p", fiche)))
 	local hOff = officier and c.colOff.Placer(4 + largeurCol + 16, largeurCol, Texte(Opus.Note("o", fiche))) or 0
@@ -238,14 +269,13 @@ local function Fiche (cadre)
 		end
 	end
 	c.histoire:SetText(#histoire > 0 and table.concat(histoire, "\n") or Opus.Gris("Rien au journal de guilde pour l'instant."))
-	local function H (t) local h = t:GetStringHeight() return type(h) == "number" and h or 14 end
 	-- les boîtes des notes : à la taille du plus long texte, jusqu'à NOTES_MAX ; au-delà, on défile dedans
 	local boite = math.min(math.max(hPub, hOff), NOTES_MAX)
 	local nouvelle = c.pour ~= fiche
 	c.pour = fiche
 	c.colPub.Hauteur(hPub, boite, nouvelle)
 	if officier then c.colOff.Hauteur(hOff, boite, nouvelle) end
-	local hauteur = 60 + H(c.infos) + 16 + 20 + 6 + boite + 16 + 22 + H(c.histoire) + 8
+	local hauteur = y + 20 + 6 + boite + 16 + 22 + H(c.histoire) + 8
 	c:SetHeight(hauteur)
 	return math.max(hauteur, 240)
 end
@@ -285,7 +315,7 @@ local function Rafraichir (cadre)
 		if e then
 			l.e = e
 			local membre = not journal and e.nom ~= nil
-			for _, w in ipairs { l.icone, l.nom, l.joueur, l.grade, l.niveau, l.depuis, l.banque, l.statut } do w:SetShown(membre) end
+			for _, w in ipairs { l.icone, l.nom, l.joueur, l.grade, l.niveau, l.depuis, l.statut } do w:SetShown(membre) end
 			l.titre:SetShown(not journal and e.titre ~= nil)
 			l.quand:SetShown(journal) l.texte:SetShown(journal)
 			if journal then
@@ -335,19 +365,18 @@ local function Construire (cadre, barre)
 		l.icone = l:CreateTexture(nil, "ARTWORK")
 		l.icone:SetSize(18, 18) l.icone:SetPoint("LEFT", 5, 0)
 		l.nom = Texte("GameFontHighlight", 28, 140)
-		l.joueur = Texte("GameFontHighlightSmall", 172, 100)
-		l.grade = Texte("GameFontHighlightSmall", 276, 84)
-		l.niveau = Texte("GameFontHighlightSmall", 362, 24, "RIGHT")
-		l.depuis = Texte("GameFontHighlightSmall", 392, 60, "RIGHT")
-		l.banque = Texte("GameFontHighlightSmall", 458, 92, "RIGHT")
-		l.statut = Texte("GameFontHighlightSmall", 558, 116)
+		l.joueur = Texte("GameFontHighlightSmall", 172, 110)
+		l.grade = Texte("GameFontHighlightSmall", 286, 90)
+		l.niveau = Texte("GameFontHighlightSmall", 378, 24, "RIGHT")
+		l.depuis = Texte("GameFontHighlightSmall", 408, 62, "RIGHT")
+		l.statut = Texte("GameFontHighlightSmall", 482, 192)
 		l.quand = Texte("GameFontDisableSmall", 2, 52, "RIGHT")
 		l.texte = Texte("GameFontHighlightSmall", 64)
 		l.texte:SetPoint("RIGHT", -2, 0)
 		l:SetScript("OnClick", function (self)
 			local e = self.e
 			local nom = e and (e.nom or (JOURNAL[vue] and (e.b or e.a)))
-			if nom then fiche = nom Opus.Rafraichir() end
+			if nom then fiche, tousNiveaux = nom, false Opus.Rafraichir() end
 		end)
 		Opus.Bulle(l, function (self)
 			local e = self.e
@@ -357,9 +386,9 @@ local function Construire (cadre, barre)
 		end, function (self)
 			local e = self.e
 			if not e or JOURNAL[vue] or e.titre then return nil end
-			return { "Joueur : son pseudo Discord (" .. ETOILE .. " sur son main), d'après le dernier /opus import.",
+			return { "Joueur : son pseudo Discord (" .. ETOILE .. " sur son main, +N : ses autres persos), d'après le dernier /opus import.",
 				"Ancienneté : depuis l'arrivée relevée au journal de guilde ; en gris, arrivé avant le début du journal.",
-				"Banque : dépôts des 30 derniers jours.", Opus.Gris("Clic : ouvrir sa fiche.") }
+				"Hors ligne : sa dernière connexion et la dernière zone connue.", Opus.Gris("Clic : ouvrir sa fiche.") }
 		end)
 		lignes[i] = l
 	end
@@ -385,10 +414,42 @@ local function Construire (cadre, barre)
 	f.infos = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	f.infos:SetPoint("TOPLEFT", 4, -60) f.infos:SetWidth(largeur - 8)
 	f.infos:SetJustifyH("LEFT") f.infos:SetSpacing(4)
+	-- ses persos : une ligne cliquable chacun
+	f.persosTitre = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	f.persosTitre:SetText("Ses persos")
+	f.persos = {}
+	for i = 1, PERSOS_MAX do
+		local l = CreateFrame("Button", nil, f)
+		l:SetSize(largeur - 14, 20)
+		Opus.Survol(l)
+		local function Texte (x, w, align)
+			local t = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+			t:SetPoint("LEFT", x, 0) t:SetWidth(w) t:SetJustifyH(align or "LEFT") t:SetWordWrap(false)
+			return t
+		end
+		l.icone = l:CreateTexture(nil, "ARTWORK")
+		l.icone:SetSize(16, 16) l.icone:SetPoint("LEFT", 6, 0)
+		l.texte = Texte(28, 250)
+		l.niveau = Texte(282, 24, "RIGHT")
+		l.grade = Texte(316, 110)
+		l.statut = Texte(432, 242)
+		l:SetScript("OnClick", function (self)
+			if self.nom and self.nom ~= fiche then fiche = self.nom tousNiveaux = false Opus.Rafraichir() end
+		end)
+		f.persos[i] = l
+	end
+	-- ses niveaux : le résumé, et la liste complète en dépliant
+	f.niveauxTitre = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	f.niveauxTitre:SetText("Ses niveaux")
+	f.niveauxBouton = Opus.Bouton(f, "Tous", 100, function () tousNiveaux = not tousNiveaux Opus.Rafraichir() end, true)
+	f.niveauxBouton:SetPoint("TOP", f.niveauxTitre, "TOP", 0, 3)
+	f.niveauxBouton:SetPoint("RIGHT", f, "LEFT", 4 + largeur - 8, 0)
+	f.niveaux = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	f.niveaux:SetPoint("TOPLEFT", f.niveauxTitre, "BOTTOMLEFT", 0, -6) f.niveaux:SetWidth(largeur - 8)
+	f.niveaux:SetJustifyH("LEFT") f.niveaux:SetSpacing(4)
 	-- les notes : publique | officiers, côte à côte (la publique seule prend toute la largeur)
 	f.colPub = ColonneNote(f, "Note publique", "p")
 	f.colOff = ColonneNote(f, "Note d'officier", "o")
-	f.colPub.titre:SetPoint("TOPLEFT", f.infos, "BOTTOMLEFT", 0, -16)
 	f.colOff.titre:SetPoint("TOP", f.colPub.titre, "TOP")
 	f.largeurNotes = largeur - 8
 	local h = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -403,7 +464,7 @@ end
 -- ouvrir la page sur une fiche ou une vue, depuis ailleurs (autres onglets, minimap, /opus journal)
 function Opus.OuvrirGuilde (v, nom)
 	if v then vue, decalage = v, 0 end
-	fiche = nom
+	fiche, tousNiveaux = nom, false
 	Opus.db.page = "guilde"
 	Opus.Fenetre(true)
 end

@@ -3,6 +3,11 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.19.0
+- **Niveaux** : l'addon note chaque montée de niveau des membres de la guilde (roster relu chaque minute) et l'annonce dans la discussion ; le niveau 60 s'affiche aussi au milieu de l'écran, avec le son de montée de niveau. `/opus niveaux tous`, `60` ou `aucun` règle les annonces. Les dates passent d'un membre à l'autre : on retrouve à la connexion celles qu'on a manquées.
+- Fiche d'un membre : bloc « Ses niveaux », avec le 60 mis en avant (ou le dernier niveau), et la liste complète en dépliant ; bloc « Ses persos », une ligne par perso du même joueur (classe, niveau, grade, connexion), un clic ouvre sa fiche.
+- Guilde : la banque quitte la liste et la fiche (elle a son onglet) ; la liste montre à la place la dernière connexion avec la dernière zone connue, et « +N » à côté du pseudo Discord pour ses autres persos.
+
 ## 0.18.3
 - Guilde : nouvelle colonne « Joueur » dans la liste des membres, avec le pseudo Discord de chacun (étoile sur son main, en gris sur un reroll), sans avoir à ouvrir sa fiche.
 - Guilde : l'étoile d'un main est l'icône du jeu (marqueur de raid) ; l'emoji ⭐ s'affichait en carré.
