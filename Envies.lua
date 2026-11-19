@@ -291,7 +291,7 @@ function Opus.FormerDepuisEnvie (cle)
 		local m = Opus.TrouverMembre(j.nom)
 		if m then Opus.AjouterAuGroupe(m) end
 	end
-	Opus.OuvrirGroupe("former")
+	Opus.OuvrirGroupe()
 end
 
 ------------------------------------------------------------------------

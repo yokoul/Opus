@@ -1,9 +1,10 @@
--- EnviesVue.lua : les envies de donjon à l'écran. La vue de l'onglet Groupe, une carte par donjon demandé (comme la
--- recherche de groupe du jeu) : sa tranche de niveaux face au sien, les places du groupe déjà couvertes par ceux qui
--- sont disponibles maintenant, et qui le veut, quand et pourquoi ; et le formulaire « J'ai besoin d'un donjon ».
+-- EnviesVue.lua : les envies de donjon à l'écran. Une carte par donjon demandé (comme la recherche de groupe du jeu) :
+-- sa tranche de niveaux face au sien, les places du groupe déjà couvertes par ceux qui sont disponibles maintenant, et
+-- qui le veut, quand et pourquoi ; l'onglet Groupe les assemble (PageGroupe.lua). Et le formulaire « J'ai besoin d'un
+-- donjon ».
 local _, Opus = ...
 
-local CARTES_MAX, JOUEURS_MAX, JOUEUR_H, HAUT_MAX = 6, 6, 18, 430
+local JOUEURS_MAX, JOUEUR_H = 6, 18
 local ATLAS_ROLES = { tank = "roleicon-tiny-tank", soin = "roleicon-tiny-healer", degats = "roleicon-tiny-dps" }
 local NOMS_ROLES = { tank = "tank", soin = "soigneur", degats = "dégâts" }
 
@@ -188,11 +189,29 @@ local function Atlas (texture, atlas, repli)
 	texture:SetAtlas(atlas)
 end
 
--- la barre de niveaux : la tranche du donjon sur une échelle autour d'elle, et un repère à son niveau
-local function Barre (c, d)
+-- la barre de niveaux : la tranche du donjon sur une échelle autour d'elle, et un repère à son niveau (comme la portée
+-- d'une recette de métier) ; aussi dans la carte « Ton groupe » (PageGroupe.lua)
+function Opus.CreerBarre (parent, largeur)
+	local c = {}
+	c.barre = parent:CreateTexture(nil, "ARTWORK")
+	c.barre:SetColorTexture(0.15, 0.13, 0.1, 0.9)
+	c.barre:SetSize(largeur or 220, 6)
+	c.plage = parent:CreateTexture(nil, "ARTWORK", nil, 1)
+	c.moi = parent:CreateTexture(nil, "OVERLAY")
+	c.moi:SetColorTexture(1, 1, 1, 1) c.moi:SetWidth(2)
+	c.moiTexte = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	c.min = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	c.max = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	function c.Montrer (oui)
+		for _, w in ipairs { c.barre, c.plage, c.moi, c.moiTexte, c.min, c.max } do w:SetShown(oui) end
+	end
+	return c
+end
+
+function Opus.PlacerBarre (c, d)
+	if not d or not d.min then c.Montrer(false) return end
+	c.Montrer(true)
 	local n = UnitLevel("player")
-	if not d.min then c.barre:Hide() return end
-	c.barre:Show()
 	local bas, haut = math.max(1, math.min(d.min, n) - 4), math.min(60, math.max(d.max, n) + 4)
 	if haut - bas < 12 then haut = math.min(60, bas + 12) bas = math.max(1, haut - 12) end
 	local w = c.barre:GetWidth()
@@ -229,15 +248,8 @@ local function Carte (v, largeur)
 	c.sous = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	c.sous:SetPoint("TOPLEFT", c.titre, "BOTTOMLEFT", 0, -3)
 	-- la barre de niveaux, sous le titre
-	c.barre = c:CreateTexture(nil, "ARTWORK")
-	c.barre:SetColorTexture(0.15, 0.13, 0.1, 0.9)
-	c.barre:SetSize(220, 6) c.barre:SetPoint("TOPLEFT", 12, -60)
-	c.plage = c:CreateTexture(nil, "ARTWORK", nil, 1)
-	c.moi = c:CreateTexture(nil, "OVERLAY")
-	c.moi:SetColorTexture(1, 1, 1, 1) c.moi:SetWidth(2)
-	c.moiTexte = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	c.min = c:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	c.max = c:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	c.niveaux = Opus.CreerBarre(c)
+	c.niveaux.barre:SetPoint("TOPLEFT", 12, -60)
 	-- les cinq places, à droite du titre
 	c.places = {}
 	for i = 1, #Opus.PLACES do
@@ -313,7 +325,7 @@ local function RemplirCarte (c, g)
 	local raisons = {}
 	for _, p in ipairs(Opus.POURQUOI) do if pourquoi[p[1]] then raisons[#raisons + 1] = p[2]:lower() end end
 	c.sous:SetText(Opus.Gris((d.min and ("niveaux %d à %d"):format(d.min, d.max) or "") .. (#raisons > 0 and ("  ·  " .. table.concat(raisons, ", ")) or "")))
-	Barre(c, d)
+	Opus.PlacerBarre(c.niveaux, d)
 	local manque = 0
 	for i, r in ipairs(Opus.PLACES) do
 		local t = c.places[i]
@@ -360,71 +372,27 @@ local function RemplirCarte (c, g)
 	return h
 end
 
-function Opus.VueEnvies (parent, largeur)
-	local v = CreateFrame("Frame", nil, parent)
-	v:SetPoint("TOPLEFT") v:SetPoint("TOPRIGHT")
-	local decalage = 0
+-- pour l'onglet Groupe (PageGroupe.lua), qui assemble les cartes
+Opus.DonjonsDemandes = Donjons
+Opus.CarteDonjon = Carte
+Opus.RemplirCarteDonjon = RemplirCarte
+Opus.IconesRoles = IconesRoles
+Opus.APortee = APortee
+Opus.Chuchoter = Chuchoter
+function Opus.AtlasPlace (texture, role) Atlas(texture, ATLAS_PLACES[role], ATLAS_ROLES[role]) end
 
-	local nouveau = Opus.Bouton(v, "J'ai besoin d'un donjon…", 200, function () Opus.EditerEnvie() end)
-	nouveau:SetPoint("TOPLEFT", 0, 0)
-	v.annoncer = Opus.BoutonSecurise(v, 170, function ()
-		GameTooltip:SetText("Annoncer en guilde")
-		GameTooltip:AddLine("Pour les membres sans l'addon : ta dernière envie dans la discussion de guilde.", 1, 1, 1, true)
-	end)
-	v.annoncer:SetText("Annoncer en /g")
-	v.annoncer:SetPoint("LEFT", nouveau, "RIGHT", 8, 0)
-	v.info = v:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	v.info:SetPoint("TOPRIGHT", -4, -6)
-
-	v.cartes = {}
-	for i = 1, CARTES_MAX do v.cartes[i] = Carte(v, largeur) end
-	v.ascenseur = Opus.Ascenseur(v, function (d) decalage = d Opus.Rafraichir() end)
-	v.ascenseur:SetPoint("TOPRIGHT", -2, -32)
-	v.vide = v:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-	v.vide:SetPoint("TOPLEFT", 4, -38) v.vide:SetWidth(largeur - 20) v.vide:SetJustifyH("LEFT")
-	v.vide:SetText("Aucune envie de donjon pour l'instant. Tu dois faire un donjon pour une quête ou un objet ? Annonce-le : la guilde est prévenue, et chacun peut dire quand il est disponible.")
-
-	function v.Defiler (d) decalage = math.max(0, decalage - d) end
-
-	function v.Rafraichir ()
-		local donjons = Donjons()
-		local moi = Opus.MonNom()
-		decalage = math.max(0, math.min(decalage, #donjons - 1))
-		local joueurs, n, envies = {}, 0, Opus.Envies()
-		for _, e in ipairs(envies) do if not joueurs[e.par] then joueurs[e.par] = true n = n + 1 end end
-		v.info:SetText(("%d donjon(s) · %d joueur(s)"):format(#donjons, n))
-		-- les cartes, l'une sous l'autre, tant qu'il y a de la place
-		local y, montrees = 32, 0
-		for i, c in ipairs(v.cartes) do
-			local g = donjons[i + decalage]
-			local montrer = g ~= nil and (i == 1 or y < HAUT_MAX)
-			c:SetShown(montrer)
-			if montrer then
-				c:ClearAllPoints() c:SetPoint("TOPLEFT", 0, -y)
-				y = y + RemplirCarte(c, g) + 6
-				montrees = montrees + 1
-			end
-		end
-		v.ascenseur:SetHeight(math.max(y - 32, 1))
-		v.ascenseur:Recaler(decalage, #donjons, montrees)
-		-- l'annonce en guilde : sa dernière envie
-		local mienne
-		for _, e in ipairs(envies) do if e.par == moi then mienne = e break end end
-		local texte = ""
-		if mienne then
+-- l'annonce en guilde de sa dernière envie, pour ceux qui n'ont pas l'addon (« » sans envie)
+function Opus.MacroEnvie ()
+	local moi = Opus.MonNom()
+	for _, e in ipairs(Opus.Envies()) do
+		if e.par == moi then
 			local noms = {}
-			for _, cle in ipairs(mienne.donjons) do noms[#noms + 1] = Opus.DonjonDe(cle).nom end
-			local quoi = Opus.TextePourquoi(mienne)
-			local quand = Opus.TexteCreneau(mienne):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
-			texte = ("/g [Opus] Je cherche du monde pour %s%s, %s : chuchotez-moi !"):format(table.concat(noms, ", "),
-				quoi ~= "" and (" (" .. quoi .. ")") or "", quand)
+			for _, cle in ipairs(e.donjons) do noms[#noms + 1] = Opus.DonjonDe(cle).nom end
+			local quoi = Opus.TextePourquoi(e)
+			local quand = Opus.TexteCreneau(e):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+			return (("/g [Opus] Je cherche du monde pour %s%s, %s : chuchotez-moi !"):format(table.concat(noms, ", "),
+				quoi ~= "" and (" (" .. quoi .. ")") or "", quand)):sub(1, 255)
 		end
-		v.annoncer:SetAttribute("macrotext", texte:sub(1, 255))
-		v.annoncer:SetEnabled(texte ~= "")
-		v.vide:SetShown(#donjons == 0)
-		local hauteur = #donjons == 0 and 100 or y + 4
-		v:SetHeight(hauteur)
-		return hauteur
 	end
-	return v
+	return ""
 end

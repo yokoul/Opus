@@ -3,6 +3,10 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.24.0
+- **Onglet Groupe en une seule page** : « Ton groupe » en haut (le donjon et sa barre de niveaux, les cinq places, ce qui manque, l'alerte d'XP, inviter, chercher en /g, vider ; replié en une ligne tant que tu y es seul), puis les envies de donjon de la guilde en cartes (« Former le groupe » remplit la carte du haut), puis les membres en ligne à ta portée (un clic les place, Proposer, Écrire). Le choix du donjon montre tous les donjons, grisés hors de ton niveau.
+- La page défile dans une hauteur fixe : la molette fait glisser les cartes au lieu d'en retirer, et la fenêtre ne change plus de taille en défilant.
+
 ## 0.23.2
 - Envies : tes rôles apparaissent sur tes propres envies même avant la première publication de ta spé ; l'état d'une carte n'est plus coupé.
 
