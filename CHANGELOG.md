@@ -3,6 +3,9 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.20.2
+- Onglets dans l'ordre : Guilde, Roster, Groupe, Banque, Grades, Essais, Réglages, À propos.
+
 ## 0.20.1
 - Guilde : le groupe « Commun » disparaît. Le chef et les officiers forment la « Direction » ; les autres grades sans voie (Pierre brute, les rerolls) ont leur propre groupe, à leur nom.
 - Guilde : la colonne d'ancienneté est assez large pour « 05/11 (création) ».
