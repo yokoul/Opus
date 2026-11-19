@@ -298,12 +298,13 @@ end
 -- groupes possibles : assez de monde disponible maintenant, en ligne, pour un même donjon
 ------------------------------------------------------------------------
 
--- les joueurs disponibles maintenant pour un donjon, et la composition qu'on en tire : places[i] = nom
-function Opus.CompositionPossible (cle)
+-- les joueurs disponibles maintenant pour un donjon, et la composition qu'on en tire : places[i] = nom ; avec tous,
+-- tous les intéressés, quel que soit leur créneau (la composition prévue)
+function Opus.CompositionPossible (cle, tous)
 	local dispo, vus = {}, {}
 	for _, e in ipairs(Opus.Envies()) do
 		local m = Opus.TrouverMembre(e.par)
-		if not vus[e.par] and m and m.enLigne and Opus.DispoMaintenant(e) then
+		if not vus[e.par] and m and (tous or (m.enLigne and Opus.DispoMaintenant(e))) then
 			for _, c in ipairs(e.donjons) do
 				if c == cle then vus[e.par] = true dispo[#dispo + 1] = { nom = e.par, roles = Opus.ListeRoles(e.roles) } break end
 			end

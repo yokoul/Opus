@@ -178,6 +178,7 @@ local function Donjons ()
 			return a.m > b.m
 		end)
 		g.dispo, g.places = Opus.CompositionPossible(g.d.cle)
+		g.interesses, g.prevues = Opus.CompositionPossible(g.d.cle, true)
 	end
 	return ordre
 end
@@ -286,6 +287,11 @@ local function Carte (v, largeur)
 		local t = c:CreateTexture(nil, "ARTWORK")
 		t:SetSize(26, 26) t:SetPoint("TOPLEFT", 330 + (i - 1) * 30, -12)
 		c.places[i] = t
+		-- au survol : qui tient la place
+		local z = CreateFrame("Frame", nil, c)
+		z:SetAllPoints(t) z:EnableMouse(true)
+		t.zone = z
+		Opus.Bulle(z, function (self) return self.titre end, function (self) return self.texte end)
 	end
 	c.etat = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	c.etat:SetPoint("TOPLEFT", 330, -44) c.etat:SetWidth(210) c.etat:SetJustifyH("LEFT") c.etat:SetWordWrap(false)
@@ -365,15 +371,24 @@ local function RemplirCarte (c, g)
 		if m and m.niveau then niveaux[#niveaux + 1] = { niveau = m.niveau } end
 	end
 	Opus.PlacerBarre(c.niveaux, d, niveaux)
+	-- une place pleine : quelqu'un est disponible maintenant pour la tenir ; à demi teintée : un intéressé s'y est
+	-- déclaré pour un autre créneau (son envie compte, soi compris) ; grisée : personne
 	local manque = 0
 	for i, r in ipairs(Opus.PLACES) do
 		local t = c.places[i]
+		Atlas(t, ATLAS_PLACES[r], ATLAS_ROLES[r])
+		local NOMS_PLACES = { tank = "Tank", soin = "Soigneur", degats = "Dégâts" }
+		t.zone.titre = NOMS_PLACES[r]
 		if g.places[i] then
-			Atlas(t, ATLAS_PLACES[r], ATLAS_ROLES[r])
 			t:SetDesaturated(false) t:SetAlpha(1)
+			t.zone.texte = { g.places[i], Opus.Vert("disponible maintenant") }
+		elseif g.prevues[i] then
+			t:SetDesaturated(false) t:SetAlpha(0.5)
+			t.zone.texte = { g.prevues[i], Opus.Gris("intéressé, pour un autre créneau") }
+			manque = manque + 1
 		else
-			Atlas(t, ATLAS_PLACES[r], ATLAS_ROLES[r])
-			t:SetDesaturated(true) t:SetAlpha(0.3)
+			t:SetDesaturated(true) t:SetAlpha(0.25)
+			t.zone.texte = Opus.Gris("Personne pour l'instant.")
 			manque = manque + 1
 		end
 	end
