@@ -1,4 +1,5 @@
--- Groupe.lua : former un groupe de donjon avec les membres en ligne de son niveau (vue « Former un groupe » du Roster)
+-- Groupe.lua : le groupe qu'on monte (le donjon visé, et ceux qui ont accepté une proposition, Invitation.lua) ; il n'est
+-- plus affiché : les cartes d'envie invitent elles-mêmes, et le donjon visé règle « En ligne à ta portée »
 -- Les donjons et leurs tranches de niveau viennent de l'addon Dungeon Journal s'il est installé (sa table
 -- ForeverDungeonJournal_NS.DB, avec ses noms traduits) ; sans lui, la tranche est son propre niveau à ±3.
 local _, Opus = ...
@@ -62,16 +63,6 @@ function Opus.AjouterAuGroupe (m)
 	if Opus.Rafraichir then Opus.Rafraichir() end
 end
 
-function Opus.RetirerDuGroupe (i)
-	Opus.groupe.places[i] = nil
-	if Opus.Rafraichir then Opus.Rafraichir() end
-end
-
-function Opus.ViderGroupe ()
-	Opus.groupe.places = {}
-	if Opus.Rafraichir then Opus.Rafraichir() end
-end
-
 -- ce joueur ferait-il perdre l'XP au groupe ? (un donjon choisi : son niveau au-dessus de son maximum ; sinon : face au
 -- plus bas du groupe)
 function Opus.RisqueGris (niveau)
@@ -85,16 +76,6 @@ function Opus.RisqueGris (niveau)
 	return plusBas ~= nil and niveau - plusBas >= Opus.ECART_GRIS
 end
 
--- les membres du groupe pour qui les monstres seraient gris
-function Opus.AlerteNiveaux ()
-	local fautifs = {}
-	for i = 1, #Opus.PLACES do
-		local m = Opus.groupe.places[i] and Opus.TrouverMembre(Opus.groupe.places[i])
-		if m and Opus.RisqueGris(m.niveau) then fautifs[#fautifs + 1] = m.nom end
-	end
-	return fautifs
-end
-
 -- changer de donjon : les membres déjà placés qui ont l'addon en sont prévenus
 function Opus.ChoisirDonjon (d)
 	local avant = Opus.groupe.donjon
@@ -103,40 +84,9 @@ function Opus.ChoisirDonjon (d)
 	if Opus.Rafraichir then Opus.Rafraichir() end
 end
 
--- ce qui manque, en clair : « 1 soigneur, 2 dégâts »
-local NOMS = { tank = { "tank", "tanks" }, soin = { "soigneur", "soigneurs" }, degats = { "dégâts", "dégâts" } }
-function Opus.Manque ()
-	local manque = { tank = 0, soin = 0, degats = 0 }
-	for i, r in ipairs(Opus.PLACES) do if not Opus.groupe.places[i] then manque[r] = manque[r] + 1 end end
-	local morceaux = {}
-	for _, r in ipairs { "tank", "soin", "degats" } do
-		if manque[r] > 0 then morceaux[#morceaux + 1] = manque[r] .. " " .. NOMS[r][manque[r] > 1 and 2 or 1] end
-	end
-	return table.concat(morceaux, ", ")
-end
-
--- les commandes que les boutons sécurisés exécutent (une ligne par invitation ; 255 caractères au plus)
-function Opus.MacroInvitations ()
-	local moi, lignes = Opus.MonNom(), {}
-	for i = 1, #Opus.PLACES do
-		local nom = Opus.groupe.places[i]
-		if nom and nom ~= moi and not UnitInParty(nom) then lignes[#lignes + 1] = "/invite " .. nom end
-	end
-	local texte = table.concat(lignes, "\n")
-	return #texte <= 255 and texte or texte:sub(1, 255)
-end
-
 -- ouvre la ligne de discussion avec un texte déjà écrit (« /g … ») : on le relit, le retouche et l'envoie soi-même
 function Opus.PreRemplir (texte)
 	if not texte or texte == "" then return end
 	local ouvrir = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
 	if ouvrir then ouvrir(texte) end
-end
-
-function Opus.MacroAnnonce ()
-	local min, max, nom = Opus.Tranche()
-	local manque = Opus.Manque()
-	if manque == "" then return nil end
-	local texte = ("/g [Opus] %s (niv. %d-%d) : il manque %s. Chuchotez %s !"):format(nom or "Groupe de donjon", min, max, manque, Opus.MonNom())
-	return #texte <= 255 and texte or texte:sub(1, 255)
 end

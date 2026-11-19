@@ -7,6 +7,7 @@ Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://disc
 - Notifications : un clic droit passe la notification (sans ouvrir la fiche ni l'onglet), maj + clic droit passe aussi celles en attente ; leur nombre s'affiche en bas.
 - Envies : « Clore pour mon groupe », dans le menu « Mon envie » de la carte (donjon fait ou abandonné), clôt ton envie sur ce donjon et celles des membres de ton groupe qui en avaient une ; la carte disparaît quand plus personne n'y a d'envie. Sans envie sur ce donjon mais en groupe avec des intéressés, « Moi aussi » le propose aussi.
 - Envies : « Former le groupe » disparaît (il recopiait la carte dans « Ton groupe », en double). La carte a son propre bouton « Inviter les dispo » : la composition d'abord, puis les autres disponibles maintenant et en ligne, quatre au plus. La notification « Groupe complet possible » ouvre la carte.
+- Onglet Groupe : le panneau « Ton groupe » disparaît, il venait d'avant les envies. Un groupe se monte par une envie (« J'ai besoin d'un donjon… ») et sa carte, qui invite. Le choix du donjon passe en tête de « En ligne à ta portée » et règle la tranche de niveaux des membres proposés ; « Écrire » et « Proposer » restent, et un membre déjà dans ton groupe est signalé.
 - Une envie « jusqu'à ce soir » publiée tard dure au moins deux heures (près de minuit, elle expirait presque aussitôt).
 
 ## 0.28.0

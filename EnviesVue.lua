@@ -167,7 +167,7 @@ local function ConstruireFormulaire ()
 	f:Hide()
 end
 
--- ouvre le formulaire ; avec un donjon déjà choisi (celui de « Ton groupe », ou « Moi aussi » → autre créneau : suite)
+-- ouvre le formulaire ; avec un donjon déjà choisi (celui choisi pour « En ligne à ta portée », ou « Moi aussi » → autre créneau : suite)
 function Opus.EditerEnvie (cle, creneau, suite)
 	if not f then ConstruireFormulaire() end
 	saisie = { donjons = cle and { cle } or {}, pourquoi = {}, creneau = creneau or "maintenant", suite = suite or nil }
@@ -239,7 +239,7 @@ local function Atlas (texture, atlas, repli)
 end
 
 -- la barre de niveaux : la tranche du donjon sur une échelle autour d'elle, et un repère à son niveau (comme la portée
--- d'une recette de métier) ; aussi dans la carte « Ton groupe » (PageGroupe.lua)
+-- d'une recette de métier)
 function Opus.CreerBarre (parent, largeur)
 	local c = {}
 	c.barre = parent:CreateTexture(nil, "ARTWORK")
@@ -406,7 +406,7 @@ local function Carte (v, largeur)
 			racine:CreateButton("Clore pour mon groupe", function () Opus.DonjonFait(c.donjon.cle) end)
 		end
 	end)
-	-- inviter ceux qui sont disponibles maintenant, depuis la carte : /invite dans un bouton sécurisé (comme « Ton groupe »)
+	-- inviter ceux qui sont disponibles maintenant, depuis la carte : /invite dans un bouton sécurisé
 	c.inviter = Opus.BoutonSecurise(c, 110, function (self)
 		GameTooltip:SetText("Inviter les dispo")
 		if #self.noms == 0 then

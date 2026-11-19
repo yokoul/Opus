@@ -1,8 +1,8 @@
--- PageGroupe.lua : l'onglet Groupe, une seule page qui défile. En haut, « Ton groupe » : le donjon (et sa tranche de
--- niveaux face au sien), les cinq places, ce qui manque, l'alerte d'XP, inviter et annoncer ; replié en une ligne tant
--- qu'on y est seul ; il sert à monter un groupe à la main. Puis les envies de donjon de la guilde, une carte par donjon
--- (Envies.lua, EnviesVue.lua), qui invite elle-même ceux qui sont disponibles. Enfin les membres en ligne à sa portée : un clic les place, « Écrire »
--- ouvre un chuchotement tout prêt, « Proposer » ouvre une fenêtre chez ceux qui ont l'addon (Invitation.lua).
+-- PageGroupe.lua : l'onglet Groupe, une seule page qui défile. D'abord les envies de donjon de la guilde, une carte par
+-- donjon (Envies.lua, EnviesVue.lua), qui invite elle-même ceux qui sont disponibles : c'est par là qu'un groupe se monte
+-- (« J'ai besoin d'un donjon… »). Puis les membres en ligne à sa portée, pour le donjon choisi en tête du bloc (ou autour
+-- de son niveau) : « Écrire » ouvre un chuchotement tout prêt, « Proposer » ouvre une fenêtre chez ceux qui ont l'addon
+-- (Invitation.lua).
 local _, Opus = ...
 
 local VUE_MAX = 520                -- hauteur visible ; au-delà, la page défile à la molette
@@ -40,113 +40,6 @@ local function Fond (f)
 end
 
 ------------------------------------------------------------------------
--- « Ton groupe »
-------------------------------------------------------------------------
-
-local function CarteGroupe (parent, largeur)
-	local c = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-	c:SetWidth(largeur) Fond(c)
-	c.titre = c:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-	c.titre:SetPoint("TOPLEFT", 12, -12) c.titre:SetText("Ton groupe")
-	-- le donjon : sa tranche de niveaux décide des membres proposés plus bas
-	c.donjon = CreateFrame("DropdownButton", nil, c, "WowStyle1DropdownTemplate")
-	c.donjon:SetWidth(250) c.donjon:SetPoint("TOPLEFT", 130, -8)
-	c.donjon:SetupMenu(function (_, racine)
-		local function Choisi (d) return (Opus.groupe.donjon and Opus.groupe.donjon.cle) == (d and d.cle) end
-		racine:CreateRadio("Autour de mon niveau (±3)", function () return Opus.groupe.donjon == nil end, function () Opus.ChoisirDonjon(nil) end)
-		for _, d in ipairs(Opus.TousLesDonjons()) do
-			local texte = ("%s  (%d-%d)"):format(d.nom, d.min, d.max)
-			racine:CreateRadio(Opus.APortee(d) and texte or Opus.Gris(texte), function () return Choisi(d) end, function () Opus.ChoisirDonjon(d) end)
-		end
-	end)
-	c.niveaux = Opus.CreerBarre(c, 150)
-	c.niveaux.barre:SetPoint("TOPLEFT", 375, -26)
-	c.seul = c:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	c.seul:SetPoint("TOPLEFT", 395, -10) c.seul:SetWidth(largeur - 410) c.seul:SetJustifyH("LEFT")
-	c.seul:SetText("Le donjon visé règle qui t'est proposé plus bas ; « J'ai besoin d'un donjon… » le reprend pour prévenir la guilde.")
-
-	-- les cinq places
-	c.places = {}
-	local l = math.floor((largeur - 24) / #Opus.PLACES)
-	for i = 1, #Opus.PLACES do
-		local p = CreateFrame("Frame", nil, c)
-		p:SetSize(l - 6, 32) p:SetPoint("TOPLEFT", 12 + (i - 1) * l, -52)
-		p.icone = p:CreateTexture(nil, "ARTWORK")
-		p.icone:SetSize(28, 28) p.icone:SetPoint("LEFT", 0, 0)
-		p.nom = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		p.nom:SetPoint("TOPLEFT", p.icone, "TOPRIGHT", 6, -2) p.nom:SetWidth(l - 60) p.nom:SetJustifyH("LEFT") p.nom:SetWordWrap(false)
-		p.niveau = p:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-		p.niveau:SetPoint("TOPLEFT", p.nom, "BOTTOMLEFT", 0, -2)
-		p.retirer = Opus.Bouton(p, "×", 20, function () Opus.RetirerDuGroupe(i) end, true)
-		p.retirer:SetPoint("RIGHT", 0, 0)
-		c.places[i] = p
-	end
-	c.manque = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	c.manque:SetPoint("TOPLEFT", 12, -94) c.manque:SetWidth(largeur - 24) c.manque:SetJustifyH("LEFT")
-	-- inviter passe par /invite dans un bouton sécurisé (inviter directement est restreint pour un addon sur Forever) ;
-	-- chercher en /g prépare seulement le texte dans la ligne de discussion, à envoyer soi-même
-	c.inviter = Opus.BoutonSecurise(c, 130, function ()
-		GameTooltip:SetText("Inviter le groupe")
-		GameTooltip:AddLine("Invite les membres placés qui ne sont pas encore avec toi.", 1, 1, 1, true)
-	end)
-	c.inviter:SetText("Inviter") c.inviter:SetPoint("BOTTOMLEFT", 10, 10)
-	c.annoncer = Opus.Bouton(c, "Chercher en /g", 160, function () Opus.PreRemplir(Opus.MacroAnnonce()) end, true)
-	c.annoncer:SetPoint("LEFT", c.inviter, "RIGHT", 6, 0)
-	Opus.Bulle(c.annoncer, "Chercher en guilde", function ()
-		return { Opus.MacroAnnonce() and Opus.MacroAnnonce():sub(4) or "Le groupe est complet.", Opus.Gris("Le texte s'ouvre dans la discussion : à toi de l'envoyer.") }
-	end)
-	c.vider = Opus.Bouton(c, "Vider le groupe", 130, function () Opus.ViderGroupe() end, true)
-	c.vider:SetPoint("LEFT", c.annoncer, "RIGHT", 6, 0)
-	return c
-end
-
-local function RemplirGroupe (c)
-	local moi = Opus.MonNom()
-	local autres = 0
-	for i = 1, #Opus.PLACES do
-		local nom = Opus.groupe.places[i]
-		if nom and nom ~= moi then autres = autres + 1 end
-	end
-	local replie = autres == 0
-	local d = Opus.groupe.donjon
-	c.donjon:GenerateMenu()
-	local niveaux = {}
-	for i = 1, #Opus.PLACES do
-		local nom = Opus.groupe.places[i]
-		local m = nom and nom ~= moi and Opus.TrouverMembre(nom)
-		if m then niveaux[#niveaux + 1] = { niveau = m.niveau } end
-	end
-	Opus.PlacerBarre(c.niveaux, d, niveaux)
-	c.seul:SetShown(replie and not d)
-	for _, w in ipairs { c.manque, c.inviter, c.annoncer, c.vider } do w:SetShown(not replie) end
-	for i, r in ipairs(Opus.PLACES) do
-		local p, nom = c.places[i], Opus.groupe.places[i]
-		p:SetShown(not replie)
-		if not replie then
-			local m = nom and Opus.TrouverMembre(nom)
-			Opus.AtlasPlace(p.icone, r)
-			p.icone:SetDesaturated(nom == nil) p.icone:SetAlpha(nom and 1 or 0.3)
-			p.nom:SetText(m and (Opus.Couleur(m.classe) .. m.nom .. "|r") or Opus.Gris(nom or "libre"))
-			p.niveau:SetText(m and (Opus.RisqueGris(m.niveau) and Opus.Rouge(m.niveau) or m.niveau) or "")
-			p.retirer:SetShown(nom ~= nil and nom ~= moi)
-		end
-	end
-	if replie then
-		c:SetHeight(58)
-		return 58
-	end
-	local manque, fautifs = Opus.Manque(), Opus.AlerteNiveaux()
-	c.manque:SetText((manque == "" and Opus.Vert("Groupe complet !") or (Opus.Normal("Il manque : ") .. manque))
-		.. (#fautifs > 0 and ("   " .. Opus.Rouge(("Pas d'XP : monstres gris pour %s (%d niveaux d'écart ou plus)."):format(table.concat(fautifs, ", "), Opus.ECART_GRIS))) or ""))
-	local invitations, annonce = Opus.MacroInvitations(), Opus.MacroAnnonce()
-	c.inviter:SetAttribute("macrotext", invitations)
-	c.inviter:SetEnabled(invitations ~= "")
-	c.annoncer:SetEnabled(annonce ~= nil)
-	c:SetHeight(146)
-	return 146
-end
-
-------------------------------------------------------------------------
 -- « En ligne à ta portée »
 ------------------------------------------------------------------------
 
@@ -167,7 +60,7 @@ local function LigneCandidat (parent, largeur)
 	l.spe = Texte(256, 130)
 	l.zone = Texte(390, 120)
 	l.groupe = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	l.groupe:SetPoint("RIGHT", -6, 0) l.groupe:SetText(Opus.Vert("dans le groupe"))
+	l.groupe:SetPoint("RIGHT", -6, 0) l.groupe:SetText(Opus.Vert("dans ton groupe"))
 	-- chuchoter : la ligne de discussion du jeu s'ouvre avec la proposition déjà écrite, à envoyer ou retoucher
 	l.ecrire = Opus.Bouton(l, "Écrire", 56, function ()
 		local m = l.m
@@ -185,15 +78,12 @@ local function LigneCandidat (parent, largeur)
 	-- proposer : une fenêtre s'ouvre chez lui (s'il a l'addon), sa réponse revient ici
 	l.proposer = Opus.Bouton(l, "Proposer", 72, function () if l.m then Opus.Proposer(l.m) end end, true)
 	l.proposer:SetPoint("RIGHT", l.ecrire, "LEFT", -4, 0)
-	Opus.Bulle(l.proposer, "Proposer par l'addon", "Une fenêtre s'ouvre chez lui pour accepter ou refuser ; s'il accepte, il rejoint ton groupe et tu n'as plus qu'à l'inviter.")
-	l:SetScript("OnClick", function (self) if self.m then Opus.AjouterAuGroupe(self.m) end end)
+	Opus.Bulle(l.proposer, "Proposer par l'addon", "Une fenêtre s'ouvre chez lui pour accepter ou refuser ; s'il accepte, tu n'as plus qu'à l'inviter.")
 	Opus.Bulle(l, function (self) return self.m and self.m.nom end, function (self)
-		local texte = {}
 		if self.m and Opus.RisqueGris(self.m.niveau) then
-			texte[#texte + 1] = Opus.Rouge(("Les monstres seraient gris pour lui (%d niveaux d'écart ou plus) : plus personne ne gagnerait d'XP."):format(Opus.ECART_GRIS))
+			return Opus.Rouge(("Les monstres seraient gris pour lui (%d niveaux d'écart ou plus) : plus personne ne gagnerait d'XP."):format(Opus.ECART_GRIS))
 		end
-		texte[#texte + 1] = Opus.Gris("Clic : le placer dans le groupe.")
-		return texte
+		return nil
 	end)
 	return l
 end
@@ -201,7 +91,9 @@ end
 local function RemplirCandidats (c, largeur)
 	local liste = Candidats()
 	local min, max, nom = Opus.Tranche()
-	c.titre:SetText("En ligne à ta portée" .. Opus.Gris(("   niveaux %d à %d%s · %d"):format(min, max, nom and (" · " .. nom) or "", #liste)))
+	c.titre:SetText("En ligne à ta portée" .. Opus.Gris(("   niveaux %d à %d · %d"):format(min, max, #liste)))
+	c.donjon:GenerateMenu()
+	c.donjon:OverrideText(nom or "Autour de mon niveau (±3)")
 	for i, m in ipairs(liste) do
 		local l = c.lignes[i] or LigneCandidat(c, largeur)
 		c.lignes[i] = l
@@ -217,8 +109,8 @@ local function RemplirCandidats (c, largeur)
 		l.roles:SetText(Opus.IconesRoles(table.concat(roles, ",")))
 		l.spe:SetText(m.spe and (m.spe.arbre .. Opus.Gris("  " .. m.spe.points)) or Opus.Gris("spé inconnue"))
 		l.zone:SetText(Opus.Gris(m.zone or ""))
-		local place = Opus.DansLeGroupe(m.nom)
-		l.groupe:SetShown(place ~= nil)
+		local place = UnitInParty(m.nom)
+		l.groupe:SetShown(place)
 		l.ecrire:SetShown(not place)
 		l.proposer:SetShown(not place and Opus.AAddon(m.nom))
 	end
@@ -240,8 +132,6 @@ local function Rafraichir (cadre)
 	local x = cadre.contenu
 	local y = 0
 	local function Placer (f, h) f:ClearAllPoints() f:SetPoint("TOPLEFT", 0, -y) y = y + h + ECART end
-
-	Placer(x.groupe, RemplirGroupe(x.groupe))
 
 	-- les envies de la guilde
 	local donjons = Opus.DonjonsDemandes()
@@ -285,7 +175,7 @@ end
 local function Construire (cadre, barre)
 	local largeur = Opus.LARGEUR - 30
 	-- la bande du haut : annoncer une envie
-	-- le formulaire reprend le donjon visé dans « Ton groupe », s'il y en a un
+	-- le formulaire reprend le donjon choisi pour « En ligne à ta portée », s'il y en a un
 	local nouveau = Opus.Bouton(barre, "J'ai besoin d'un donjon…", 200, function ()
 		local d = Opus.groupe.donjon
 		Opus.EditerEnvie(d and d.cle, "maintenant")
@@ -310,7 +200,6 @@ local function Construire (cadre, barre)
 	cadre.ascenseur:SetPoint("TOPRIGHT", cadre.defile, "TOPRIGHT", 14, 0)
 	cadre.ascenseur:SetPoint("BOTTOMRIGHT", cadre.defile, "BOTTOMRIGHT", 14, 0)
 
-	x.groupe = CarteGroupe(x, x.largeur)
 	x.titreEnvies = x:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	x.videEnvies = x:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	x.videEnvies:SetWidth(x.largeur - 8) x.videEnvies:SetJustifyH("LEFT")
@@ -320,6 +209,18 @@ local function Construire (cadre, barre)
 	x.candidats:SetWidth(x.largeur) Fond(x.candidats)
 	x.candidats.titre = x.candidats:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	x.candidats.titre:SetPoint("TOPLEFT", 12, -12)
+	-- le donjon visé : sa tranche de niveaux décide des membres proposés (et le formulaire d'envie le reprend)
+	local menu = CreateFrame("DropdownButton", nil, x.candidats, "WowStyle1DropdownTemplate")
+	menu:SetWidth(250) menu:SetPoint("TOPRIGHT", -10, -6)
+	menu:SetupMenu(function (_, racine)
+		local function Choisi (d) return (Opus.groupe.donjon and Opus.groupe.donjon.cle) == (d and d.cle) end
+		racine:CreateRadio("Autour de mon niveau (±3)", function () return Opus.groupe.donjon == nil end, function () Opus.ChoisirDonjon(nil) end)
+		for _, d in ipairs(Opus.TousLesDonjons()) do
+			local texte = ("%s  (%d-%d)"):format(d.nom, d.min, d.max)
+			racine:CreateRadio(Opus.APortee(d) and texte or Opus.Gris(texte), function () return Choisi(d) end, function () Opus.ChoisirDonjon(d) end)
+		end
+	end)
+	x.candidats.donjon = menu
 	x.candidats.lignes = {}
 	x.candidats.vide = x.candidats:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	x.candidats.vide:SetPoint("TOPLEFT", 14, -38)
@@ -334,6 +235,6 @@ function Opus.OuvrirGroupe ()
 	Opus.Afficher("groupe")
 end
 Opus.OuvrirEnvies = Opus.OuvrirGroupe
-Opus.Commande("groupe", "groupe", "former un groupe de donjon, et les envies de donjon de la guilde", function () Opus.OuvrirGroupe() end)
+Opus.Commande("groupe", "groupe", "les envies de donjon de la guilde, et les membres en ligne à ta portée", function () Opus.OuvrirGroupe() end)
 
 Opus.Page("groupe", "Groupe", Construire, Rafraichir, function (_, d) defile = math.max(0, defile - d * 60) end)

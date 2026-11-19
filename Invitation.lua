@@ -140,7 +140,7 @@ local function Reponse (nom, role)
 		return
 	end
 	local m = Opus.TrouverMembre(nom)
-	reponse.texte:SetText(("%s accepte de venir, en %s.\nIl est placé dans ton groupe (onglet Roster)."):format(
+	reponse.texte:SetText(("%s accepte de venir, en %s.\nTu n'as plus qu'à l'inviter."):format(
 		m and (Opus.Couleur(m.classe) .. nom .. "|r") or nom, Opus.Blanc(NOMS_ROLES[role] or role)))
 	reponse.inviter:SetAttribute("type", "macro")
 	reponse.inviter:SetAttribute("macrotext", "/invite " .. nom)
