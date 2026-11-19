@@ -5,7 +5,7 @@ Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://disc
 
 ## 0.28.1
 - Notifications : un clic droit passe la notification (sans ouvrir la fiche ni l'onglet), maj + clic droit passe aussi celles en attente ; leur nombre s'affiche en bas.
-- Envies : « Clore : donjon fait », dans le menu « Mon envie » de la carte, clôt ton envie sur ce donjon et celles des membres de ton groupe qui en avaient une ; la carte disparaît quand plus personne n'y a d'envie. Sans envie sur ce donjon mais en groupe avec des intéressés, « Moi aussi » propose « Clore : donjon fait avec mon groupe ».
+- Envies : « Clore pour mon groupe », dans le menu « Mon envie » de la carte (donjon fait ou abandonné), clôt ton envie sur ce donjon et celles des membres de ton groupe qui en avaient une ; la carte disparaît quand plus personne n'y a d'envie. Sans envie sur ce donjon mais en groupe avec des intéressés, « Moi aussi » le propose aussi.
 - Une envie « jusqu'à ce soir » publiée tard dure au moins deux heures (près de minuit, elle expirait presque aussitôt).
 
 ## 0.28.0

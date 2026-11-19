@@ -4,7 +4,7 @@
 -- guilde voit toutes les envies (un reroll peut être du bon niveau) ; une notification annonce les nouvelles, et prévient
 -- quand assez de monde est disponible maintenant pour former un groupe.
 -- Messages : « V » (une envie, publiée, modifiée ou retirée : une fin passée la retire), « e » (rattrapage à la connexion),
--- « F » (donjon fait : ceux du groupe qui y avaient une envie la retirent).
+-- « F » (clôture : ceux du groupe qui avaient une envie sur ce donjon la retirent).
 local _, Opus = ...
 
 local FS = Opus.FS
@@ -362,7 +362,7 @@ function Opus.RetirerEnvie (id, cle)
 	Apres()
 end
 
--- donjon fait : on retire son envie, et on prévient les membres de son groupe qui en avaient une sur ce donjon, pour
+-- clore pour son groupe (donjon fait ou abandonné) : on retire son envie, et on prévient les membres de son groupe qui en avaient une sur ce donjon, pour
 -- qu'ils retirent la leur (seul l'auteur d'une envie peut la retirer)
 local function MesEnviesSur (cle)
 	local moi, liste = Opus.MonNom(), {}
@@ -422,7 +422,7 @@ Opus.recepteurs.F = function (_, champs, expediteur, canal)
 			for _, e in ipairs(miennes) do Opus.RetirerEnvie(e.id, cle) end
 			if #miennes > 0 then
 				local par = Opus.TrouverExpediteur(expediteur)
-				Opus.Msg(("%s a clos %s (donjon fait) : ton envie est close."):format(par.nom, Opus.DonjonDe(cle).nom))
+				Opus.Msg(("%s a clos %s pour son groupe : ton envie est close."):format(par.nom, Opus.DonjonDe(cle).nom))
 				Apres()
 			end
 			return
