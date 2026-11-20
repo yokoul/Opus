@@ -58,14 +58,7 @@ local function MemeJoueur (a, b) return a and b and (a == b or Opus.Joueur(a) ==
 -- un nom tapé (destinataire d'un courrier, d'un échange, saisie) : le membre du roster, prénom seul compris
 function Opus.MembreDe (nom)
 	if not nom or nom == "" then return nil end
-	nom = Opus.Court(strtrim(nom))
-	local m = Opus.TrouverMembre(nom)
-	if m then return m end
-	local bas = nom:lower()
-	for _, x in ipairs(Opus.Membres()) do
-		if x.nom:lower() == bas or Opus.EstMembre(x.nom, nom) then return x end
-	end
-	return nil
+	return Opus.Identifier(nom)
 end
 
 ------------------------------------------------------------------------
@@ -462,6 +455,7 @@ Opus.Ecoute("TRADE_ACCEPT_UPDATE", function (moi)
 		if nom and id then objets[#objets + 1] = { id = id, nom = nom, n = n or 1 } end
 	end
 	local dest = TradeFrameRecipientNameText and TradeFrameRecipientNameText:GetText() or UnitName("NPC")
+	Opus.dernierPartenaire = dest
 	echange = { dest = dest, objets = objets, or_ = GetPlayerTradeMoney and GetPlayerTradeMoney() or 0 }
 end)
 Opus.Ecoute("UI_INFO_MESSAGE", function (_, message)

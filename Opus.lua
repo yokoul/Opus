@@ -48,9 +48,17 @@ local function Defauts (db, ref)
 	end
 end
 
--- nom sans le royaume ("Yan-Forever" -> "Yan")
+-- Un nom tel qu'Opus le range : « Prénom Nom », comme le roster. Sur Forever, il n'y a pas de royaume mais un nom de
+-- famille, que le jeu écrit parfois après un tiret (« Basara-Nore ») ; un libellé de serveur collé à la fin est retiré.
+-- Les prénoms ne sont pas uniques (Basara Auberdine, Basara Nore…) : ne jamais réduire un nom à son prénom.
+local function SansEspaces (s) return (s:gsub("[%s%-]", "")):lower() end
 function Opus.Court (nom)
-	return nom and (nom:match("^([^-]+)") or nom) or nil
+	if type(nom) ~= "string" then return nil end
+	nom = strtrim(nom)
+	local avant, fin = nom:match("^(.+)%-([^%-]+)$")
+	local serveur = GetRealmName and GetRealmName()
+	if avant and serveur and serveur ~= "" and SansEspaces(fin) == SansEspaces(serveur) then nom = avant end
+	return (nom:gsub("%-", " "))
 end
 
 ------------------------------------------------------------------------
@@ -104,22 +112,54 @@ function Opus.MonNom ()
 	for _, m in ipairs(Opus.Membres()) do
 		if guid and m.guid == guid then return m.nom end
 	end
-	return Opus.Court(UnitName("player"))
+	local prenom, famille = UnitName("player")
+	return Opus.Court(famille and famille ~= "" and (prenom .. "-" .. famille) or prenom)
+end
+
+-- un expéditeur de message d'addon est-il ce membre ? (le jeu peut n'y mettre que le prénom) — pour vérifier un nom
+-- annoncé dans le message ; pour trouver qui a écrit, Opus.Identifier, qui ne devine pas entre deux mêmes prénoms
+function Opus.EstMembre (nom, expediteur)
+	local court = Opus.Court(expediteur)
+	if not nom or not court then return false end
+	if nom == court then return true end
+	local m = Opus.Identifier(expediteur, true)
+	if m then return m.nom == nom end
+	-- pas tranché (deux mêmes prénoms en ligne) : le prénom suffit pour vérifier un nom annoncé
+	local prenom = court:match("^(%S+)")
+	return nom:sub(1, #prenom + 1) == prenom .. " "
+end
+
+-- Le membre que désigne un nom (expéditeur, partenaire d'échange, saisie) : le nom complet d'abord ; un prénom seul
+-- seulement s'il ne désigne qu'un membre, ou qu'un membre en ligne (souvent les personnages d'un même joueur).
+-- Pour un expéditeur de message de guilde, forcément membre, le prénom compte aussi quand le jeu le fait suivre d'autre
+-- chose qu'un nom de la guilde (un serveur qu'on ne reconnaît pas, par exemple).
+-- Sinon nil : mieux vaut ignorer que mettre au compte d'un autre.
+function Opus.Identifier (nom, expediteur)
+	local court = Opus.Court(nom)
+	if not court or court == "" then return nil end
+	local bas = court:lower()
+	local membres, tous, enLigne = Opus.Membres(), {}, {}
+	for _, m in ipairs(membres) do
+		if m.nom == court or m.nom:lower() == bas then return m end
+	end
+	if bas:find(" ", 1, true) then
+		if not expediteur then return nil end
+		bas = bas:match("^(%S+)")
+	end
+	for _, m in ipairs(membres) do
+		if m.nom:lower():sub(1, #bas + 1) == bas .. " " then
+			tous[#tous + 1] = m
+			if m.enLigne then enLigne[#enLigne + 1] = m end
+		end
+	end
+	if #tous == 1 then return tous[1] end
+	if #enLigne == 1 then return enLigne[1] end
+	return nil
 end
 
 -- le membre qui a envoyé un message d'addon
 function Opus.TrouverExpediteur (expediteur)
-	for _, m in ipairs(Opus.Membres()) do
-		if Opus.EstMembre(m.nom, expediteur) then return m end
-	end
-	return nil
-end
-
--- un expéditeur de message d'addon est-il ce membre ? (le jeu peut n'y mettre que le prénom, et un royaume)
-function Opus.EstMembre (nom, expediteur)
-	local court = Opus.Court(expediteur)
-	if not nom or not court then return false end
-	return nom == court or nom:sub(1, #court + 1) == court .. " "
+	return Opus.Identifier(expediteur, true)
 end
 
 ------------------------------------------------------------------------

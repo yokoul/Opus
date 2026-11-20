@@ -165,7 +165,11 @@ local function Annoncer (expediteur, n)
 	annonce = C_Timer.NewTimer(5, function ()
 		annonce = nil
 		local qui, total = {}, 0
-		for nom, k in pairs(recusDepuis) do qui[#qui + 1] = Opus.Court(nom) total = total + k end
+		for nom, k in pairs(recusDepuis) do
+			local m = Opus.TrouverExpediteur(nom)
+			qui[#qui + 1] = m and m.nom or Opus.Court(nom)
+			total = total + k
+		end
 		recusDepuis = {}
 		Msg(("banque : %d opération(s) reçue(s) de %s."):format(total, table.concat(qui, ", ")))
 	end)
@@ -507,4 +511,29 @@ function Opus.FileDePartage () return #file end
 Opus.Commande("sync", "sync", "demande aux membres en ligne les opérations de banque qui te manquent", function ()
 	Opus.DemanderRattrapage()
 	Msg("demande de rattrapage envoyée à la guilde.")
+end)
+
+-- comment le jeu écrit les noms (Forever : prénom et nom de famille, pas de royaume ; les prénoms ne sont pas uniques)
+Opus.Commande("diagnoms", "diagnoms", "comment le jeu écrit les noms (messages, échanges, roster)", function ()
+	local function Brut (v) return v == nil and "nil" or ("« " .. tostring(v) .. " »") end
+	local prenom, famille = UnitName("player")
+	Msg("noms tels que le jeu les donne :")
+	DEFAULT_CHAT_FRAME:AddMessage("  UnitName : " .. Brut(prenom) .. ", " .. Brut(famille))
+	DEFAULT_CHAT_FRAME:AddMessage("  GetRealmName : " .. Brut(GetRealmName and GetRealmName())
+		.. " ; normalisé : " .. Brut(GetNormalizedRealmName and GetNormalizedRealmName()))
+	local guid, roster = UnitGUID("player"), nil
+	for _, m in ipairs(Opus.Membres()) do if m.guid == guid then roster = m.complet end end
+	DEFAULT_CHAT_FRAME:AddMessage("  roster : " .. Brut(roster) .. " ; Opus te range sous " .. Brut(Opus.MonNom()))
+	DEFAULT_CHAT_FRAME:AddMessage("  tes messages d'addon arrivent signés : " .. Brut(partage.moi)
+		.. (partage.moi and "" or " (pas encore vu : relance après un partage, /opus sync par exemple)"))
+	DEFAULT_CHAT_FRAME:AddMessage("  dernier partenaire d'échange : " .. Brut(Opus.dernierPartenaire))
+	local prenoms, doubles = {}, {}
+	for _, m in ipairs(Opus.Membres()) do
+		local p = m.nom:match("^(%S+)")
+		prenoms[p] = (prenoms[p] or 0) + 1
+		if prenoms[p] == 2 then doubles[#doubles + 1] = p end
+	end
+	table.sort(doubles)
+	DEFAULT_CHAT_FRAME:AddMessage(("  prénoms portés par plusieurs membres : %d%s"):format(#doubles,
+		#doubles > 0 and (" (" .. table.concat(doubles, ", ") .. ")") or ""))
 end)

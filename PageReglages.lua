@@ -200,10 +200,10 @@ local function Construire (cadre, barre)
 	Section("Diagnostics")
 	Libelle("Relevés", "Résultats dans la discussion, pour signaler un problème.")
 	local px = X_CONTROLE
-	for _, d in ipairs { { "Banque", "diagbanque" }, { "Droits", "diag" }, { "Spé", "diagspe" } } do
-		local b = Opus.Bouton(cadre, d[1], 90, function () Commande(d[2]) end)
+	for _, d in ipairs { { "Banque", "diagbanque" }, { "Droits", "diag" }, { "Spé", "diagspe" }, { "Noms", "diagnoms" } } do
+		local b = Opus.Bouton(cadre, d[1], 80, function () Commande(d[2]) end)
 		b:SetPoint("TOPLEFT", px, y)
-		px = px + 98
+		px = px + 86
 	end
 	Ligne(40)
 	cadre.hauteur = -y + 8
