@@ -374,7 +374,12 @@ function Opus.PartagerPersos (noms)
 end
 
 -- les genres de message des autres modules (Lien.lua, Notes.lua) : [genre] = f(enregistrements, champs, expediteur, canal)
-Opus.recepteurs = {}
+-- une lettre par genre de message : deux modules sur la même lettre, et l'un des deux ne reçoit plus rien (c'est arrivé
+-- avec « W », banque et liaisons Discord) ; on le refuse dès le chargement
+Opus.recepteurs = setmetatable({}, { __newindex = function (t, genre, f)
+	if rawget(t, genre) then error("Opus : le genre de message « " .. genre .. " » est déjà pris") end
+	rawset(t, genre, f)
+end })
 
 local function Recevoir (texte, expediteur, canal)
 	local enregistrements = { strsplit(RS, texte) }

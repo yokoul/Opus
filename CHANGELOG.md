@@ -3,6 +3,11 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.28.3 (en cours)
+- Banque, Contenu : la photo des onglets n'arrivait plus chez les autres membres depuis la 0.27.0 (son message portait la même lettre que celui des liaisons Discord, qui le recevait à sa place) : seul celui qui était passé à la banque voyait la grille. Les photos partent sous une nouvelle lettre, et celles des versions 0.27.0 à 0.28.2 sont lues aussi.
+- Noms : deux membres au même prénom (Basara Auberdine et Basara Nore, Kibrom Felheart et Kibrom Stormheart…) ne sont plus confondus. Un nom écrit « Prénom-Nom » est rangé en « Prénom Nom », et un prénom seul n'est attribué que s'il ne désigne qu'un membre (ou qu'un membre en ligne).
+- Réglages, Diagnostics : bouton « Noms » (/opus diagnoms), comment le jeu écrit les noms ; le relevé est aussi gardé dans les sauvegardes.
+
 ## 0.28.2
 - Réglages, « Teinte des boutons » : en plus du bouton du jeu (par défaut), des boutons aux teintes des planches de la guilde (pétrole de la bannière, écarlate noble, vert de gris, aubergine, ardoise froide, bronze fumé), en relief avec un filet doré ; au prochain /reload.
 - Réglages : le texte des diagnostics ne passe plus sous les boutons.

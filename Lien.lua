@@ -197,6 +197,8 @@ local function Complet (t)
 end
 
 Opus.recepteurs.W = function (_, champs, _, canal)
+	-- une photo de la banque envoyée par 0.27.0 à 0.28.2, sous la même lettre : plus de champs (Contenu.lua)
+	if #champs >= 8 then if Opus.RecevoirContenuW then Opus.RecevoirContenuW(champs, canal) end return end
 	local t, n = tonumber(champs[2]), tonumber(champs[3])
 	if canal ~= "GUILD" or not t or not n or n < 1 or n > MAX_JOUEURS * 3 then return end
 	local r = enCours[t] or { recus = {} }

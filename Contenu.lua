@@ -5,8 +5,9 @@
 -- s'il est affiché (sinon, ses données ne sont peut-être pas encore arrivées).
 -- Un membre ne voit que les onglets que son grade peut voir d'après la grille de la guilde (Config.lua).
 -- Chaque objet garde sa case (1 à 98), pour la grille de la vue Contenu.
--- Messages : « W » (un onglet, en morceaux : case:objet:nombre), « i » (demande de rattrapage à la connexion) ; « I »
--- (sans les cases, 0.26.0) est encore lu.
+-- Messages : « H » (un onglet, en morceaux : case:objet:nombre), « i » (demande de rattrapage à la connexion) ; « I »
+-- (sans les cases, 0.26.0) est encore lu, et « W » (0.27.0 à 0.28.2 : lettre déjà prise par les liaisons Discord, qui
+-- le recevaient à sa place ; Lien.lua le renvoie ici).
 local _, Opus = ...
 
 local FS = Opus.FS
@@ -57,7 +58,7 @@ local function Partager (tab)
 	local liste = {}
 	for case, x in pairs(o.cases or {}) do liste[#liste + 1] = case .. ":" .. x[1] .. ":" .. x[2] end
 	table.sort(liste)
-	local entete = table.concat({ "W", tab, o.t, Opus.MotMsg(o.par or "", 48), (Opus.MotMsg(o.nom or "", 24):gsub(",", " ")) }, FS)
+	local entete = table.concat({ "H", tab, o.t, Opus.MotMsg(o.par or "", 48), (Opus.MotMsg(o.nom or "", 24):gsub(",", " ")) }, FS)
 	local place, morceaux, courant, taille = Opus.MAX_MSG - #entete - 12, {}, {}, 0
 	for _, r in ipairs(liste) do
 		if taille + #r + 1 > place then morceaux[#morceaux + 1] = courant courant, taille = {}, 0 end
@@ -83,7 +84,7 @@ local function Recevoir (genre, champs, canal)
 	for k = 1, total do if not r.morceaux[k] then return end end
 	enCours[cle] = nil
 	if not Opus.TrouverMembre(par) then return end
-	local objets, cases = {}, genre == "W" and {} or nil
+	local objets, cases = {}, genre ~= "I" and {} or nil
 	for k = 1, total do
 		if cases then
 			for a, b, d in r.morceaux[k]:gmatch("(%d+):(%d+):(%d+)") do
@@ -103,7 +104,8 @@ local function Recevoir (genre, champs, canal)
 	c[tab] = { t = t, par = par, nom = nom ~= "" and nom or nil, objets = objets, cases = cases }
 	if Opus.Rafraichir then Opus.Rafraichir() end
 end
-Opus.recepteurs.W = function (_, champs, _, canal) Recevoir("W", champs, canal) end
+Opus.recepteurs.H = function (_, champs, _, canal) Recevoir("H", champs, canal) end
+function Opus.RecevoirContenuW (champs, canal) Recevoir("W", champs, canal) end
 Opus.recepteurs.I = function (_, champs, _, canal) Recevoir("I", champs, canal) end
 
 -- rattrapage : la date de chaque onglet du demandeur ; qui a plus récent renvoie ces onglets
