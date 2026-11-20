@@ -219,12 +219,18 @@ local function Entetes (v, colonnes)
 	end
 end
 
+-- sans photo : demandée à la guilde (Contenu.lua) ; sinon, il faut que quelqu'un passe à la banque
+local function AucunePhoto ()
+	if Opus.ContenuDemande() then return Opus.Gris("aucune photo : demandée aux membres en ligne, elle arrive dans quelques secondes") end
+	return Opus.Rouge("aucune photo : passe à la banque de guilde")
+end
+
 local function RemplirContenu (v, info)
 	local liste = Objets()
 	local banque, plusVieille, n = Opus.OngletsBanque(), nil, 0
 	for _, o in pairs(banque) do n = n + 1 plusVieille = plusVieille and math.min(plusVieille, o.t) or o.t end
 	info:SetText(n > 0 and ("%d onglet(s) · photo la plus ancienne il y a %s"):format(n, Opus.Depuis(math.floor(plusVieille / 3600)))
-		or Opus.Rouge("aucune photo : passe à la banque de guilde"))
+		or AucunePhoto())
 	Entetes(v, COL_CONTENU)
 	local d = math.max(0, math.min(decalages.contenu, #liste - LIGNES))
 	decalages.contenu = d
@@ -258,7 +264,7 @@ local function RemplirGrille (v, info)
 	end
 	local o = tab and banque[tab]
 	info:SetText(o and ("%s · photo il y a %s par %s"):format(NomOnglet(tab, o), Opus.Depuis(math.floor(o.t / 3600)), o.par or "?")
-		or Opus.Rouge("aucune photo : passe à la banque de guilde"))
+		or AucunePhoto())
 	local filtre, trouves = recherche ~= "" or pourMoi, 0
 	for case, b in ipairs(v.cases) do
 		local x = o and o.cases and o.cases[case]
@@ -316,6 +322,7 @@ end
 -- vue = « contenu » ou « journal » ; renvoie la hauteur utile
 function Opus.RafraichirContenu (v, vue, info)
 	v.vue = vue
+	if vue == "contenu" then Opus.DemanderContenu() end
 	v.pourMoi:SetShown(vue == "contenu")
 	v.pourMoi:SetChecked(pourMoi)
 	v.genre:SetShown(vue == "journal")

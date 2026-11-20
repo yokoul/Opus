@@ -120,17 +120,36 @@ Opus.recepteurs.i = function (_, champs, _, canal)
 	Opus.Repondre(champs[3], "GUILD", function () for _, tab in ipairs(a_envoyer) do Partager(tab) end end)
 end
 
+-- la demande : nos dates, onglet par onglet ; une toutes les deux minutes au plus
+local derniereDemande
+local function Demander ()
+	local c = Contenu()
+	if not c or not IsInGuild() then return false end
+	if derniereDemande and GetTime() - derniereDemande < 120 then return false end
+	derniereDemande = GetTime()
+	local dates = {}
+	for tab, o in pairs(c) do dates[#dates + 1] = tab .. "=" .. o.t end
+	Opus.Envoyer(table.concat({ "i", table.concat(dates, ","), Opus.NouvelId() }, FS))
+	return true
+end
+
+-- à l'ouverture de la vue Contenu : sans photo, ou avec une photo de plus d'une heure, on demande tout de suite
+-- au lieu d'attendre la demande de la connexion
+function Opus.DemanderContenu ()
+	local plusVieille
+	for _, o in pairs(Opus.OngletsBanque()) do plusVieille = plusVieille and math.min(plusVieille, o.t) or o.t end
+	if plusVieille and time() - plusVieille < 3600 then return end
+	Demander()
+end
+
+-- une demande partie il y a moins d'une minute : la réponse est en route
+function Opus.ContenuDemande () return derniereDemande ~= nil and GetTime() - derniereDemande < 60 end
+
 local connecte = false
 Opus.Ecoute("PLAYER_ENTERING_WORLD", function ()
 	if connecte then return end
 	connecte = true
-	C_Timer.After(60, function ()
-		local c = Contenu()
-		if not c or not IsInGuild() then return end
-		local dates = {}
-		for tab, o in pairs(c) do dates[#dates + 1] = tab .. "=" .. o.t end
-		Opus.Envoyer(table.concat({ "i", table.concat(dates, ","), Opus.NouvelId() }, FS))
-	end)
+	C_Timer.After(60, Demander)
 end)
 
 ------------------------------------------------------------------------
