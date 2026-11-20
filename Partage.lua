@@ -448,6 +448,14 @@ Opus.Ecoute("CHAT_MSG_ADDON", function (prefixe, texte, canal, expediteur)
 		if GetTime() - envoye < 120 then partage.moi = expediteur return end
 	end
 	if expediteur == partage.moi then return end
+	-- les signatures brutes vues, pour /opus diagnoms (quelques-unes suffisent)
+	local vus = Opus.db.signatures or {}
+	Opus.db.signatures = vus
+	if not vus[expediteur] then
+		local n = 0
+		for _ in pairs(vus) do n = n + 1 end
+		if n < 40 then vus[expediteur] = time() end
+	end
 	-- les membres qui ont l'addon, sous leur nom du roster (l'expéditeur n'a parfois que le prénom)
 	local membre = Opus.TrouverExpediteur(expediteur)
 	Opus.db.banque.pairs[membre and membre.nom or Opus.Court(expediteur)] = time()
@@ -516,24 +524,34 @@ end)
 -- comment le jeu écrit les noms (Forever : prénom et nom de famille, pas de royaume ; les prénoms ne sont pas uniques)
 Opus.Commande("diagnoms", "diagnoms", "comment le jeu écrit les noms (messages, échanges, roster)", function ()
 	local function Brut (v) return v == nil and "nil" or ("« " .. tostring(v) .. " »") end
+	local lignes = {}
+	local function L (s) lignes[#lignes + 1] = s DEFAULT_CHAT_FRAME:AddMessage("  " .. s) end
 	local prenom, famille = UnitName("player")
-	Msg("noms tels que le jeu les donne :")
-	DEFAULT_CHAT_FRAME:AddMessage("  UnitName : " .. Brut(prenom) .. ", " .. Brut(famille))
-	DEFAULT_CHAT_FRAME:AddMessage("  GetRealmName : " .. Brut(GetRealmName and GetRealmName())
-		.. " ; normalisé : " .. Brut(GetNormalizedRealmName and GetNormalizedRealmName()))
+	Msg("noms tels que le jeu les donne (aussi dans les sauvegardes d'Opus après un /reload) :")
+	L("UnitName : " .. Brut(prenom) .. ", " .. Brut(famille))
+	L("GetRealmName : " .. Brut(GetRealmName and GetRealmName()) .. " ; normalisé : " .. Brut(GetNormalizedRealmName and GetNormalizedRealmName()))
 	local guid, roster = UnitGUID("player"), nil
 	for _, m in ipairs(Opus.Membres()) do if m.guid == guid then roster = m.complet end end
-	DEFAULT_CHAT_FRAME:AddMessage("  roster : " .. Brut(roster) .. " ; Opus te range sous " .. Brut(Opus.MonNom()))
-	DEFAULT_CHAT_FRAME:AddMessage("  tes messages d'addon arrivent signés : " .. Brut(partage.moi)
-		.. (partage.moi and "" or " (pas encore vu : relance après un partage, /opus sync par exemple)"))
-	DEFAULT_CHAT_FRAME:AddMessage("  dernier partenaire d'échange : " .. Brut(Opus.dernierPartenaire))
+	L("roster : " .. Brut(roster) .. " ; Opus te range sous " .. Brut(Opus.MonNom()))
+	L("tes messages d'addon arrivent signés : " .. Brut(partage.moi))
+	L("dernier partenaire d'échange : " .. Brut(Opus.dernierPartenaire))
+	local signatures = {}
+	for nom in pairs(Opus.db.signatures or {}) do
+		local m = Opus.TrouverExpediteur(nom)
+		signatures[#signatures + 1] = Brut(nom) .. " -> " .. (m and m.nom or "?")
+	end
+	table.sort(signatures)
+	L(("signatures des autres vues : %d"):format(#signatures))
+	for _, x in ipairs(signatures) do L("  " .. x) end
 	local prenoms, doubles = {}, {}
 	for _, m in ipairs(Opus.Membres()) do
 		local p = m.nom:match("^(%S+)")
-		prenoms[p] = (prenoms[p] or 0) + 1
-		if prenoms[p] == 2 then doubles[#doubles + 1] = p end
+		prenoms[p] = prenoms[p] or {}
+		table.insert(prenoms[p], m.nom)
 	end
+	for _, noms in pairs(prenoms) do if #noms > 1 then table.sort(noms) doubles[#doubles + 1] = table.concat(noms, ", ") end end
 	table.sort(doubles)
-	DEFAULT_CHAT_FRAME:AddMessage(("  prénoms portés par plusieurs membres : %d%s"):format(#doubles,
-		#doubles > 0 and (" (" .. table.concat(doubles, ", ") .. ")") or ""))
+	L(("prénoms portés par plusieurs membres : %d"):format(#doubles))
+	for _, x in ipairs(doubles) do L("  " .. x) end
+	Opus.db.diagNoms = { t = time(), version = Opus.version, lignes = lignes }
 end)
