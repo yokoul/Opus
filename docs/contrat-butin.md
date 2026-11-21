@@ -37,7 +37,7 @@ Chaque enregistrement commence par sa lettre.
 | --- | --- | --- |
 | `E` | id, tier, date, version des tables | En-tête. `id` est cité par le rapport ; `version des tables` change quand le site corrige une table de butin. |
 | `P` | prio perso, prios perdues, dernier loot, gain | Les poids en vigueur (50, 25, 15, 10 au départ). Un changement voté sur le site s'applique au prochain instantané. |
-| `J` | nom complet, rôle, prios perdues, dernier loot, gain | Un joueur et ses compteurs, déjà normalisés par le site (0 à 1), pour que l'addon ne fasse qu'une somme pondérée. |
+| `J` | nom complet, rôle, prios perdues, dernier loot, gain, `main` ou `reroll` | Un joueur et ses compteurs, déjà normalisés par le site (0 à 1), pour que l'addon ne fasse qu'une somme pondérée. Le rôle est celui de sa liste (`tank`, `heal`, `dps`). |
 | `W` | itemID, liste de « nom complet:rang » | Les candidats d'un objet et leur rang dans leur wishlist validée. |
 | `S` | liste ordonnée des noms complets | La liste Suicide King, du premier au dernier. |
 | `Z` | liste des noms complets | Les désenchanteurs désignés, dans l'ordre de préférence. |
@@ -49,7 +49,7 @@ compteur hors bornes, un joueur en double, une somme de contrôle fausse).
 Exemple (abrégé) :
 
 ```
-OLS1:I:E;i-2026-12-09-a;T1;1765230000;1~P;50;25;15;10~J;Basara Nore;tank;0.5;1;0~J;Kibrom Ashheart;heal;0;0.2;0.4~W;19019;Basara Nore:1,Kibrom Ashheart:3~S;Kibrom Ashheart,Basara Nore~#1a2b3c4d
+OLS1:I:E;i-2026-12-09-a;T1;1765230000;1~P;50;25;15;10~J;Basara Nore;tank;0.5;1;0;main~J;Kibrom Felheart;heal;0;0.2;0.4;reroll~W;19019;Basara Nore:1,Kibrom Felheart:3~S;Kibrom Felheart,Basara Nore~#1a2b3c4d
 ```
 
 ## Rapport (addon → site)
