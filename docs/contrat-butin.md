@@ -42,6 +42,10 @@ Chaque enregistrement commence par sa lettre.
 | `S` | liste ordonnée des noms complets | La liste Suicide King, du premier au dernier. |
 | `Z` | liste des noms complets | Les désenchanteurs désignés, dans l'ordre de préférence. |
 
+L'instantané couvre toute la guilde, pas seulement le raid du soir : un joueur absent n'est simplement pas candidat,
+et rien ne bloque. Seules les incohérences internes refusent l'instantané (un candidat qui n'est pas dans les `J`, un
+compteur hors bornes, un joueur en double, une somme de contrôle fausse).
+
 Exemple (abrégé) :
 
 ```
