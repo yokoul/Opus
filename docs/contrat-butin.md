@@ -35,7 +35,7 @@ Chaque enregistrement commence par sa lettre.
 
 | Lettre | Champs | Rôle |
 | --- | --- | --- |
-| `E` | id, tier, date, version des tables | En-tête. `id` est cité par le rapport ; `version des tables` change quand le site corrige une table de butin. |
+| `E` | id, tier, date, version des tables, taille des listes | En-tête. `id` est cité par le rapport ; `version des tables` change quand le site corrige une table de butin ; la taille des listes du palier sert au calcul de la prio perso. |
 | `P` | prio perso, prios perdues, dernier loot, gain | Les poids en vigueur (50, 25, 15, 10 au départ). Un changement voté sur le site s'applique au prochain instantané. |
 | `J` | nom complet, rôle, prios perdues, dernier loot, gain, `main` ou `reroll` | Un joueur et ses compteurs, déjà normalisés par le site (0 à 1), pour que l'addon ne fasse qu'une somme pondérée. Le rôle est celui de sa liste (`tank`, `heal`, `dps`). |
 | `W` | itemID, liste de « nom complet:rang » | Les candidats d'un objet et leur rang dans leur wishlist validée. |
@@ -49,8 +49,21 @@ compteur hors bornes, un joueur en double, une somme de contrôle fausse).
 Exemple (abrégé) :
 
 ```
-OLS1:I:E;i-2026-12-09-a;T1;1765230000;1~P;50;25;15;10~J;Basara Nore;tank;0.5;1;0;main~J;Kibrom Felheart;heal;0;0.2;0.4;reroll~W;19019;Basara Nore:1,Kibrom Felheart:3~S;Kibrom Felheart,Basara Nore~#1a2b3c4d
+OLS1:I:E;i-2026-12-09-a;T1;1765230000;1;12~P;50;25;15;10~J;Basara Nore;tank;0.5;1;0;main~J;Kibrom Felheart;heal;0;0.2;0.4;reroll~W;19019;Basara Nore:1,Kibrom Felheart:3~S;Kibrom Felheart,Basara Nore~#1a2b3c4d
 ```
+
+## Proposition calculée
+
+Pour un objet, l'addon classe les candidats **présents dans le raid** par un score sur 100 :
+
+```
+score = P.perso × (taille − rang + 1) / taille
+      + P.perdues × prios perdues + P.dernier × dernier loot + P.gain × gain
+```
+
+Les trois compteurs arrivent normalisés entre 0 et 1, **1 étant le plus méritant** : beaucoup de prios perdues, pas
+de loot depuis longtemps, gros gain. En cas d'égalité, le meilleur rang passe devant, puis le plus de prios perdues ;
+l'égalité est annoncée et le maître du butin tranche. Un objet sans candidat présent part en Suicide King.
 
 ## Rapport (addon → site)
 
