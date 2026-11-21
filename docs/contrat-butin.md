@@ -92,10 +92,18 @@ l'identifiant est `<maître du butin>/<début du raid>/<numéro d'ordre>`.
 
 `T` porte les présents parce que le site en a besoin pour compter les prios perdues : un candidat absent ne perd rien.
 
+## Suicide King
+
+Un objet sans candidat présent en wishlist part en Suicide King. Pendant 1 minute, les intéressés se déclarent
+(fenêtre de l'addon, ou « !sk n » dans le canal raid). L'intéressé présent le plus haut dans la liste gagne et passe en
+bas ; les autres gardent leur ordre ; un intéressé absent de la liste vient après tous ceux qui y sont, et y entre en
+bas s'il gagne. La liste de la soirée part de l'instantané (`S`) ; le site la recalcule depuis les attributions `A`
+de voie `sk`, dans l'ordre du rapport.
+
 ## Objets dont personne ne veut
 
 Un objet sans candidat en wishlist, que personne ne prend en Suicide King dans le délai, ne compte pour personne. Il
-part par l'une de deux voies, au choix du maître du butin :
+part au désenchantement s'il y a un désenchanteur présent, sinon à la banque :
 
 - **`de`, désenchantement** : l'objet va au premier désenchanteur désigné (`Z`) présent dans le raid. L'addon le
   propose ; le maître du butin peut en choisir un autre.
