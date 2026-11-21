@@ -65,6 +65,13 @@ Les trois compteurs arrivent normalisés entre 0 et 1, **1 étant le plus mérit
 de loot depuis longtemps, gros gain. En cas d'égalité, le meilleur rang passe devant, puis le plus de prios perdues ;
 l'égalité est annoncée et le maître du butin tranche. Un objet sans candidat présent part en Suicide King.
 
+### Objection et vote
+
+Dans le canal raid, sans addon côté joueurs. Chaque annonce porte un numéro `n`. « !objection n » pendant 3 minutes
+ouvre un vote de 2 minutes : « !pour n » (la proposition tient) ou « !contre n », réservé aux présents qui ne sont pas
+candidats à l'objet ; le dernier vote de chacun compte. Quorum : la moitié des électeurs (arrondie au-dessus). Si le
+quorum est atteint et que « contre » l'emporte, les officiers tranchent avec un motif ; sinon l'objet va au proposé.
+
 ## Rapport (addon → site)
 
 Un enregistrement `E` d'en-tête (id du rapport, id de l'instantané utilisé, maître du butin, début, fin), puis un
