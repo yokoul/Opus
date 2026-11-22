@@ -169,8 +169,10 @@ l'ont dans leur wishlist validée.
 - **Prios perdues** : +1 à chaque candidat présent quand l'objet part à un autre, quelle que soit la voie ; remise à 0
   quand le joueur reçoit un objet de sa wishlist. Un absent ne bouge pas. Normalisé : compteur ÷ le plus grand
   compteur de la guilde.
-- **Dernier loot de wishlist** : la semaine de raid (d'un reset du mercredi au suivant) du dernier objet de wishlist
-  reçu. Normalisé : semaines écoulées ÷ (le plus grand écart + 1) ; un joueur jamais servi vaut 1 et passe devant tous.
+- **Dernier loot de wishlist** : le nombre de soirées validées du tier où le joueur était présent (dans la liste des
+  présents d'au moins un objet tombé) depuis son dernier objet de wishlist ; 0 s'il l'a reçu à sa dernière soirée, une
+  absence ne compte pas. Normalisé : soirées ÷ (le plus grand écart + 1) ; un joueur jamais servi vaut 1 et passe devant
+  tous.
 - **Gain** : 0 pour l'instant. Il dépend de l'équipement porté (bonus de set, écart de paliers), que le site ne
   connaît pas encore.
 - **Liste Suicide King** : l'ordre de départ fixé par les officiers sur le site, puis, rapport après rapport, chaque
