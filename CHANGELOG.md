@@ -3,7 +3,7 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
-## 0.28.3 (en cours)
+## 0.28.3
 - Banque, Contenu : la photo des onglets n'arrivait plus chez les autres membres depuis la 0.27.0 (son message portait la même lettre que celui des liaisons Discord, qui le recevait à sa place) : seul celui qui était passé à la banque voyait la grille. Les photos partent sous une nouvelle lettre, et celles des versions 0.27.0 à 0.28.2 sont lues aussi.
 - Banque, Contenu : ouvrir la vue sans photo (ou avec une photo de plus d'une heure) la demande aussitôt aux membres en ligne, au lieu d'attendre la minute qui suit la connexion.
 - Noms : deux membres au même prénom (Basara Auberdine et Basara Nore, Kibrom Felheart et Kibrom Stormheart…) ne sont plus confondus. Un nom écrit « Prénom-Nom » est rangé en « Prénom Nom », et un prénom seul n'est attribué que s'il ne désigne qu'un membre (ou qu'un membre en ligne).
