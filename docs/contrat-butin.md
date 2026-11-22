@@ -74,21 +74,25 @@ quorum est atteint et que « contre » l'emporte, les officiers tranchent avec u
 
 ## Rapport (addon → site)
 
-Un enregistrement `E` d'en-tête (id du rapport, id de l'instantané utilisé, maître du butin, début, fin), puis un
-enregistrement par événement. Chaque événement commence par sa lettre, son identifiant et sa date :
-l'identifiant est `<maître du butin>/<début du raid>/<numéro d'ordre>`.
+Un enregistrement `E` d'en-tête : id du rapport (`<maître du butin>/<début du raid>`), id de l'instantané utilisé,
+maître du butin, début, fin. Puis un enregistrement par événement, dans l'ordre du journal. Chaque événement commence
+par sa lettre, son identifiant et sa date ; l'identifiant est `<maître du butin>/<début du raid>/<numéro d'ordre>`.
 
-| Lettre | Événement | Champs propres |
+| Lettre | Événement | Champs propres, dans l'ordre |
 | --- | --- | --- |
 | `T` | Objet tombé | boss, itemID, présents (liste des noms complets) |
-| `O` | Proposition | id de `T`, candidat retenu, détail du score de chaque candidat |
+| `O` | Proposition | id de `T`, candidat retenu, scores (liste de « nom:score », score avec un point décimal) |
 | `X` | Objection | id de `O`, auteur |
 | `V` | Vote | id de `X`, pour, contre, abstentions, quorum atteint (0/1) |
-| `D` | Décision des officiers | id de `O`, attributaire, officier, motif |
-| `A` | Attribution | id de `T`, attributaire, voie (`wish`, `sk`, `de` ou `banque`) |
+| `D` | Décision des officiers | id de `O` (vide après un rechargement en plein Suicide King), attributaire, officier, motif |
+| `A` | Attribution | id de `T`, attributaire (vide pour la banque), voie (`wish`, `sk`, `de` ou `banque`) |
 | `M` | Remise | id de `A`, destinataire de l'échange, mode (`echange`, `ramasse`) |
-| `K` | Écart constaté | id de `A`, nature (`autre_destinataire`, `pas_remis`, `delai_proche`) |
+| `K` | Écart constaté | id de `A`, nature (`autre_destinataire`, `pas_remis`, `delai_proche`), détail (le destinataire réel, l'attributaire, ou les secondes d'échange restantes) |
 | `C` | Correction | voir ci-dessous |
+
+Le même rapport peut s'exporter plusieurs fois dans la soirée : le site garde chaque événement par son identifiant et
+n'ajoute que les nouveaux. Un `K` `pas_remis` noté à un export est résolu de lui-même si une remise `M` de la même
+attribution arrive dans un export suivant.
 
 `T` porte les présents parce que le site en a besoin pour compter les prios perdues : un candidat absent ne perd rien.
 
@@ -129,7 +133,9 @@ qui ont donné leur accord (liste, peut être vide).
 | `annulation` | L'attribution ne compte pas (objet perdu, rendu). | vide |
 | `ajout` | Un objet attribué sans que l'addon le voie. | itemID, attributaire, voie |
 | `voie` | L'attribution est passée par la mauvaise voie (wishlist, Suicide King, désenchantement, banque). | `wish`, `sk`, `de` ou `banque` |
-| `compteur` | Un ajustement direct d'un compteur, en dernier recours. | compteur, valeur |
+| `compteur` | Un ajustement direct des prios perdues d'un joueur, en dernier recours. | nom complet, écart (+1, −2…) |
+
+| `confirmation` | Un écart `K` était voulu (l'événement visé est le `K`). | vide |
 
 Le motif est obligatoire. Le site garde l'événement d'origine et la correction côte à côte : l'historique affiche
 « corrigé » et le détail au survol.
@@ -153,6 +159,23 @@ Pour limiter la saisie, l'addon du maître du butin compare chaque remise à l'a
 
 Chaque écart doit être résolu à la revue : par une correction, ou par une confirmation (« c'était voulu »). Un échange
 entre deux joueurs, sans le maître du butin, reste invisible : il passe par une correction saisie à la main.
+
+## Les compteurs
+
+Le site les calcule à chaque instantané, à partir des rapports **validés** du palier, corrections comprises, dans
+l'ordre des attributions (spécification WishVote, § 3). Les candidats d'un objet sont les joueurs présents (`T`) qui
+l'ont dans leur wishlist validée.
+
+- **Prios perdues** : +1 à chaque candidat présent quand l'objet part à un autre, quelle que soit la voie ; remise à 0
+  quand le joueur reçoit un objet de sa wishlist. Un absent ne bouge pas. Normalisé : compteur ÷ le plus grand
+  compteur de la guilde.
+- **Dernier loot de wishlist** : la semaine de raid (d'un reset du mercredi au suivant) du dernier objet de wishlist
+  reçu. Normalisé : semaines écoulées ÷ (le plus grand écart + 1) ; un joueur jamais servi vaut 1 et passe devant tous.
+- **Gain** : 0 pour l'instant. Il dépend de l'équipement porté (bonus de set, écart de paliers), que le site ne
+  connaît pas encore.
+- **Liste Suicide King** : l'ordre de départ fixé par les officiers sur le site, puis, rapport après rapport, chaque
+  gagnant d'une attribution `sk` passe en bas. L'instantané porte la liste qui en résulte (`S`) et les
+  désenchanteurs (`Z`) ; chaque nom de `S` a son enregistrement `J`, wishlist ou pas.
 
 ## Décisions
 
