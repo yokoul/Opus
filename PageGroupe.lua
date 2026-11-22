@@ -1,6 +1,7 @@
 -- PageGroupe.lua : l'onglet Groupe, une seule page qui défile. D'abord les envies de donjon de la guilde, une carte par
 -- donjon (Envies.lua, EnviesVue.lua), qui invite elle-même ceux qui sont disponibles : c'est par là qu'un groupe se monte
--- (« J'ai besoin d'un donjon… »). Puis les membres en ligne à sa portée, pour le donjon choisi en tête du bloc (ou autour
+-- (« J'ai besoin d'un donjon… »). Puis les expéditions prévues sur Discord, si le client opus-bridge les a écrites. Puis
+-- les membres en ligne à sa portée, pour le donjon choisi en tête du bloc (ou autour
 -- de son niveau) : « Écrire » ouvre un chuchotement tout prêt, « Proposer » ouvre une fenêtre chez ceux qui ont l'addon
 -- (Invitation.lua).
 local _, Opus = ...
@@ -37,6 +38,84 @@ local function Fond (f)
 		insets = { left = 3, right = 3, top = 3, bottom = 3 } })
 	f:SetBackdropColor(0.06, 0.05, 0.04, 0.85)
 	f:SetBackdropBorderColor(0.45, 0.38, 0.25, 0.9)
+end
+
+------------------------------------------------------------------------
+-- « Expéditions sur Discord » : les donjons du forum Raid-Helper, que le client opus-bridge écrit dans
+-- OpusBridgeFeed (SavedVariables) ; la section n'apparaît que s'il y en a
+------------------------------------------------------------------------
+
+local JOURS = { "dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam." }
+local ROLES_DISCORD = { { "Tank", "tank" }, { "Healer", "soin" }, { "Melee", "mêlée" }, { "Ranged", "distance" } }
+
+-- les expéditions à venir (ou commencées depuis moins de 3 h), et quand le client les a écrites
+function Opus.ExpeditionsDiscord ()
+	local f, liste = OpusBridgeFeed, {}
+	if type(f) ~= "table" or type(f.expeditions) ~= "table" then return liste, nil end
+	local limite = time() - 3 * 3600
+	for _, e in ipairs(f.expeditions) do
+		if type(e) == "table" and (tonumber(e.debut) or 0) >= limite then liste[#liste + 1] = e end
+	end
+	table.sort(liste, function (a, b) return (tonumber(a.debut) or 0) < (tonumber(b.debut) or 0) end)
+	return liste, tonumber(f.recu)
+end
+
+local function Quand (t)
+	local d = date("*t", t)
+	return ("%s %d/%d à %dh%02d"):format(JOURS[d.wday], d.day, d.month, d.hour, d.min)
+end
+
+-- « 4 inscrits : 1 tank, 1 soin, 2 distance »
+local function Compte (e)
+	local par, n = {}, 0
+	for _, i in ipairs(type(e.inscrits) == "table" and e.inscrits or {}) do
+		par[i.role] = (par[i.role] or 0) + 1
+		n = n + 1
+	end
+	local morceaux = {}
+	for _, r in ipairs(ROLES_DISCORD) do
+		if par[r[1]] then morceaux[#morceaux + 1] = par[r[1]] .. " " .. r[2] end
+	end
+	if n == 0 then return "personne pour l'instant" end
+	return ("%d inscrit%s%s"):format(n, n > 1 and "s" or "", #morceaux > 0 and " : " .. table.concat(morceaux, ", ") or "")
+end
+
+local function LigneExpedition (parent, largeur)
+	local l = CreateFrame("Button", nil, parent)
+	l:SetSize(largeur - 20, LIGNE_H)
+	Opus.Survol(l)
+	l.texte = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	l.texte:SetPoint("LEFT", 6, 0) l.texte:SetWidth(largeur - 32) l.texte:SetJustifyH("LEFT") l.texte:SetWordWrap(false)
+	Opus.Bulle(l, function (self) return self.exp and self.exp.titre end, function (self)
+		local e, lignes = self.exp, {}
+		if not e then return lignes end
+		lignes[1] = Quand(tonumber(e.debut) or 0) .. (e.meneur ~= "" and (" · menée par " .. e.meneur) or "")
+		for _, i in ipairs(type(e.inscrits) == "table" and e.inscrits or {}) do
+			local quoi = i.spe ~= "" and i.spe or i.role
+			lignes[#lignes + 1] = "|cffffffff" .. i.nom .. "|r " .. Opus.Gris(quoi .. (i.classe ~= "" and (" (" .. i.classe .. ")") or ""))
+		end
+		lignes[#lignes + 1] = Opus.Gris("Inscription sur Discord (forum des expéditions) ou sur opus-guild.eu.")
+		return lignes
+	end)
+	return l
+end
+
+local function RemplirExpeditions (c, liste, recu)
+	local depuis = recu and math.floor((time() - recu) / 60)
+	c.titre:SetText("Expéditions sur Discord" .. Opus.Gris(("   %d prévue(s)%s"):format(#liste,
+		depuis and (depuis < 2 and " · à jour" or (" · reçues il y a %d min"):format(depuis)) or "")))
+	local y = 34
+	for i, e in ipairs(liste) do
+		local l = c.lignes[i] or LigneExpedition(c, c.largeur)
+		c.lignes[i] = l
+		l.exp = e
+		l.texte:SetText(("|cffffd100%s|r   %s · %s"):format(e.titre, Quand(tonumber(e.debut) or 0), Compte(e)))
+		l:ClearAllPoints() l:SetPoint("TOPLEFT", 10, -y) l:Show()
+		y = y + LIGNE_H
+	end
+	for i = #liste + 1, #c.lignes do c.lignes[i]:Hide() end
+	c:SetHeight(y + 10)
+	return y + 10
 end
 
 ------------------------------------------------------------------------
@@ -153,6 +232,11 @@ local function Rafraichir (cadre)
 	end
 	for i = #donjons + 1, #x.cartes do x.cartes[i]:Hide() end
 
+	-- les expéditions de Discord, si le client opus-bridge en a écrit
+	local expeditions, recu = Opus.ExpeditionsDiscord()
+	x.expeditions:SetShown(#expeditions > 0)
+	if #expeditions > 0 then Placer(x.expeditions, RemplirExpeditions(x.expeditions, expeditions, recu)) end
+
 	-- les membres en ligne à sa portée
 	Placer(x.candidats, RemplirCandidats(x.candidats, x.largeur))
 
@@ -205,6 +289,11 @@ local function Construire (cadre, barre)
 	x.videEnvies:SetWidth(x.largeur - 8) x.videEnvies:SetJustifyH("LEFT")
 	x.videEnvies:SetText("Aucune envie pour l'instant. Tu dois faire un donjon pour une quête ou un objet ? « J'ai besoin d'un donjon… » prévient la guilde, et chacun peut dire quand il est disponible.")
 	x.cartes = {}
+	x.expeditions = CreateFrame("Frame", nil, x, "BackdropTemplate")
+	x.expeditions:SetWidth(x.largeur) x.expeditions.largeur = x.largeur Fond(x.expeditions)
+	x.expeditions.titre = x.expeditions:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	x.expeditions.titre:SetPoint("TOPLEFT", 12, -12)
+	x.expeditions.lignes = {}
 	x.candidats = CreateFrame("Frame", nil, x, "BackdropTemplate")
 	x.candidats:SetWidth(x.largeur) Fond(x.candidats)
 	x.candidats.titre = x.candidats:CreateFontString(nil, "OVERLAY", "GameFontNormal")

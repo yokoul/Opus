@@ -4,7 +4,7 @@
 ## Author: Yan
 ## Version: 0.28.3
 ## IconTexture: Interface\AddOns\Opus\Media\Icone
-## SavedVariables: OpusDB
+## SavedVariables: OpusDB, OpusBridgeFeed
 ## AddonCompartmentFunc: Opus_Compartiment
 ## AddonCompartmentFuncOnEnter: Opus_CompartimentSurvol
 ## AddonCompartmentFuncOnLeave: Opus_CompartimentSortie
