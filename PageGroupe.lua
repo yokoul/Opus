@@ -42,7 +42,8 @@ end
 
 ------------------------------------------------------------------------
 -- « Expéditions sur Discord » : les donjons du forum Raid-Helper, que le client opus-bridge écrit dans
--- OpusBridgeFeed (SavedVariables) ; la section n'apparaît que s'il y en a
+-- OpusBridgeFeed (SavedVariables). Celle d'un donjon qui a déjà sa carte d'envie y est un badge ; la section ne
+-- montre que les autres (créées sur Discord ou sur le site), et n'apparaît que s'il y en a
 ------------------------------------------------------------------------
 
 local JOURS = { "dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam." }
@@ -80,16 +81,19 @@ local function Compte (e)
 	return ("%d inscrit%s%s"):format(n, n > 1 and "s" or "", #morceaux > 0 and " : " .. table.concat(morceaux, ", ") or "")
 end
 
-local function LigneExpedition (parent, largeur)
-	local l = CreateFrame("Button", nil, parent)
-	l:SetSize(largeur - 20, LIGNE_H)
-	Opus.Survol(l)
-	l.texte = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	l.texte:SetPoint("LEFT", 6, 0) l.texte:SetWidth(largeur - 32) l.texte:SetJustifyH("LEFT") l.texte:SetWordWrap(false)
-	Opus.Bulle(l, function (self) return self.exp and self.exp.titre end, function (self)
+-- l'expédition prévue vers ce donjon (la plus proche), pour la carte de l'envie
+function Opus.ExpeditionPour (cle)
+	for _, e in ipairs((Opus.ExpeditionsDiscord())) do
+		if e.donjon == cle then return e end
+	end
+end
+
+-- la bulle d'une expédition (self.exp) : date, meneur, inscrits ; sur une ligne de la section ou le badge d'une carte
+function Opus.BulleExpedition (cadre)
+	Opus.Bulle(cadre, function (self) return self.exp and (self.exp.titre .. Opus.Gris("  sur Discord")) end, function (self)
 		local e, lignes = self.exp, {}
 		if not e then return lignes end
-		lignes[1] = Quand(tonumber(e.debut) or 0) .. (e.meneur ~= "" and (" · menée par " .. e.meneur) or "")
+		lignes[1] = Quand(tonumber(e.debut) or 0) .. (e.meneur ~= "" and (" · menée par " .. e.meneur) or "") .. " · " .. Compte(e)
 		for _, i in ipairs(type(e.inscrits) == "table" and e.inscrits or {}) do
 			local quoi = i.spe ~= "" and i.spe or i.role
 			lignes[#lignes + 1] = "|cffffffff" .. i.nom .. "|r " .. Opus.Gris(quoi .. (i.classe ~= "" and (" (" .. i.classe .. ")") or ""))
@@ -97,12 +101,21 @@ local function LigneExpedition (parent, largeur)
 		lignes[#lignes + 1] = Opus.Gris("Inscription sur Discord (forum des expéditions) ou sur opus-guild.eu.")
 		return lignes
 	end)
+end
+
+local function LigneExpedition (parent, largeur)
+	local l = CreateFrame("Button", nil, parent)
+	l:SetSize(largeur - 20, LIGNE_H)
+	Opus.Survol(l)
+	l.texte = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	l.texte:SetPoint("LEFT", 6, 0) l.texte:SetWidth(largeur - 32) l.texte:SetJustifyH("LEFT") l.texte:SetWordWrap(false)
+	Opus.BulleExpedition(l)
 	return l
 end
 
 local function RemplirExpeditions (c, liste, recu)
 	local depuis = recu and math.floor((time() - recu) / 60)
-	c.titre:SetText("Expéditions sur Discord" .. Opus.Gris(("   %d prévue(s)%s"):format(#liste,
+	c.titre:SetText("Autres expéditions sur Discord" .. Opus.Gris(("   %d prévue(s)%s"):format(#liste,
 		depuis and (depuis < 2 and " · à jour" or (" · reçues il y a %d min"):format(depuis)) or "")))
 	local y = 34
 	for i, e in ipairs(liste) do
@@ -232,8 +245,11 @@ local function Rafraichir (cadre)
 	end
 	for i = #donjons + 1, #x.cartes do x.cartes[i]:Hide() end
 
-	-- les expéditions de Discord, si le client opus-bridge en a écrit
-	local expeditions, recu = Opus.ExpeditionsDiscord()
+	-- les expéditions de Discord sans envie en jeu (celles d'une envie portent un badge sur sa carte)
+	local tous, recu = Opus.ExpeditionsDiscord()
+	local cartes, expeditions = {}, {}
+	for _, g in ipairs(donjons) do cartes[g.d.cle] = true end
+	for _, e in ipairs(tous) do if not cartes[e.donjon] then expeditions[#expeditions + 1] = e end end
 	x.expeditions:SetShown(#expeditions > 0)
 	if #expeditions > 0 then Placer(x.expeditions, RemplirExpeditions(x.expeditions, expeditions, recu)) end
 

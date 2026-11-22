@@ -464,12 +464,21 @@ local function Carte (v, largeur)
 		c.joueurs[i] = l
 	end
 	c.plus = c:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	-- le badge Discord, à cheval sur l'angle : une expédition est prévue pour ce donjon (client opus-bridge)
+	c.discord = CreateFrame("Button", nil, c)
+	c.discord:SetSize(22, 22) c.discord:SetPoint("CENTER", c, "TOPLEFT", 4, -4)
+	c.discord.icone = c.discord:CreateTexture(nil, "ARTWORK")
+	c.discord.icone:SetAllPoints() c.discord.icone:SetTexture("Interface\\ChatFrame\\UI-ChatIcon-Chat-Up")
+	if Opus.BulleExpedition then Opus.BulleExpedition(c.discord) end
+	c.discord:Hide()
 	return c
 end
 
 local function RemplirCarte (c, g)
 	local d, moi = g.d, Opus.MonNom()
 	c.donjon = d
+	c.discord.exp = Opus.ExpeditionPour and Opus.ExpeditionPour(d.cle)
+	c.discord:SetShown(c.discord.exp ~= nil)
 	c.titre:SetText(APortee(d) and d.nom or Opus.Gris(d.nom))
 	local pourquoi = {}
 	for _, e in ipairs(g.envies) do for cle in pairs(e.pourquoi) do pourquoi[cle] = true end end
