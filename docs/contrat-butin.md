@@ -1,6 +1,6 @@
 # OpusLootSystem : contrat entre le site et l'addon
 
-Brouillon du 20 novembre 2026. Ce document fixe ce que le site Opus (opus.yokoul.xyz) et l'addon s'échangent pour le
+Brouillon du 20 novembre 2026. Ce document fixe ce que le site Opus (opus-guild.eu) et l'addon s'échangent pour le
 butin de raid. Il ne dépend pas des tables de butin, inconnues avant l'ouverture des raids (9 décembre 2026).
 
 ## Principes
