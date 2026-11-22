@@ -3,6 +3,13 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.30.0
+- Raids : l'addon Opus Raid rejoint Opus. Le butin des raids de guilde suit les règles publiées sur opus-guild.eu (page Raids) : listes de souhaits validées sur le site, proposition calculée quand un objet tombe, 3 minutes pour faire objection, vote des non-candidats, décision motivée des officiers, Suicide King pour ce que personne n'a en liste, puis désenchantement ou banque, remise par échange. Si Opus Raid est encore installé, désactive-le : Opus reprend ses données à la première connexion.
+- Raids : nouvel onglet « Raids ». La soirée de guilde (l'ouvrir, la fermer, son état), l'instantané du site (importer, détail), les annonces du soir, ta liste de souhaits et ta place au Suicide King, et le rapport à rendre au site. Les fenêtres du butin, des attributions et de la décision des officiers restent à part, elles s'ouvrent en pleine soirée.
+- Raids : l'addon ne s'engage que dans une soirée de guilde. Le maître du butin ou un officier l'ouvre de lui-même, et seulement si au moins 80 % du raid est de la guilde (réglable par les officiers : /opus raid seuil). Si le raid passe sous ce seuil en cours de soirée, tout est suspendu jusqu'à ce qu'il redevienne un raid de guilde ; quitter le raid ferme la soirée. Chez les joueurs, seule une annonce d'un membre de la guilde ouvre la fenêtre des attributions.
+- Raids : les commandes passent sous /opus raid (/opus raid aide pour la liste) ; /opusraid reste un raccourci.
+- Réglages : « À propos » n'est plus un onglet mais une vue de l'onglet Réglages (et /opus apropos), pour laisser la place à « Raids ».
+
 ## 0.29.0
 - Groupe : les expéditions prévues sur Discord (forum Raid-Helper de la guilde) arrivent en jeu avec le client **opus-bridge** (à installer depuis opus-guild.eu/pont, une ligne à coller). Une envie qui a son expédition porte un badge Discord dans l'angle de sa carte (date, meneur et inscrits au survol) ; les expéditions sans envie en jeu sont listées sous les envies.
 - Envies : avec le client opus-bridge, chaque donjon d'une envie devient une expédition sur Discord (à l'heure déduite du créneau : maintenant, ce soir 20 h 30, ce week-end samedi 14 h), et un « Moi aussi » une inscription à l'expédition déjà prévue. Retirer ou clore son envie rend sa place sur Discord, et annule l'expédition si elle reste vide.

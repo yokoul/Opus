@@ -1,4 +1,5 @@
--- PageAPropos.lua : ce qu'est l'addon, pour qui il est fait, qui contacter, et ses commandes
+-- PageAPropos.lua : ce qu'est l'addon, pour qui il est fait, qui contacter, et ses commandes. C'est la vue « À propos »
+-- de l'onglet Réglages (PageReglages.lua), qui n'est plus un onglet à part depuis l'arrivée de l'onglet Raids.
 local _, Opus = ...
 
 local CONTACT = "Illustre Inconnu"
@@ -29,11 +30,8 @@ local function Rafraichir (cadre)
 	return 150 + #lignes * 15 + 20
 end
 
-local function Construire (cadre, barre)
+local function Construire (cadre)
 	local largeur = Opus.LARGEUR - 30
-	local titre = barre:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	titre:SetPoint("LEFT", 0, 0)
-	titre:SetText("À propos d'Opus")
 
 	local embleme = cadre:CreateTexture(nil, "ARTWORK")
 	embleme:SetTexture("Interface\\AddOns\\Opus\\Media\\Embleme")
@@ -51,7 +49,7 @@ local function Construire (cadre, barre)
 	texte:SetWidth(largeur - 120) texte:SetJustifyH("LEFT") texte:SetSpacing(3)
 	texte:SetText("Outils de guilde pour WoW Forever, faits pour la guilde " .. Opus.Normal("Opus") .. " (royaume PvE, Europe) : tableau de la guilde "
 		.. "(persos et rerolls, niveaux, notes, liens Discord, arrivées et départs), groupes et envies de donjon, banque partagée (contenu, journal, prêts, sorties d'objets), "
-		.. "essais et promotions, grille des grades. "
+		.. "essais et promotions, grille des grades, butin des raids de guilde. "
 		.. Opus.Gris("Ce que l'addon partage reste dans la guilde (messages d'addon de guilde)."))
 
 	local contact = cadre:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -74,4 +72,4 @@ local function Construire (cadre, barre)
 	cadre.commandes:SetWidth(largeur - 8) cadre.commandes:SetJustifyH("LEFT") cadre.commandes:SetSpacing(3)
 end
 
-Opus.Page("apropos", "À propos", Construire, Rafraichir)
+Opus.APropos = { construire = Construire, rafraichir = Rafraichir }

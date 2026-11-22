@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: |cffd4af37Opus|r
-## Notes: Outils de guilde pour WoW Forever : tableau de la guilde (persos, niveaux, notes, liens Discord), groupes et envies de donjon, banque partagée (contenu, journal, prêts, sorties d'objets), essais et promotions, grille des grades.
+## Notes: Outils de guilde pour WoW Forever : tableau de la guilde (persos, niveaux, notes, liens Discord), groupes et envies de donjon, banque partagée (contenu, journal, prêts, sorties d'objets), essais et promotions, grille des grades, butin des raids de guilde (listes de souhaits du site, proposition calculée, objections et votes, Suicide King, remise par échange).
 ## Author: Yan
-## Version: 0.29.0
+## Version: 0.30.0
 ## IconTexture: Interface\AddOns\Opus\Media\Icone
 ## SavedVariables: OpusDB, OpusBridgeFeed
 ## AddonCompartmentFunc: Opus_Compartiment
@@ -27,12 +27,24 @@ Niveaux.lua
 Envies.lua
 Groupe.lua
 Invitation.lua
+Raid.lua
+RaidContrat.lua
+RaidInstantane.lua
+RaidScore.lua
+RaidButin.lua
+RaidAttribution.lua
+RaidSuicideKing.lua
+RaidComm.lua
+RaidVote.lua
+RaidRemise.lua
+RaidExport.lua
 Fenetre.lua
 EnviesVue.lua
 Calendrier.lua
 PageGuilde.lua
 PageRoster.lua
 PageGroupe.lua
+PageRaids.lua
 PageRegistre.lua
 PageContenu.lua
 PageBanque.lua
@@ -40,6 +52,6 @@ PageGrades.lua
 Editeur.lua
 Reglages.lua
 PageEssais.lua
-PageReglages.lua
 PageAPropos.lua
+PageReglages.lua
 Minimap.lua

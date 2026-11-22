@@ -13,7 +13,7 @@ local NOMS_ROLES = { tank = "tank", soin = "soigneur", degats = "dégâts" }
 
 local X_CONTROLE = 300           -- colonne des réglages, à droite des libellés
 
-local function Rafraichir (cadre)
+local function RafraichirReglages (cadre)
 	cadre.niveaux:GenerateMenu()
 	cadre.notifs:GenerateMenu()
 	cadre.dureeNotif:GenerateMenu()
@@ -59,11 +59,8 @@ local function Rafraichir (cadre)
 	return cadre.hauteur
 end
 
-local function Construire (cadre, barre)
+local function ConstruireReglages (cadre)
 	local largeur = Opus.LARGEUR - 30
-	local titre = barre:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	titre:SetPoint("LEFT", 0, 0)
-	titre:SetText("Réglages d'Opus")
 
 	local y = -4
 	local function Section (texte)
@@ -209,4 +206,33 @@ local function Construire (cadre, barre)
 	cadre.hauteur = -y + 8
 end
 
+-- deux vues dans le bandeau : les réglages, et « À propos » (PageAPropos.lua), qui n'est plus un onglet à part
+local vue = "reglages"
+local VUES = { { "reglages", "Réglages" }, { "apropos", "À propos" } }
+
+local function Rafraichir (cadre)
+	cadre.vues:Maj()
+	cadre.reglages:SetShown(vue == "reglages")
+	cadre.apropos:SetShown(vue == "apropos")
+	if vue == "apropos" then return Opus.APropos.rafraichir(cadre.apropos) end
+	return RafraichirReglages(cadre.reglages)
+end
+
+local function Construire (cadre, barre)
+	cadre.vues = Opus.Onglets(barre, VUES, function () return vue end, function (v) vue = v Opus.Rafraichir() end)
+	for _, k in ipairs({ "reglages", "apropos" }) do
+		cadre[k] = CreateFrame("Frame", nil, cadre)
+		cadre[k]:SetPoint("TOPLEFT") cadre[k]:SetPoint("TOPRIGHT") cadre[k]:SetHeight(1)
+	end
+	ConstruireReglages(cadre.reglages)
+	Opus.APropos.construire(cadre.apropos)
+end
+
 Opus.Page("reglages", "Réglages", Construire, Rafraichir)
+
+-- /opus apropos : la vue « À propos » des réglages
+Opus.Commande("apropos", "apropos", "à propos d'Opus : contact, Discord, commandes", function ()
+	vue = "apropos"
+	Opus.Fenetre(true)
+	Opus.Afficher("reglages")
+end)
