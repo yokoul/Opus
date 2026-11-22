@@ -33,18 +33,41 @@ function Opus.Coche (taille)
 	return CreateAtlasMarkup and CreateAtlasMarkup("common-icon-checkmark", taille or 14, taille or 14) or Opus.Vert("oui")
 end
 
+-- ce que l'infobulle peut afficher : une chaîne (ou une valeur secrète du jeu, qu'on passe telle quelle), un nombre
+-- mis en texte ; tout le reste (table, booléen…) est écarté plutôt que de lever une erreur Lua chez le joueur
+local function Affichable (v)
+	if v == nil or v == false then return nil end
+	if issecretvalue and issecretvalue(v) then return v end
+	local genre = type(v)
+	if genre == "string" then return v ~= "" and v or nil end
+	if genre == "number" then return tostring(v) end
+	return nil
+end
+
 -- infobulle : titre et texte (ou liste de lignes), fixes ou calculés à partir du cadre survolé
 function Opus.Bulle (cadre, titre, texte)
 	cadre:SetScript("OnEnter", function (self)
-		local t = type(titre) == "function" and titre(self) or titre
+		local t = Affichable(type(titre) == "function" and titre(self) or titre)
 		if not t then return end
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText(t, 1, 1, 1)
+		-- garde-fou : un refus du client (retour d'un joueur, Guilde > Par voie / En ligne) cache la bulle au lieu
+		-- d'afficher une erreur ; le refus est noté dans OpusDB.diagBulle (SavedVariables) pour comprendre la cause
+		local ok, erreur = pcall(GameTooltip.SetText, GameTooltip, t, 1, 1, 1)
+		if not ok then
+			if Opus.db then Opus.db.diagBulle = { quand = time(), genre = type(t), erreur = tostring(erreur) } end
+			GameTooltip:Hide()
+			return
+		end
 		local l = type(texte) == "function" and texte(self) or texte
+		local c = NORMAL_FONT_COLOR
 		if type(l) == "table" then
-			for _, ligne in ipairs(l) do GameTooltip:AddLine(ligne, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, true) end
-		elseif l then
-			GameTooltip:AddLine(l, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, true)
+			for _, ligne in ipairs(l) do
+				ligne = Affichable(ligne)
+				if ligne then GameTooltip:AddLine(ligne, c.r, c.g, c.b, true) end
+			end
+		else
+			l = Affichable(l)
+			if l then GameTooltip:AddLine(l, c.r, c.g, c.b, true) end
 		end
 		GameTooltip:Show()
 	end)

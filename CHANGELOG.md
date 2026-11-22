@@ -8,6 +8,7 @@ Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://disc
 - Banque, Contenu : ouvrir la vue sans photo (ou avec une photo de plus d'une heure) la demande aussitôt aux membres en ligne, au lieu d'attendre la minute qui suit la connexion.
 - Noms : deux membres au même prénom (Basara Auberdine et Basara Nore, Kibrom Felheart et Kibrom Stormheart…) ne sont plus confondus. Un nom écrit « Prénom-Nom » est rangé en « Prénom Nom », et un prénom seul n'est attribué que s'il ne désigne qu'un membre (ou qu'un membre en ligne).
 - Réglages, Diagnostics : bouton « Noms » (/opus diagnoms), comment le jeu écrit les noms ; le relevé est aussi gardé dans les sauvegardes.
+- Infobulles : survoler un membre dans Guilde > Par voie ou En ligne pouvait lever une erreur Lua (« bad argument #1 to 'SetText' »). Une infobulle que le jeu refuse ne s'affiche simplement pas, et le refus est noté dans les sauvegardes (OpusDB.diagBulle) pour en trouver la cause.
 
 ## 0.28.2
 - Réglages, « Teinte des boutons » : en plus du bouton du jeu (par défaut), des boutons aux teintes des planches de la guilde (pétrole de la bannière, écarlate noble, vert de gris, aubergine, ardoise froide, bronze fumé), en relief avec un filet doré ; au prochain /reload.
