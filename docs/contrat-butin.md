@@ -116,7 +116,8 @@ part au désenchantement s'il y a un désenchanteur présent, sinon à la banque
 Ces deux voies ne touchent aucun compteur et ne déplacent personne dans la liste Suicide King. La remise suit le même
 chemin que les autres (`M`, et un écart `K` si l'objet n'est pas remis).
 
-Ce que deviennent les composants (dépôt à la banque, redistribution) n'est pas encore fixé.
+Les composants de désenchantement vont à la banque de guilde, où les membres peuvent les demander (décision du
+2026-11-22).
 
 ## Corrections
 
@@ -182,10 +183,10 @@ l'ont dans leur wishlist validée.
 ## Décisions
 
 - Les compteurs « dernier loot » et « gain » se calculent sur tout le tier, pour commencer ; on ajustera à l'usage.
-- Le quorum du vote est une part des présents non candidats (la part reste à fixer).
+- Le quorum du vote est la moitié des présents non candidats (arrondie au-dessus).
 - Un seul officier valide un rapport.
-
-## Questions ouvertes
-
-- La part du quorum.
-- Ce que deviennent les composants issus du désenchantement.
+- Les composants issus du désenchantement vont à la banque de guilde, où les membres peuvent les demander.
+- Le Suicide King reste simple : le gagnant passe en bas de la liste à chaque attribution (variante confirmée le
+  2026-11-22).
+- Ces règles sont celles des raids de guilde (10 et 20). Les raids à 40 se feront en alliance, avec des règles propres
+  définies avec l'alliance.
