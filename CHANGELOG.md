@@ -3,6 +3,11 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.29.0
+- Groupe : les expéditions prévues sur Discord (forum Raid-Helper de la guilde) arrivent en jeu avec le client **opus-bridge** (à installer depuis opus-guild.eu/pont, une ligne à coller). Une envie qui a son expédition porte un badge Discord dans l'angle de sa carte (date, meneur et inscrits au survol) ; les expéditions sans envie en jeu sont listées sous les envies.
+- Envies : avec le client opus-bridge, chaque donjon d'une envie devient une expédition sur Discord (à l'heure déduite du créneau : maintenant, ce soir 20 h 30, ce week-end samedi 14 h), et un « Moi aussi » une inscription à l'expédition déjà prévue. Retirer ou clore son envie rend sa place sur Discord, et annule l'expédition si elle reste vide.
+- Envies : une envie retirée ou close laisse une trace de 7 jours dans les sauvegardes (OpusDB.retraits), que le client lit ; une envie arrivée à sa fin n'en laisse pas.
+
 ## 0.28.3
 - Banque, Contenu : la photo des onglets n'arrivait plus chez les autres membres depuis la 0.27.0 (son message portait la même lettre que celui des liaisons Discord, qui le recevait à sa place) : seul celui qui était passé à la banque voyait la grille. Les photos partent sous une nouvelle lettre, et celles des versions 0.27.0 à 0.28.2 sont lues aussi.
 - Banque, Contenu : ouvrir la vue sans photo (ou avec une photo de plus d'une heure) la demande aussitôt aux membres en ligne, au lieu d'attendre la minute qui suit la connexion.
