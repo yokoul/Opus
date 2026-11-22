@@ -225,6 +225,21 @@ local function Notifier (e)
 end
 
 -- une envie reçue ou publiée : retenue si elle est plus récente que celle qu'on a ; renvoie true si elle change
+-- La trace d'une envie retirée (par son auteur, ou close pour un groupe), gardée 7 jours dans OpusDB.retraits : le
+-- client opus-bridge la lit pour rendre aussi la place sur Discord. Une envie qui arrive simplement à sa fin n'en est
+-- pas une (son expédition a pu avoir lieu).
+local RETRAIT_GARDE = 7 * 86400
+local function NoterRetrait (e)
+	local guilde = GetGuildInfo("player")
+	if not guilde or not Opus.db then return end
+	Opus.db.retraits = Opus.db.retraits or {}
+	local r = Opus.db.retraits[guilde] or {}
+	Opus.db.retraits[guilde] = r
+	local maintenant = time()
+	for id, x in pairs(r) do if type(x) ~= "table" or (x.quand or 0) < maintenant - RETRAIT_GARDE then r[id] = nil end end
+	r[e.id] = { id = e.id, par = e.par, quand = maintenant }
+end
+
 local function Retenir (e, annoncer)
 	local d = Donnees()
 	if not d then return false end
@@ -232,7 +247,10 @@ local function Retenir (e, annoncer)
 	if locale and locale.m >= e.m then return false end
 	local nouvelle = not locale
 	d[e.id] = e
-	if e.fin <= time() then d[e.id] = nil end
+	if e.fin <= time() then
+		d[e.id] = nil
+		NoterRetrait(e)
+	end
 	if annoncer and nouvelle and e.fin > time() and e.par ~= Opus.MonNom() then Notifier(e) end
 	return true
 end
@@ -318,7 +336,12 @@ local function Republier (e, champs)
 	if champs.pl == false then nouvelle.pl = nil end
 	nouvelle.m = math.max(time(), e.m + 1)
 	if champs.creneau then nouvelle.fin = math.max(e.fin, Opus.FinEnvie(Opus.DureePourCreneau(champs.creneau))) end
-	if nouvelle.fin <= nouvelle.m then d[e.id] = nil else d[e.id] = nouvelle end
+	if nouvelle.fin <= nouvelle.m then
+		d[e.id] = nil
+		NoterRetrait(nouvelle)
+	else
+		d[e.id] = nouvelle
+	end
 	Envoyer(nouvelle)
 	return nouvelle
 end
