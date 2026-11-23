@@ -25,7 +25,10 @@ local CHAMPS = {
 	X = function (e) return { e.proposition, Champ(e.auteur) } end,
 	V = function (e)
 		local abstentions = math.max(0, (e.electeurs or 0) - (e.pour or 0) - (e.contre or 0))
-		return { e.objection, e.pour or 0, e.contre or 0, abstentions, e.quorum or 0 }
+		-- puis le gagnant (vide : égalité ou quorum non atteint) et les voix de chaque candidat, « nom:voix,… »
+		local detail = {}
+		for k, v in ipairs(e.detail or {}) do detail[k] = (Champ(v):gsub(",", " ")) end
+		return { e.objection, e.pour or 0, e.contre or 0, abstentions, e.quorum or 0, Champ(e.gagnant), table.concat(detail, ",") }
 	end,
 	D = function (e) return { e.proposition or "", Champ(e.attributaire), Champ(e.officier), Champ(e.motif) } end,
 	A = function (e) return { e.tombe, Champ(e.attributaire), e.voie } end,

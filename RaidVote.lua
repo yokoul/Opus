@@ -22,10 +22,11 @@ end
 local function Texte (a)
 	if a.etat == "delai" then return a.propose .. " — objections encore " .. Chrono(a) end
 	if a.etat == "vote" then
-		return "objection de " .. (a.auteur or "?") .. " — vote " .. Chrono(a) .. (a.candidat and " (candidat, pas de vote)" or a.monVote and (" — ton vote : " .. a.monVote) or "")
+		return "objection de " .. (a.auteur or "?") .. (a.motif and (" (« " .. a.motif .. " »)") or "") .. " — vote " .. Chrono(a)
+			.. (a.candidat and " (candidat, pas de vote)" or a.monVote and (" — ton vote : " .. a.monVote) or " — à qui ?")
 	end
 	if a.etat == "attribue" then return "attribué à " .. (a.attributaire ~= "" and a.attributaire or "?") end
-	if a.etat == "trancher" then return "proposition renversée : les officiers tranchent" end
+	if a.etat == "trancher" then return "les officiers tranchent" end
 	if a.etat == "sk" then return "hors wishlist : Suicide King, encore " .. Chrono(a) .. (a.veut and " — tu es sur les rangs" or "") end
 	if a.etat == "de" then return "désenchantement" .. (a.attributaire ~= "" and (" par " .. a.attributaire) or "") end
 	if a.etat == "banque" then return "pour la banque de guilde" end
@@ -77,22 +78,27 @@ local function Ligne (k)
 		self.annonce.veut = true
 		Raid.RafraichirVote()
 	end)
-	l.contre = Bouton(l, "Contre", 70)
-	l.contre:SetPoint("RIGHT")
-	l.pour = Bouton(l, "Pour", 70)
-	l.pour:SetPoint("RIGHT", l.contre, "LEFT", -4, 0)
-	for _, b in ipairs({ l.pour, l.contre }) do
-		b:SetScript("OnClick", function (self)
-			local mot = self == l.pour and "pour" or "contre"
-			if not Raid.Repondre(mot == "pour" and "P" or "C", self.annonce.n) then
-				SendChatMessage("!" .. mot .. " " .. self.annonce.n, IsInRaid() and "RAID" or "PARTY")
-			end
-			self.annonce.monVote = mot
-			Raid.RafraichirVote()
-		end)
-	end
+	-- le vote : un bouton par candidat, sous la ligne (créés à la demande)
+	l.choix = {}
 	lignes[k] = l
 	return l
+end
+
+local PAR_RANG, LARGE_CHOIX = 3, 140
+
+local function BoutonChoix (l, i)
+	if l.choix[i] then return l.choix[i] end
+	local b = Bouton(l, "", LARGE_CHOIX)
+	b:SetScript("OnClick", function (self)
+		local a = self.annonce
+		if not Raid.Repondre("B", a.n, self.nom) then
+			SendChatMessage("!vote " .. a.n .. " " .. self.numero, IsInRaid() and "RAID" or "PARTY")
+		end
+		a.monVote = self.nom
+		Raid.RafraichirVote()
+	end)
+	l.choix[i] = b
+	return b
 end
 
 function Raid.RafraichirVote ()
@@ -104,6 +110,7 @@ function Raid.RafraichirVote ()
 	if #Raid.annonces == 0 then if f then f:Hide() end return end
 	if not f then Construire() end
 	for _, l in ipairs(lignes) do l:Hide() end
+	local y = 10
 	for k, a in ipairs(Raid.annonces) do
 		local l = Ligne(k)
 		a.lien = Raid.LienAJour(a.lien, a.id)
@@ -111,21 +118,35 @@ function Raid.RafraichirVote ()
 		l.objet.texte:SetText(a.lien)
 		Raid.PoserIcone(l.icone, a.id, a.lien)
 		l.etat:SetText(Texte(a))
-		l.objecter.annonce, l.pour.annonce, l.contre.annonce, l.veux.annonce = a, a, a, a
+		l.objecter.annonce, l.veux.annonce = a, a
 		l.veux:SetShown(a.etat == "sk")
 		l.veux:SetEnabled(not a.veut)
 		l.veux:SetText(a.veut and "Sur les rangs" or "Je le veux")
 		l.objecter:SetShown(a.etat == "delai")
 		l.objecter:SetEnabled(not a.objecte)
 		l.objecter:SetText(a.objecte and "Objecté" or "Objecter")
-		local vote = a.etat == "vote" and not a.candidat
-		l.pour:SetShown(vote) l.contre:SetShown(vote)
+		local vote = a.etat == "vote" and not a.candidat and a.choix and #a.choix > 0
 		-- sans bouton à droite, l'état prend toute la ligne
-		l.etat:SetWidth((l.veux:IsShown() or l.objecter:IsShown() or vote) and 256 or 390)
-		l.pour:SetEnabled(a.monVote ~= "pour") l.contre:SetEnabled(a.monVote ~= "contre")
+		l.etat:SetWidth((l.veux:IsShown() or l.objecter:IsShown()) and 256 or 390)
+		for _, b in ipairs(l.choix) do b:Hide() end
+		local rangs = 0
+		if vote then
+			for i, nom in ipairs(a.choix) do
+				local b = BoutonChoix(l, i)
+				b.annonce, b.nom, b.numero = a, nom, i
+				b:SetText(nom)
+				b:SetEnabled(a.monVote ~= nom)
+				b:ClearAllPoints()
+				b:SetPoint("TOPLEFT", 44 + ((i - 1) % PAR_RANG) * (LARGE_CHOIX + 6), -44 - math.floor((i - 1) / PAR_RANG) * 26)
+				b:Show()
+			end
+			rangs = math.ceil(#a.choix / PAR_RANG)
+		end
+		l:ClearAllPoints() l:SetPoint("TOPLEFT", 10, -y)
+		y = y + 44 + rangs * 26
 		l:Show()
 	end
-	f:SetHeight(34 + #Raid.annonces * 44)
+	f:SetHeight(y + 24)
 	f:Show()
 end
 
@@ -153,6 +174,8 @@ function Raid.RecevoirAnnonce (ml, c)
 		if not a then return end
 		if genre == "V" then
 			a.etat, a.fin, a.auteur = "vote", GetTime() + (tonumber(c[3]) or 0), c[6]
+			a.choix = Raid.Liste(c[7])
+			a.motif = (c[8] and c[8] ~= "") and c[8] or nil
 		elseif genre == "R" then
 			a.etat, a.attributaire = c[3] or "", c[4] or ""
 			if a.etat ~= "trancher" then a.finie = GetTime() end

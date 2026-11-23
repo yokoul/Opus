@@ -86,10 +86,16 @@ l'égalité est annoncée et le maître du butin tranche. Un objet sans candidat
 
 ### Objection et vote
 
-Dans le canal raid, sans addon côté joueurs. Chaque annonce porte un numéro `n`. « !objection n » pendant 3 minutes
-ouvre un vote de 2 minutes : « !pour n » (la proposition tient) ou « !contre n », réservé aux présents qui ne sont pas
-candidats à l'objet ; le dernier vote de chacun compte. Quorum : la moitié des électeurs (arrondie au-dessus). Si le
-quorum est atteint et que « contre » l'emporte, les officiers tranchent avec un motif ; sinon l'objet va au proposé.
+Dans le canal raid, sans addon côté joueurs. Chaque annonce porte un numéro `n`. « !objection n [motif] » pendant 3
+minutes, d'un joueur ou d'un officier, ouvre un vote de 2 minutes **entre les candidats présents** (dans l'ordre du
+calcul, numérotés dans l'annonce du vote) : « !vote n k » (k, le numéro du candidat, ou son nom ; « !vote k » s'il n'y a
+qu'un vote en cours). Votent tous les présents sauf les joueurs qui ont l'objet en liste, officiers compris, une voix
+chacun ; le dernier vote compte. Quorum : la moitié des électeurs (arrondie au-dessus). Quorum atteint : le vote
+s'applique, le candidat en tête reçoit l'objet ; une égalité en tête passe aux officiers. Pas de quorum : la
+proposition du calcul s'applique.
+
+Les officiers (le raid et le progress : rôle clé, boss bloquant, égalité) peuvent trancher **à tout moment** avant
+l'attribution, pendant le délai comme pendant le vote, toujours avec un motif (`D`).
 
 ## Rapport (addon → site)
 
@@ -102,7 +108,7 @@ par sa lettre, son identifiant et sa date ; l'identifiant est `<maître du butin
 | `T` | Objet tombé | boss, itemID, présents (liste des noms complets) |
 | `O` | Proposition | id de `T`, candidat retenu, scores (liste de « nom:score », score avec un point décimal) |
 | `X` | Objection | id de `O`, auteur |
-| `V` | Vote | id de `X`, pour, contre, abstentions, quorum atteint (0/1) |
+| `V` | Vote | id de `X`, voix du proposé, voix des autres candidats, abstentions, quorum atteint (0/1), gagnant (vide : égalité ou pas de quorum), voix de chaque candidat `nom:voix,…` |
 | `D` | Décision des officiers | id de `O` (vide après un rechargement en plein Suicide King), attributaire, officier, motif |
 | `A` | Attribution | id de `T`, attributaire (vide pour la banque), voie (`wish`, `sk`, `de` ou `banque`) |
 | `M` | Remise | id de `A`, destinataire de l'échange, mode (`echange`, `ramasse`) |

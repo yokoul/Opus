@@ -1,9 +1,9 @@
 -- RaidFiche.lua : la fiche de décision d'un objet, pour le maître du butin et les officiers
 -- Chaque candidat présent sur une ligne : sa couleur de classe, son rang et son rôle, son score en barre décomposée
 -- (rang, prios perdues, dernier loot, gain, aux poids de l'instantané) et ce qu'il a déjà reçu ce soir et sur le
--- palier. Avant l'annonce, elle se lit (et « Annoncer » part d'ici) ; quand un vote renverse la proposition, elle
--- remplace la fenêtre « Trancher » : un clic sur un nom (ou Suicide King, Désenchantement), un motif en un clic,
--- Entrée décide.
+-- palier. Avant l'annonce, elle se lit (et « Annoncer » part d'ici) ; pendant le vote, les voix de chacun, et un clic
+-- sur un nom y vote ; les officiers décident d'ici à tout moment (« Décision des officiers… », ou d'office après une
+-- égalité) : un clic sur un nom (ou Suicide King, Désenchantement), un motif en un clic, Entrée décide.
 local _, Opus = ...
 local Raid = Opus.Raid
 local Msg = Raid.Msg
@@ -97,7 +97,12 @@ local function Ligne (n)
 	l.soir:SetPoint("LEFT", 222 + BARRE + 56, 0) l.soir:SetWidth(52) l.soir:SetJustifyH("LEFT")
 	l.palier = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	l.palier:SetPoint("LEFT", 222 + BARRE + 108, 0) l.palier:SetWidth(52) l.palier:SetJustifyH("LEFT")
-	l:SetScript("OnClick", function (self) if f.decider and self.choix then f.choix = self.choix Raid.RafraichirFiche() end end)
+	l:SetScript("OnClick", function (self)
+		if not self.choix then return end
+		if f.decider then f.choix = self.choix
+		elseif f.electeur then Raid.Recevoir("vote", f.attribution.n, Raid.MonNom(), self.choix.nom) end
+		Raid.RafraichirFiche()
+	end)
 	l:SetScript("OnEnter", function (self)
 		local c = self.candidat
 		if not c then return end
@@ -108,7 +113,8 @@ local function Ligne (n)
 			local v = c.termes[t.cle]
 			GameTooltip:AddDoubleLine(string.format("%s (%.2f × %d)", t.nom, v, p[t.cle]), Raid.Score(v * p[t.cle]), t.r, t.g, t.b, 1, 1, 1)
 		end
-		if f.decider then GameTooltip:AddLine("Clic : lui attribuer l'objet.", 0.6, 0.6, 0.6) end
+		if f.decider then GameTooltip:AddLine("Clic : lui attribuer l'objet.", 0.6, 0.6, 0.6)
+		elseif f.electeur then GameTooltip:AddLine("Clic : voter pour lui.", 0.6, 0.6, 0.6) end
 		GameTooltip:Show()
 	end)
 	l:SetScript("OnLeave", GameTooltip_Hide)
@@ -140,9 +146,10 @@ local function Construire ()
 	local function Tete (texte, x, l, j)
 		local t = z:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 		t:SetPoint("TOPLEFT", 12 + x, -52) t:SetWidth(l) t:SetJustifyH(j or "LEFT") t:SetText(texte)
+		return t
 	end
 	Tete("candidat présent", 12, 132) Tete("rang · rôle", 148, 70) Tete("score", 222, BARRE)
-	Tete("ce soir", 222 + BARRE + 56, 52) Tete("palier", 222 + BARRE + 108, 52)
+	f.teteSoir = Tete("ce soir", 222 + BARRE + 56, 52) Tete("palier", 222 + BARRE + 108, 52)
 	f.haut = 66
 	f.absents = z:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	f.absents:SetJustifyH("LEFT") f.absents:SetWidth(LARGEUR - 40) f.absents:SetWordWrap(false)
@@ -192,10 +199,12 @@ local function Construire ()
 	f.motif:SetScript("OnEnterPressed", function () f.ok:Click() end)
 	f.motifAide = f.bas:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	f.motifAide:SetPoint("LEFT", precedent, "RIGHT", 12, 0) f.motifAide:SetText("motif annoncé au raid, obligatoire")
-	-- pendant le vote, s'il est électeur (pas candidat) : sa voix d'ici, comme un « !pour n » / « !contre n »
-	f.contre = Opus.Bouton(z, "Contre", 80, function () Raid.Recevoir("contre", f.attribution.n, Raid.MonNom()) Raid.RafraichirFiche() end)
-	f.pour = Opus.Bouton(z, "Pour", 80, function () Raid.Recevoir("pour", f.attribution.n, Raid.MonNom()) Raid.RafraichirFiche() end)
+	-- pendant le vote, s'il est électeur (pas candidat) : sa voix, d'un clic sur un nom
 	f.monVote = z:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	f.monVote:SetJustifyH("LEFT")
+	-- la décision des officiers, à tout moment avant l'attribution
+	f.forcerBouton = Opus.Bouton(z, "Décision des officiers…", 180, function () f.forcer = true f.choix = nil Raid.RafraichirFiche() f.motif:SetFocus() end)
+	Opus.Bulle(f.forcerBouton, "Décision des officiers", "Pour le raid et le progress (rôle clé, boss bloquant…), à tout moment : elle remplace le délai ou le vote en cours. Motif obligatoire, annoncé au raid et noté au rapport.")
 	-- avant l'annonce : « Annoncer » d'ici
 	f.annoncer = Opus.Bouton(z, "Annoncer", 110, function ()
 		if f.objetButin and Raid.AnnoncerObjet then Raid.AnnoncerObjet(f.objetButin) end
@@ -212,13 +221,10 @@ local function Etat (a, r)
 	end
 	local texte = (a.propose and a.propose ~= "?") and ("Proposé : " .. a.propose .. " · ") or ""
 	local objection = a.objecteurs and #a.objecteurs > 0
-	if objection then texte = texte .. "|cffff8040objection de " .. table.concat(a.objecteurs, ", ") .. "|r · " end
-	if a.etat == "trancher" then
-		local pour, contre = 0, 0
-		for _, v in pairs(a.votes or {}) do if v == "pour" then pour = pour + 1 else contre = contre + 1 end end
-		if pour + contre > 0 then texte = texte .. string.format("vote %d pour, %d contre · ", pour, contre) end
-		return texte .. "|cffffd100aux officiers de trancher|r"
+	if objection then
+		texte = texte .. "|cffff8040objection de " .. table.concat(a.objecteurs, ", ") .. (a.motif and (" (« " .. a.motif .. " »)") or "") .. "|r · "
 	end
+	if a.etat == "trancher" then return texte .. "|cffffd100égalité : aux officiers de trancher|r" end
 	if a.etat == "delai" or a.etat == "vote" then return texte .. (Raid.EtatAttribution(a):gsub("^#%d+ ", ""):gsub("^.- — ", "")) end
 	return (Raid.EtatAttribution(a):gsub("^#%d+ ", ""))
 end
@@ -228,7 +234,12 @@ function Raid.RafraichirFiche ()
 	-- annoncé depuis la fiche (ou la fenêtre du butin) : la fiche suit l'attribution
 	if f.objetButin and f.objetButin.attribution then f.attribution, f.objetButin = f.objetButin.attribution, nil end
 	local a = f.attribution
-	f.decider = a and a.etat == "trancher" and Raid.PeutGerer() or false
+	f.decider = a and Raid.Decidable(a) and Raid.PeutGerer() and (a.etat == "trancher" or f.forcer) or false
+	local moi = Raid.MonNom()
+	f.electeur = not f.decider and a and a.etat == "vote" and not (a.candidats and a.candidats[moi]) and (not a.electeurs or a.electeurs[moi]) or false
+	local voix = {}
+	if a and a.etat == "vote" then for _, c in ipairs((Raid.Decompte(a))) do voix[c.nom] = c.voix end end
+	f.teteSoir:SetText(a and a.etat == "vote" and "voix" or "ce soir")
 	local r = Raid.Proposer(f.id, Raid.Presents())
 	f.lien = Raid.LienAJour(f.lien, f.id)
 	f.objet.texte:SetText(f.lien)
@@ -258,7 +269,13 @@ function Raid.RafraichirFiche ()
 		end
 		l.score:SetText(Raid.Score(c.score))
 		local ns, np = soir[c.nom] or 0, palier and (palier[c.nom] or 0)
-		l.soir:SetText(ns > 0 and Opus.Blanc(ns .. " reçu" .. (ns > 1 and "s" or "")) or Opus.Gris("rien"))
+		if a and a.etat == "vote" then
+			local v = voix[c.nom] or 0
+			local mien = a.votes and a.votes[moi] == c.nom
+			l.soir:SetText(v > 0 and ((mien and "|cffffd100" or "|cffffffff") .. v .. " voix|r") or Opus.Gris(mien and "ton vote" or "0"))
+		else
+			l.soir:SetText(ns > 0 and Opus.Blanc(ns .. " reçu" .. (ns > 1 and "s" or "")) or Opus.Gris("rien"))
+		end
 		l.palier:SetText(not np and Opus.Gris("?") or np > 0 and Opus.Blanc(tostring(np)) or Opus.Gris("0"))
 		local choisi = f.decider and f.choix and f.choix.voie == "wish" and f.choix.nom == c.nom
 		Teinte(l.fond, 1, 0.82, 0, choisi and 0.18 or (k == 1 and 0.05 or 0))
@@ -287,16 +304,14 @@ function Raid.RafraichirFiche ()
 		f.annoncer:ClearAllPoints() f.annoncer:SetPoint("TOPRIGHT", -12, -y)
 		y = y + 30
 	end
-	local moi = Raid.MonNom()
-	local electeur = a and a.etat == "vote" and not (a.candidats and a.candidats[moi]) and (not a.electeurs or a.electeurs[moi])
-	f.pour:SetShown(electeur) f.contre:SetShown(electeur) f.monVote:SetShown(electeur)
-	if electeur then
+	local forcer = not f.decider and a and Raid.Decidable(a) and a.etat ~= "trancher" and Raid.PeutGerer() or false
+	f.forcerBouton:SetShown(forcer)
+	f.monVote:SetShown(f.electeur or false)
+	if f.electeur or forcer then
+		f.forcerBouton:ClearAllPoints() f.forcerBouton:SetPoint("TOPRIGHT", -12, -y)
 		local v = a.votes and a.votes[moi]
-		f.contre:ClearAllPoints() f.contre:SetPoint("TOPRIGHT", -12, -y)
-		f.pour:ClearAllPoints() f.pour:SetPoint("RIGHT", f.contre, "LEFT", -6, 0)
-		f.pour:SetEnabled(v ~= "pour") f.contre:SetEnabled(v ~= "contre")
-		f.monVote:ClearAllPoints() f.monVote:SetPoint("RIGHT", f.pour, "LEFT", -12, 0)
-		f.monVote:SetText(v and ("ton vote : " .. v) or "tu votes : la proposition tient ?")
+		f.monVote:ClearAllPoints() f.monVote:SetPoint("TOPLEFT", 12, -y - 6)
+		f.monVote:SetText(v and ("ton vote : " .. v .. " (clic sur un autre nom pour changer)") or "ton vote : clic sur le nom de ton choix")
 		y = y + 30
 	end
 	f:SetHeight(y + 38)
@@ -307,7 +322,7 @@ function Raid.OuvrirFiche (o)
 	if not Raid.db.instantane then Msg("pas d'instantané : /opus raid import.") return end
 	if not f then Construire() end
 	local a = o.attribution or (o.etat and o) or nil
-	if f.attribution ~= a or f.id ~= o.id then f.choix = nil f.motif:SetText("") end
+	if f.attribution ~= a or f.id ~= o.id then f.choix, f.forcer = nil, false f.motif:SetText("") end
 	f.attribution, f.id, f.lien = a, o.id, o.lien
 	f.objetButin = (not o.etat) and o or nil
 	f:Show()

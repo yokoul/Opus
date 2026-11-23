@@ -5,6 +5,8 @@ Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://disc
 
 ## À paraître
 - Raids : la fiche de décision. Pour chaque objet (bouton « Fiche » de la fenêtre du butin), les candidats présents d'un coup d'œil : couleur de classe, rang et rôle, score en barre décomposée (rang, prios perdues, dernier loot, gain), ce que chacun a déjà reçu ce soir et sur le palier (par le bridge) ; le détail du calcul au survol. On peut annoncer depuis la fiche. Quand un vote renverse la proposition, elle remplace la fenêtre « Trancher » : un clic sur un nom (ou Suicide King, Désenchantement), un motif en un clic (Rang 1, Moins servi, Rôle) à compléter, Entrée décide.
+- Raids : le vote suit WishVote. Une objection (avec son motif : « !objection n il a déjà beaucoup reçu ») ouvre un vote **entre les candidats présents** : chacun vote pour celui qui le mérite selon lui, d'un bouton à son nom dans la fenêtre, ou « !vote n k » dans le canal raid. Votent tous les présents sauf ceux qui ont l'objet en liste. Quorum atteint : le candidat en tête reçoit l'objet, une égalité passe aux officiers ; sans quorum, la proposition tient. Fini le « pour / contre ».
+- Raids : les officiers peuvent trancher à tout moment, pendant le délai ou le vote (« Décision des officiers… » dans la fiche), toujours avec un motif. Pendant un vote, la fiche montre les voix de chaque candidat, et on y vote d'un clic sur un nom ; elle s'ouvre seule chez le maître du butin à l'objection.
 - Raids : /opus raid essai, pour essayer une soirée en donjon à quelques-uns. Un instantané fabriqué en jeu (ton groupe et quatre figurants), des candidats pour chaque objet ramassé, la fenêtre du butin en groupe ; rien de cette soirée ne part au site.
 
 ## 0.32.0

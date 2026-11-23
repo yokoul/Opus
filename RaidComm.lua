@@ -1,10 +1,10 @@
 -- RaidComm.lua : les annonces et les votes entre addons, par messages d'addon dans le raid (ou le groupe)
 -- Le maître du butin diffuse :
 --   A;n;itemID;proposé;secondes;candidat,candidat…   une annonce, et le délai d'objection qui reste
---   V;n;secondes;quorum;électeurs;auteur              une objection : le vote est ouvert
+--   V;n;secondes;quorum;électeurs;auteur;candidats;motif   une objection : le vote est ouvert, entre ces candidats
 --   S;n;itemID;secondes                               un Suicide King : les intéressés se déclarent
 --   R;n;état;attributaire                             la fin : attribue, trancher, de ou banque
--- Les joueurs lui répondent, sur le même canal : O;n (objection), P;n (pour), C;n (contre), W;n (je le veux).
+-- Les joueurs lui répondent, sur le même canal : O;n;motif (objection), B;n;candidat (un vote), W;n (je le veux).
 -- Le canal raid (« !objection »…) reste ouvert à côté : un joueur sans addon, ou des messages d'addon bloqués en
 -- instance, n'empêchent rien. Le maître du butin compte une voix par joueur, d'où qu'elle vienne.
 local _, Opus = ...
@@ -46,10 +46,12 @@ function Raid.Diffuser (...)
 	return Envoyer(table.concat(champs, FS):sub(1, 250))
 end
 
--- côté joueur (Vote.lua) : mot = « O », « P » ou « C »
-function Raid.Repondre (mot, n) return Envoyer(mot .. FS .. n) end
+-- côté joueur (Vote.lua) : mot = « O » (objection, avec son motif), « B » (un vote, pour ce candidat) ou « W »
+function Raid.Repondre (mot, n, quoi)
+	return Envoyer(mot .. FS .. n .. (quoi and (FS .. tostring(quoi):gsub("[;~]", " ")) or ""))
+end
 
-local REPONSES = { O = "objection", P = "pour", C = "contre", W = "sk" }
+local REPONSES = { O = "objection", B = "vote", P = "pour", W = "sk" }
 
 Raid.Ecoute("CHAT_MSG_ADDON", function (prefixe, message, canal, expediteur)
 	if prefixe ~= PREFIXE then return end
@@ -61,7 +63,7 @@ Raid.Ecoute("CHAT_MSG_ADDON", function (prefixe, message, canal, expediteur)
 	local de = m and m.nom or Raid.Court(expediteur)
 	-- une réponse d'un joueur : seul le client qui a annoncé l'écoute
 	if REPONSES[c[1]] then
-		if #Raid.attributions > 0 then Raid.Recevoir(REPONSES[c[1]], tonumber(c[2]), expediteur) end
+		if #Raid.attributions > 0 then Raid.Recevoir(REPONSES[c[1]], tonumber(c[2]), expediteur, c[3]) end
 		return
 	end
 	if de == moi then return end -- nos propres annonces nous reviennent

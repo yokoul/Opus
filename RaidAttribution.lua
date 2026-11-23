@@ -1,10 +1,11 @@
 -- RaidAttribution.lua : d'une annonce à l'attribution, avec le délai, l'objection et le vote (WishVote)
 -- Tout passe par le canal raid, sans que les joueurs aient besoin de l'addon :
---   « !objection n » pendant les 3 minutes après l'annonce n° n (n facultatif s'il n'y a qu'une annonce en cours) ;
---   une objection ouvre un vote de 2 minutes : « !pour n » (la proposition tient) ou « !contre n ». Seuls votent les
---   présents qui ne sont pas candidats à l'objet ; le dernier vote de chacun compte. Quorum : la moitié des électeurs.
---   Sans objection, ou si le vote ne renverse pas la proposition, l'objet est attribué au proposé ; sinon les officiers
---   tranchent, avec un motif.
+--   « !objection n [motif] » pendant les 3 minutes après l'annonce n° n (n facultatif s'il n'y a qu'une annonce en
+--   cours) ; une objection ouvre un vote de 2 minutes entre les candidats présents : « !vote n k » (k, le numéro du
+--   candidat dans l'annonce du vote, ou son nom). Seuls votent les présents qui ne sont pas candidats, officiers
+--   compris, une voix chacun ; le dernier vote compte. Quorum : la moitié des électeurs. Quorum atteint : le vote
+--   s'applique, une égalité en tête passe aux officiers ; sans quorum, la proposition tient. Les officiers peuvent
+--   trancher à tout moment (pour le raid et le progress), toujours avec un motif.
 -- Seul le client qui a annoncé compte : c'est celui du maître du butin. Chaque étape est notée pour le rapport.
 local _, Opus = ...
 local Raid = Opus.Raid
@@ -103,22 +104,52 @@ local function FinDelai (a)
 	Attribuer(a, a.propose, "wish", " (pas d'objection)")
 end
 
+-- Les voix de chaque candidat du vote, dans l'ordre de l'annonce : { { nom, voix }, … }, le nombre de votants, et les
+-- candidats en tête (plusieurs : égalité).
+function Raid.Decompte (a)
+	local voix, votants = {}, 0
+	for _, nom in pairs(a.votes or {}) do voix[nom] = (voix[nom] or 0) + 1 votants = votants + 1 end
+	local liste, haut, tete = {}, 0, {}
+	for _, nom in ipairs(a.choix or {}) do
+		local v = voix[nom] or 0
+		liste[#liste + 1] = { nom = nom, voix = v }
+		if v > haut then haut, tete = v, { nom } elseif v == haut and v > 0 then tete[#tete + 1] = nom end
+	end
+	return liste, votants, tete
+end
+
+-- « Essai Lame 6 – Légende Urbaine 3 » : les candidats qui ont des voix, du plus au moins
+local function Bilan (liste)
+	local t = {}
+	for _, c in ipairs(liste) do if c.voix > 0 then t[#t + 1] = c end end
+	table.sort(t, function (x, y) return x.voix > y.voix end)
+	for k, c in ipairs(t) do t[k] = c.nom .. " " .. c.voix end
+	return #t > 0 and table.concat(t, " – ") or "aucune voix"
+end
+
 local function FinVote (a)
 	if a.etat ~= "vote" then return end
-	local pour, contre = 0, 0
-	for _, v in pairs(a.votes) do if v == "pour" then pour = pour + 1 else contre = contre + 1 end end
-	local votants = pour + contre
+	local liste, votants, tete = Raid.Decompte(a)
 	local atteint = votants >= a.quorum
-	Raid.Noter("V", { objection = a.evenementX, pour = pour, contre = contre, electeurs = a.nElecteurs, quorum = atteint and 1 or 0 })
-	local bilan = string.format("%d pour, %d contre, %d votant%s sur %d, quorum %d", pour, contre, votants, votants > 1 and "s" or "", a.nElecteurs, a.quorum)
-	if atteint and contre > pour then
+	local gagnant = atteint and #tete == 1 and tete[1] or ""
+	local pour = 0
+	for _, c in ipairs(liste) do if c.nom == a.propose then pour = c.voix end end
+	local detail = {}
+	for _, c in ipairs(liste) do detail[#detail + 1] = c.nom .. ":" .. c.voix end
+	Raid.Noter("V", { objection = a.evenementX, pour = pour, contre = votants - pour, electeurs = a.nElecteurs, quorum = atteint and 1 or 0,
+		gagnant = gagnant, detail = detail })
+	local bilan = Bilan(liste)
+	local qui = a.objecteurs[1] and (" · objection de " .. a.objecteurs[1]) or ""
+	if not atteint then
+		Attribuer(a, a.propose, "wish", string.format(" · vote %s, quorum non atteint (%d sur %d)%s : la proposition tient", bilan, votants, a.quorum, qui))
+	elseif gagnant == "" then
 		a.etat = "trancher"
 		Raid.DiffuserAttribution(a)
-		Raid.Annoncer(string.format("#%d %s : vote %s. La proposition est renversée : les officiers tranchent.", a.n, a.lien, bilan))
+		Raid.Annoncer(string.format("#%d %s : vote %s, égalité entre %s : les officiers tranchent.", a.n, a.lien, bilan, table.concat(tete, " et ")))
 		Rafraichir()
 		if Raid.OuvrirDecision then Raid.OuvrirDecision(a) end
 	else
-		Attribuer(a, a.propose, "wish", " : vote " .. bilan .. (atteint and "" or " (non atteint)") .. ", la proposition tient")
+		Attribuer(a, gagnant, "wish", string.format(" · vote %s · quorum atteint%s", bilan, qui))
 	end
 end
 
@@ -158,8 +189,10 @@ function Raid.Lancer (o)
 	return a
 end
 
-local function Objecter (a, nom)
+local function Objecter (a, nom, motif)
 	a.objecteurs[#a.objecteurs + 1] = nom
+	motif = strtrim((motif or ""):gsub("[;~]", " ")):sub(1, 80)
+	a.motif = motif ~= "" and motif or nil
 	a.evenementX = Raid.Noter("X", { proposition = a.evenementO, auteur = nom })
 	-- les électeurs : les présents qui ne sont pas candidats ; hors groupe (essais), tout le monde
 	local presents = Raid.Presents()
@@ -171,10 +204,16 @@ local function Objecter (a, nom)
 		a.electeurs, a.nElecteurs = nil, 1
 	end
 	a.quorum = math.max(1, math.ceil(a.nElecteurs * QUORUM))
-	a.etat, a.fin = "vote", GetTime() + VOTE
-	Diffuser("V", a.n, VOTE, a.quorum, a.nElecteurs, nom)
-	Raid.Annoncer(string.format("#%d objection de %s. Vote %d min, non-candidats seulement : « !pour %d » (la proposition tient) ou « !contre %d ». Quorum : %d sur %d.",
-		a.n, nom, VOTE / 60, a.n, a.n, a.quorum, a.nElecteurs))
+	-- le vote se fait entre les candidats présents, dans l'ordre du calcul
+	a.choix = {}
+	local r = Raid.Proposer(a.id, presents)
+	for _, c in ipairs(r and r.candidats or {}) do a.choix[#a.choix + 1] = c.nom end
+	a.etat, a.fin, a.votes = "vote", GetTime() + VOTE, {}
+	Diffuser("V", a.n, VOTE, a.quorum, a.nElecteurs, nom, table.concat(a.choix, ","), a.motif or "")
+	local numeros = {}
+	for k, c in ipairs(a.choix) do numeros[k] = k .. " " .. c end
+	Raid.Annoncer(string.format("#%d objection de %s%s. Vote %d min entre les candidats, « !vote %d <numéro> » : %s. Votent les non-candidats, quorum %d sur %d.",
+		a.n, nom, a.motif and (" (« " .. a.motif .. " »)") or "", VOTE / 60, a.n, table.concat(numeros, ", "), a.quorum, a.nElecteurs))
 	C_Timer.After(VOTE, function () FinVote(a) end)
 	Rafraichir()
 	-- chez celui qui a annoncé : la fiche s'ouvre sur l'objection, pour suivre le vote (et y voter)
@@ -183,7 +222,7 @@ end
 
 -- Une objection, un vote ou un « je le veux » (Suicide King), venu du canal raid ou de la fenêtre d'un joueur
 -- (Comm.lua) : mot = « objection », « pour », « contre » ou « sk » ; n = le numéro de l'annonce, ou nil.
-function Raid.Recevoir (mot, n, expediteur)
+function Raid.Recevoir (mot, n, expediteur, choix)
 	local m = Raid.Identifier(expediteur, true)
 	local nom = m and m.nom or Raid.Court(expediteur)
 	if not nom then return end
@@ -194,23 +233,43 @@ function Raid.Recevoir (mot, n, expediteur)
 	end
 	if mot == "objection" then
 		local a = Visee(n, "delai")
-		if a then Objecter(a, nom) end
+		if a then Objecter(a, nom, choix) end
 		return
 	end
 	local a = Visee(n, "vote")
 	if not a or a.candidats[nom] then return end
 	if a.electeurs and not a.electeurs[nom] then return end
-	a.votes[nom] = mot
+	-- « !pour n » (ancienne forme) : la proposition ; sinon le numéro du candidat dans l'annonce, ou son nom
+	local pour
+	if mot == "pour" then pour = a.propose
+	elseif mot == "vote" then
+		local k, bas = tonumber(choix), strtrim(tostring(choix or "")):lower()
+		if k then pour = a.choix[k]
+		elseif bas ~= "" then
+			for _, c in ipairs(a.choix) do
+				local cb = c:lower()
+				if cb == bas or cb:match("^%S+") == bas then
+					if pour then pour = nil break end   -- deux candidats du même prénom : ambigu
+					pour = c
+				end
+			end
+		end
+	end
+	if not pour then return end
+	a.votes[nom] = pour
 	Rafraichir()
 end
 
--- Un message du canal raid (ou de groupe) : « !objection n », « !pour n », « !contre n ».
+-- Un message du canal raid (ou de groupe) : « !objection n [motif] », « !vote n k », « !sk n » (et « !pour n »).
 function Raid.Entendre (message, expediteur)
 	message, expediteur = Propre(message), Propre(expediteur)
 	if not message or not expediteur then return end
-	local mot, n = strtrim(message):lower():match("^!(%a+)%s*(%d*)$")
-	if mot ~= "objection" and mot ~= "pour" and mot ~= "contre" and mot ~= "sk" then return end
-	Raid.Recevoir(mot, tonumber(n), expediteur)
+	local mot, n, reste = strtrim(message):match("^!(%a+)%s*(%d*)%s*(.-)$")
+	mot = mot and mot:lower()
+	if mot ~= "objection" and mot ~= "vote" and mot ~= "pour" and mot ~= "sk" then return end
+	-- « !vote 2 » : le candidat n° 2 du seul vote en cours
+	if mot == "vote" and reste == "" then n, reste = nil, n end
+	Raid.Recevoir(mot, tonumber(n), expediteur, reste)
 end
 
 for _, e in ipairs({ "CHAT_MSG_RAID", "CHAT_MSG_RAID_LEADER", "CHAT_MSG_PARTY", "CHAT_MSG_PARTY_LEADER" }) do
@@ -220,11 +279,13 @@ end
 -- le dernier boss vaincu, noté avec l'objet tombé
 Raid.Ecoute("ENCOUNTER_END", function (_, nom, _, _, reussi) if reussi == 1 then Raid.dernierBoss = Propre(nom) end end)
 
--- La décision des officiers après un vote qui renverse la proposition : à un candidat, en Suicide King ou au
--- désenchantement, avec un motif obligatoire.
+-- La décision des officiers, pour le raid et le progress, à tout moment avant l'attribution (pendant le délai, le vote,
+-- ou après une égalité) : à un candidat, en Suicide King ou au désenchantement, avec un motif obligatoire.
+local DECIDABLE = { delai = true, vote = true, trancher = true }
+Raid.Decidable = function (a) return a and DECIDABLE[a.etat] or false end
 function Raid.Decider (a, nom, voie, motif)
 	if not Raid.PeutGerer() then Msg("décision " .. Raid.QuiPeut() .. ".") return false end
-	if a.etat ~= "trancher" then Msg("rien à trancher pour #" .. a.n .. ".") return false end
+	if not DECIDABLE[a.etat] then Msg("rien à trancher pour #" .. a.n .. ".") return false end
 	motif = strtrim(motif or "")
 	if motif == "" then Msg("une décision demande un motif.") return false end
 	Raid.Noter("D", { proposition = a.evenementO, attributaire = nom or "", officier = Raid.MonNom(), motif = motif })
@@ -244,11 +305,11 @@ function Raid.EtatAttribution (a)
 	local chrono = string.format("%d:%02d", math.floor(reste / 60), reste % 60)
 	if a.etat == "delai" then return "#" .. a.n .. " " .. a.propose .. " — objections encore " .. chrono end
 	if a.etat == "vote" then
-		local pour, contre = 0, 0
-		for _, v in pairs(a.votes) do if v == "pour" then pour = pour + 1 else contre = contre + 1 end end
-		return string.format("#%d vote %s : %d pour, %d contre (quorum %d)", a.n, chrono, pour, contre, a.quorum)
+		local _, votants, tete = Raid.Decompte(a)
+		return string.format("#%d vote %s : %d votant%s, quorum %d%s", a.n, chrono, votants, votants > 1 and "s" or "", a.quorum,
+			#tete == 1 and (" · en tête : " .. tete[1]) or #tete > 1 and " · égalité en tête" or "")
 	end
-	if a.etat == "trancher" then return "#" .. a.n .. " renversée : aux officiers de trancher" end
+	if a.etat == "trancher" then return "#" .. a.n .. " : aux officiers de trancher" end
 	local remise = a.remis and (a.remis == a.attributaire and " — remis" or (" — remis à " .. a.remis .. " !")) or ""
 	if a.etat == "attribue" then return "#" .. a.n .. " attribué à " .. a.attributaire .. (remise ~= "" and remise or " — à remettre") end
 	if a.etat == "sk" then
