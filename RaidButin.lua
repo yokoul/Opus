@@ -77,87 +77,161 @@ local function Destinataire (a)
 	return a.attributaire
 end
 
+local LARGEUR = 600
+local HAUT_LIGNE = 48
+
 local function Construire ()
 	f = Raid.Cadre("OpusRaidButin")
-	f:SetSize(520, 120) f:SetPoint("TOPLEFT", 260, -140) f:SetFrameStrata("DIALOG") f:SetToplevel(true)
-	f:EnableMouse(true) f:SetMovable(true) f:RegisterForDrag("LeftButton")
-	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)
+	f:SetSize(LARGEUR, 120) f:SetPoint("TOPLEFT", 260, -140)
 	f:SetTitle("Opus : butin")
-	-- en bas : le désenchanteur de la soirée, parmi les présents (sinon la liste de l'instantané)
-	f.deTexte = f.Inset:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	f.deTexte:SetPoint("BOTTOMLEFT", 12, 14) f.deTexte:SetText("Désenchanteur :")
+	-- à droite du titre : le boss et ce qui reste à faire sur ce corps
+	f.resume = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	f.resume:SetPoint("TOPRIGHT", -32, -10) f.resume:SetJustifyH("RIGHT")
+	-- en bas : le désenchanteur de la soirée (parmi les présents, sinon la liste de l'instantané) et les réglages en cours
+	f.filetBas = f.Inset:CreateTexture(nil, "ARTWORK")
+	f.filetBas:SetHeight(1) f.filetBas:SetPoint("BOTTOMLEFT", 8, 34) f.filetBas:SetPoint("BOTTOMRIGHT", -8, 34)
+	f.filetBas:SetColorTexture(0.83, 0.69, 0.22, 0.28)
+	f.deTexte = f.Inset:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	f.deTexte:SetPoint("BOTTOMLEFT", 12, 13) f.deTexte:SetText("Désenchanteur")
 	f.deChoix = {}
 	f.deMenu = Opus.Menu(f.Inset, 200, f.deChoix,
 		function () return Raid.db.reglages.desenchanteur or "" end,
 		function (v) Raid.db.reglages.desenchanteur = v ~= "" and v or nil Raid.RafraichirButin() end)
 	f.deMenu:SetPoint("LEFT", f.deTexte, "RIGHT", 8, 0)
+	f.reglages = f.Inset:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	f.reglages:SetPoint("BOTTOMRIGHT", -12, 13) f.reglages:SetJustifyH("RIGHT")
 	tinsert(UISpecialFrames, "OpusRaidButin")
 	f:Hide()
 end
 
+local function Chrono (a)
+	local reste = math.max(0, math.floor((a.fin or 0) - GetTime()))
+	return string.format("%d:%02d", math.floor(reste / 60), reste % 60)
+end
+
+-- l'action principale d'une ligne : donner, trancher, ou annoncer
+local function Principal (self)
+	local o = self.objet
+	if not o then return end
+	if ADonner(o) then Raid.Donner(o) return end
+	local a = o.attribution
+	if a and a.etat == "trancher" then Raid.OuvrirDecision(a) return end
+	if not a then Raid.AnnoncerObjet(o) end
+end
+
+local function BullePrincipal (self)
+	local o = self.objet
+	if not o then return end
+	Raid.Ancrer(self)
+	if ADonner(o) then
+		GameTooltip:AddLine("Donner à " .. Destinataire(o.attribution), 1, 1, 1)
+		GameTooltip:AddLine("Par le menu du maître du butin, sans échange. La remise est notée au rapport.", nil, nil, nil, true)
+	elseif o.attribution and o.attribution.etat == "trancher" then
+		GameTooltip:AddLine("Trancher", 1, 1, 1)
+		GameTooltip:AddLine("Égalité au vote : les officiers décident, avec un motif.", nil, nil, nil, true)
+	elseif not self:IsEnabled() then
+		GameTooltip:AddLine(self.raison or "", 1, 1, 1, true)
+	else
+		GameTooltip:AddLine("Annoncer au raid", 1, 1, 1)
+		GameTooltip:AddLine(Raid.TexteAnnonce(o.lien, Raid.Proposer(o.id, Raid.Presents())) or "", nil, nil, nil, true)
+		GameTooltip:AddLine("Puis " .. Raid.TexteDuree(Raid.Duree("objection")) .. " pour objecter (« !objection »), et un vote s'il y a objection.", nil, nil, nil, true)
+	end
+	GameTooltip:Show()
+end
+
 local function Ligne (n)
 	if lignes[n] then return lignes[n] end
-	local z = f.Inset
-	local l = CreateFrame("Frame", nil, z)
-	l:SetSize(490, 40) l:SetPoint("TOPLEFT", 10, -10 - (n - 1) * 44)
+	local l = CreateFrame("Frame", nil, f.Inset)
+	l:SetSize(LARGEUR - 28, HAUT_LIGNE - 4) l:SetPoint("TOPLEFT", 10, -8 - (n - 1) * HAUT_LIGNE)
 	l.icone = Raid.Icone(l, 36)
 	l.icone:SetPoint("LEFT", 0, 0)
 	l.objet = CreateFrame("Button", nil, l)
-	l.objet:SetSize(226, 18) l.objet:SetPoint("TOPLEFT", 44, 0)
+	l.objet:SetSize(230, 16) l.objet:SetPoint("TOPLEFT", 44, -2)
 	l.objet.texte = l.objet:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	l.objet.texte:SetAllPoints() l.objet.texte:SetJustifyH("LEFT")
+	l.objet.texte:SetPoint("LEFT") l.objet.texte:SetJustifyH("LEFT") l.objet.texte:SetWordWrap(false)
 	l.objet:SetScript("OnEnter", function (self) Raid.Infobulle(self, self.lien, self.id) end)
 	l.objet:SetScript("OnLeave", GameTooltip_Hide)
-	l.proposition = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	l.proposition:SetPoint("TOPLEFT", 44, -20) l.proposition:SetWidth(222) l.proposition:SetJustifyH("LEFT") l.proposition:SetWordWrap(false)
-	l.annoncer = CreateFrame("Button", nil, l, "SharedButtonSmallTemplate")
-	l.annoncer:SetSize(100, 24) l.annoncer:SetPoint("RIGHT", 0, 0) l.annoncer:SetText("Annoncer")
-	l.annoncer:SetScript("OnClick", function (self)
-		if ADonner(self.objet) then Raid.Donner(self.objet) return end
-		if self.attribution and self.attribution.etat == "trancher" then Raid.OuvrirDecision(self.attribution) return end
-		if self.attribution then return end
-		Raid.AnnoncerObjet(self.objet)
-	end)
-	-- la fiche de décision de l'objet (RaidFiche.lua) : les candidats, leurs scores, ce qu'ils ont déjà reçu
-	l.fiche = Opus.Bouton(l, "Détails", 60, function (self) Raid.OuvrirFiche(self.objet) end)
-	l.fiche:SetPoint("RIGHT", l.annoncer, "LEFT", -6, 0)
-	Opus.Bulle(l.fiche, "Détails de l'objet", "Les candidats présents (ou, hors liste, ceux qui peuvent le porter), leur score décomposé, ce qu'ils portent et ce que l'objet leur changerait, ce qu'ils ont déjà reçu ce soir et sur le palier.")
-	-- « DE » : hors liste, droit au désenchanteur, sans annonce
-	l.de = Opus.Bouton(l, "DE", 44, function (self)
+	l.etat = Raid.Pastille(l)
+	l.detail = l:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	l.detail:SetPoint("TOPLEFT", 44, -21) l.detail:SetWidth(300) l.detail:SetJustifyH("LEFT") l.detail:SetWordWrap(false)
+	l.compte = Raid.Compte(l, 300)
+	l.compte:SetPoint("TOPLEFT", 44, -37)
+	l.principal = Raid.Bouton(l, "Annoncer", 92, Principal, "prim")
+	l.principal.bulle = BullePrincipal
+	-- les détails de l'objet (RaidFiche.lua) : les candidats, leurs scores, ce qu'ils portent, ce qu'ils ont reçu
+	l.fiche = Raid.Bouton(l, "Détails", 70, function (self) Raid.OuvrirFiche(self.objet) end, "sec")
+	l.fiche.bulle = function (self)
+		Raid.Ancrer(self)
+		GameTooltip:AddLine("Détails de l'objet", 1, 1, 1)
+		GameTooltip:AddLine("Les candidats présents (ou, hors liste, ceux qui peuvent le porter), leur score, ce qu'ils portent et ce que l'objet leur changerait, ce qu'ils ont déjà reçu.", nil, nil, nil, true)
+		GameTooltip:Show()
+	end
+	-- « Désenchanter » : hors liste, droit au désenchanteur, sans annonce
+	l.de = Raid.Bouton(l, "Désenchanter", 96, function (self)
 		local o = self.objet
 		if not o or o.attribution then return end
 		local a = Raid.DesenchanterObjet(o)
 		if a then o.attribution = a end
 		Raid.RafraichirButin()
-	end)
-	l.de:SetPoint("RIGHT", l.fiche, "LEFT", -6, 0)
-	l.de:SetScript("OnEnter", function (self)
+	end, "sec")
+	l.de.bulle = function (self)
 		Raid.Ancrer(self)
 		GameTooltip:AddLine("Désenchanter", 1, 1, 1)
-		local qui = Raid.Desenchanteur()
-		GameTooltip:AddLine(qui and ("Donné à " .. qui .. ", sans annonce ni Suicide King. Noté au rapport.")
-			or "Aucun désenchanteur présent : l'objet ira à la banque (à toi). Choisis-en un en bas de la fenêtre.", nil, nil, nil, true)
-		GameTooltip:Show()
-	end)
-	l.de:SetScript("OnLeave", GameTooltip_Hide)
-	l.annoncer:SetScript("OnEnter", function (self)
-		if ADonner(self.objet) then
-			Raid.Ancrer(self)
-			GameTooltip:AddLine("Donner à " .. Destinataire(self.attribution), 1, 1, 1)
-			GameTooltip:AddLine("Par le menu du maître du butin, sans échange. La remise est notée au rapport.", nil, nil, nil, true)
-			GameTooltip:Show()
-			return
+		if not self:IsEnabled() then GameTooltip:AddLine(self.raison or "", nil, nil, nil, true)
+		else
+			local qui = Raid.Desenchanteur()
+			GameTooltip:AddLine(qui and ("Donné à " .. qui .. ", sans annonce ni Suicide King. Noté au rapport.")
+				or "Aucun désenchanteur présent : l'objet ira à la banque (à toi). Choisis-en un en bas de la fenêtre.", nil, nil, nil, true)
 		end
-		if self.attribution then return end
-		Raid.Ancrer(self)
-		GameTooltip:AddLine("Annoncer au raid", 1, 1, 1)
-		GameTooltip:AddLine(Raid.TexteAnnonce(self.lien, Raid.Proposer(self.id, Raid.Presents())) or "", nil, nil, nil, true)
-		GameTooltip:AddLine("Puis " .. Raid.TexteDuree(Raid.Duree("objection")) .. " pour objecter (« !objection »), et un vote s'il y a objection.", nil, nil, nil, true)
 		GameTooltip:Show()
-	end)
-	l.annoncer:SetScript("OnLeave", GameTooltip_Hide)
+	end
 	lignes[n] = l
 	return l
+end
+
+-- les boutons visibles, posés de droite à gauche
+local function Ranger (l)
+	local precedent
+	for _, b in ipairs({ l.principal, l.fiche, l.de }) do
+		if b:IsShown() then
+			b:ClearAllPoints()
+			if precedent then b:SetPoint("RIGHT", precedent, "LEFT", -6, 0) else b:SetPoint("RIGHT", 0, 0) end
+			precedent = b
+		end
+	end
+end
+
+-- L'état d'un objet : sa pastille (texte, sens), la ligne de détail, et l'action principale ({ texte, actif, raison }).
+local function EtatObjet (o, presents)
+	local a = o.attribution
+	if not a then
+		local r = Raid.Proposer(o.id, presents)
+		local c1 = r and r.candidats[1]
+		if not r then return "pas d'instantané", "afaire", "importe-le : onglet Raids, « Du bridge »", { "Annoncer", false, "Importe d'abord l'instantané du site (onglet Raids)." }, r end
+		if c1 then
+			local autres = #r.candidats - 1
+			return "en liste", "neutre", "proposé : |cffffffff" .. c1.nom .. "|r · " .. Raid.Score(c1.score) .. (r.egalite and " (ex aequo)" or "")
+				.. (autres > 0 and (" · " .. autres .. " autre" .. (autres > 1 and "s" or "")) or ""), { "Annoncer", true }, r
+		end
+		return "hors liste", "neutre", "personne de présent ne l'a en liste : Suicide King, ou désenchanter", { "Annoncer", true }, r
+	end
+	local dest = a.attributaire and a.attributaire ~= "" and a.attributaire
+	if ADonner(o) then
+		return "à donner", "afaire", "#" .. a.n .. " » |cffffffff" .. Destinataire(a) .. "|r" .. (o.tente and " · encore sur le corps : réessaie, ou remets-le par échange" or ""), { "Donner", true }
+	end
+	if a.etat == "delai" then return "objections " .. Chrono(a), "cours", "proposé : |cffffffff" .. (a.propose or "?") .. "|r" end
+	if a.etat == "vote" then return "vote " .. Chrono(a), "cours", (Raid.EtatAttribution(a):gsub("^#%d+ ", ""):gsub("^vote %d+:%d+ ?:? ?", "")) end
+	if a.etat == "sk" then
+		local n = 0
+		for _ in pairs(a.interesses or {}) do n = n + 1 end
+		local tete = Raid.ClassementSK and Raid.ClassementSK(a)[1]
+		return "Suicide King " .. Chrono(a), "cours", n .. " intéressé" .. (n > 1 and "s" or "") .. (tete and (" · en tête : |cffffffff" .. tete .. "|r") or "")
+	end
+	if a.etat == "trancher" then return "à trancher", "afaire", "égalité au vote : aux officiers", { "Trancher…", true } end
+	if a.etat == "banque" then return "banque", "neutre", "#" .. a.n .. " » banque de guilde" end
+	local vers = a.etat == "de" and ("désenchantement (" .. (dest or "?") .. ")") or (dest or "?")
+	if a.remis then return "remis", "fait", "#" .. a.n .. " » |cffffffff" .. vers .. "|r" .. (a.remis ~= a.attributaire and (" · remis à " .. a.remis) or "") end
+	return "à remettre", "afaire", "#" .. a.n .. " » |cffffffff" .. vers .. "|r · par échange"
 end
 
 -- Met les lignes à jour : avant l'annonce, la proposition ; après, l'état de l'attribution (délai, vote…).
@@ -179,42 +253,52 @@ function Raid.RafraichirButin ()
 	table.sort(noms)
 	for _, nom in ipairs(noms) do f.deChoix[#f.deChoix + 1] = { nom, nom } end
 	f.deMenu:GenerateMenu()
+	f.reglages:SetText((Raid.Detaillees() and "annonces détaillées" or "annonces courtes") .. " · Suicide King " .. Raid.TexteDuree(Raid.Duree("sk")))
 	-- attribué et sur le corps ouvert : on le donne, une fois (un refus laisse le bouton « Donner »)
 	for _, o in ipairs(objets) do
 		if ADonner(o) and not o.tente then o.tente = true Raid.Donner(o) end
 	end
+	local enCours, aAnnoncer, aFaire = 0, 0, 0
 	for n, o in ipairs(objets) do
 		local l = Ligne(n)
 		local a = o.attribution
 		o.lien = Raid.LienAJour(o.lien, o.id)
 		if not o.lien:find("|H", 1, true) then attendre = true end
-		l.objet.id = o.id
-		l.objet.lien, l.annoncer.lien, l.annoncer.id, l.annoncer.objet, l.annoncer.attribution = o.lien, o.lien, o.id, o, a
-		l.fiche.objet, l.de.objet = o, o
-		l.de:SetShown(not a)
+		l.objet.id, l.objet.lien = o.id, o.lien
+		l.principal.objet, l.fiche.objet, l.de.objet = o, o, o
 		Raid.PoserIcone(l.icone, o.id, o.lien)
-		l.objet.texte:SetText(o.lien)
-		if a and ADonner(o) then
-			l.proposition:SetText(Raid.EtatAttribution(a) .. " · |cffffd100encore sur le corps|r")
-			l.annoncer:SetText("Donner")
-			l.annoncer:SetEnabled(true)
-		elseif a then
-			l.proposition:SetText(Raid.EtatAttribution(a))
-			l.annoncer:SetText(a.etat == "trancher" and "Trancher…" or a.etat == "delai" and "Objections" or a.etat == "vote" and "Vote" or a.etat == "sk" and "Suicide King" or "Terminé")
-			l.annoncer:SetEnabled(a.etat == "trancher")
-		else
-			local r = Raid.Proposer(o.id, presents)
-			local c1 = r and r.candidats[1]
-			l.proposition:SetText(not r and "pas d'instantané : /opus raid import"
-				or c1 and (c1.nom .. " — " .. Raid.Score(c1.score) .. (r.egalite and " (ex aequo)" or "") .. (#r.candidats > 1 and ("  · " .. (#r.candidats - 1) .. " autre" .. (#r.candidats > 2 and "s" or "")) or ""))
-				or "aucun candidat présent » Suicide King")
-			l.annoncer:SetText("Annoncer")
-			l.annoncer:SetEnabled(r ~= nil)
-			-- « DE » : seulement si personne de présent ne l'a en liste
-			l.de:SetEnabled(r == nil or #r.candidats == 0)
+		-- le nom sans crochets, dans la couleur de sa qualité ; la pastille juste après
+		l.objet.texte:SetText((o.lien:gsub("%[(.-)%]", "%1")))
+		l.etat:ClearAllPoints()
+		l.etat:SetPoint("TOPLEFT", 44 + math.min(l.objet.texte:GetStringWidth(), 230) + 8, -1)
+		local etat, sens, detail, action, r = EtatObjet(o, presents)
+		Raid.PoserPastille(l.etat, etat, sens)
+		l.detail:SetText(detail or "")
+		Raid.PoserCompte(l.compte, (a and (a.etat == "delai" or a.etat == "vote" or a.etat == "sk")) and a or nil)
+		l.principal:SetShown(action ~= nil)
+		if action then
+			l.principal:SetText(action[1]) l.principal:SetEnabled(action[2]) l.principal.raison = action[3]
 		end
+		l.fiche:Show()
+		l.de:SetShown(not a)
+		if not a then
+			local libre = r == nil or #r.candidats == 0
+			l.de:SetEnabled(libre)
+			l.de.raison = not libre and ("En liste chez " .. r.candidats[1].nom .. " : annonce-le.") or nil
+		end
+		Ranger(l)
+		if not a then aAnnoncer = aAnnoncer + 1
+		elseif sens == "cours" then enCours = enCours + 1
+		elseif sens == "afaire" then aFaire = aFaire + 1 end
 		l:Show()
 	end
+	local morceaux = {}
+	if Raid.dernierBoss and Raid.dernierBoss ~= "" then morceaux[1] = Raid.dernierBoss end
+	morceaux[#morceaux + 1] = #objets .. " objet" .. (#objets > 1 and "s" or "")
+	if enCours > 0 then morceaux[#morceaux + 1] = enCours .. " en cours" end
+	if aAnnoncer > 0 then morceaux[#morceaux + 1] = aAnnoncer .. " à annoncer" end
+	if aFaire > 0 then morceaux[#morceaux + 1] = "|cffffcc33" .. aFaire .. " à faire|r" end
+	f.resume:SetText(table.concat(morceaux, " · "))
 	if Raid.RafraichirFiche then Raid.RafraichirFiche() end
 	-- un nom pas encore reçu du serveur : on repasse dans un instant
 	if attendre and not relance then
@@ -235,7 +319,7 @@ function Raid.MontrerButin ()
 	if not f then Construire() end
 	for _, l in ipairs(lignes) do l:Hide() end
 	if #objets == 0 then Msg("aucun objet relevé : ouvre le corps du boss en maître du butin.") f:Hide() return end
-	f:SetHeight(76 + #objets * 44)
+	f:SetHeight(84 + #objets * HAUT_LIGNE)
 	f:Show()
 	Raid.RafraichirButin()
 end
@@ -412,8 +496,9 @@ Raid.Ecoute("LOOT_SLOT_CLEARED", function (slot)
 	Raid.RafraichirButin()
 end)
 
--- les lignes de la fenêtre (simulations hors jeu)
+-- les objets et les lignes de la fenêtre (simulations hors jeu)
 function Raid.ObjetsDuCorps () return objets end
+function Raid.LignesDuButin () return lignes, f end
 
 Raid.Ecoute("LOOT_CLOSED", function ()
 	corpsOuvert = false

@@ -199,7 +199,7 @@ function Raid.Lancer (o)
 	a.evenementO = Raid.Noter("O", { tombe = a.evenementT, candidat = c1.nom,
 		scores = (function () local t = {} for _, c in ipairs(r.candidats) do t[#t + 1] = string.format("%s:%.1f", c.nom, c.score) end return t end)() })
 	local delai = Raid.Duree("objection")
-	a.etat, a.fin = "delai", GetTime() + delai
+	a.etat, a.fin, a.duree = "delai", GetTime() + delai, delai
 	local texte = Raid.Detaillees() and Raid.TexteAnnonce(o.lien, r, string.format(" Objection : « !objection %d » (%s).", a.n, Raid.TexteDuree(delai)))
 		or string.format("%s » %s%s. Objection : « !objection %d » (%s).", o.lien, c1.nom, r.egalite and " (ex aequo)" or "", a.n, Raid.TexteDuree(delai))
 	Raid.Annoncer("#" .. a.n .. " " .. texte)
@@ -231,7 +231,7 @@ local function Objecter (a, nom, motif)
 	local r = Raid.Proposer(a.id, presents)
 	for _, c in ipairs(r and r.candidats or {}) do a.choix[#a.choix + 1] = c.nom end
 	local vote = Raid.Duree("vote")
-	a.etat, a.fin, a.votes = "vote", GetTime() + vote, {}
+	a.etat, a.fin, a.votes, a.duree = "vote", GetTime() + vote, {}, vote
 	Diffuser("V", a.n, vote, a.quorum, a.nElecteurs, nom, table.concat(a.choix, ","), a.motif or "")
 	local numeros = {}
 	for k, c in ipairs(a.choix) do numeros[k] = k .. " " .. c end

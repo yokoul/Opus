@@ -23,7 +23,7 @@ end
 -- debut : le début de l'annonce détaillée ; garder : l'annoncer même en annonces courtes (une décision des officiers)
 function Raid.LancerSK (a, debut, garder)
 	local duree = Raid.Duree("sk")
-	a.etat, a.fin, a.interesses = "sk", GetTime() + duree, {}
+	a.etat, a.fin, a.interesses, a.duree = "sk", GetTime() + duree, {}, duree
 	if Raid.Detaillees() or garder then
 		Raid.Annoncer(string.format("#%d %s. Intéressés : « !sk %d », sinon « !passe %d » (%s), le plus haut dans la liste Suicide King gagne.",
 			a.n, (debut or a.lien):gsub("%.$", ""), a.n, a.n, Raid.TexteDuree(duree)))

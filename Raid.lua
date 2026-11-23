@@ -72,6 +72,106 @@ function Raid.Cadre (nom)
 	return f
 end
 
+------------------------------------------------------------------------
+-- le kit des fenêtres du butin : boutons, pastilles d'état, tuiles, barre de temps
+------------------------------------------------------------------------
+
+-- Une seule règle pour tous les boutons : « prim » (l'action principale de la vue, une à la fois), « sec » (les
+-- autres) ; désactivé, n'importe lequel s'estompe, et b.raison dit pourquoi au survol.
+local BLANC8 = "Interface\\Buttons\\WHITE8X8"
+local GENRES = {
+	prim = { fond = { 0.42, 0.31, 0.07, 1 }, survol = { 0.55, 0.41, 0.10, 1 }, bord = { 0.83, 0.69, 0.22, 1 }, texte = { 1, 0.95, 0.77 } },
+	sec = { fond = { 0, 0, 0, 0.25 }, survol = { 1, 1, 1, 0.08 }, bord = { 0.36, 0.29, 0.17, 1 }, texte = { 0.91, 0.89, 0.83 } },
+}
+local function Habiller (b)
+	local g = GENRES[b.genre] or GENRES.sec
+	local actif = b:IsEnabled()
+	local fond = (actif and b.dessus) and g.survol or g.fond
+	b:SetBackdropColor(fond[1], fond[2], fond[3], actif and fond[4] or 0.15)
+	b:SetBackdropBorderColor(g.bord[1], g.bord[2], g.bord[3], actif and 1 or 0.35)
+	local t = b.texte
+	if actif then t:SetTextColor(g.texte[1], g.texte[2], g.texte[3]) else t:SetTextColor(0.42, 0.40, 0.36) end
+end
+function Raid.Bouton (parent, texte, largeur, clic, genre)
+	local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
+	b:SetSize(largeur, 22)
+	b:SetBackdrop({ bgFile = BLANC8, edgeFile = BLANC8, edgeSize = 1 })
+	b.texte = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	b.texte:SetPoint("CENTER") b.texte:SetText(texte)
+	b.genre = genre or "sec"
+	b.SetText = function (self, t) self.texte:SetText(t) end
+	b.SetGenre = function (self, g) self.genre = g Habiller(self) end
+	if clic then b:SetScript("OnClick", clic) end
+	b:SetScript("OnEnable", Habiller) b:SetScript("OnDisable", Habiller)
+	b:SetScript("OnEnter", function (self)
+		self.dessus = true Habiller(self)
+		if self.bulle then self:bulle() return end
+		if not self:IsEnabled() and self.raison then
+			Raid.Ancrer(self) GameTooltip:AddLine(self.raison, 1, 1, 1, true) GameTooltip:Show()
+		end
+	end)
+	b:SetScript("OnLeave", function (self) self.dessus = false Habiller(self) GameTooltip_Hide() end)
+	b:SetMotionScriptsWhileDisabled(true)
+	Habiller(b)
+	return b
+end
+
+-- La pastille d'état : la même couleur pour le même sens, dans toutes les fenêtres.
+--   fait (remis, reçu) vert ; à faire par le maître du butin (à donner, à remettre, à trancher) jaune ;
+--   en cours (objections, vote, Suicide King) bleu ; désenchantement violet ; banque, hors liste, fermé gris.
+local ETATS = {
+	fait = { 0.25, 1, 0.25 }, afaire = { 1, 0.8, 0.2 }, cours = { 0.56, 0.83, 1 }, de = { 0.75, 0.5, 1 }, neutre = { 0.72, 0.70, 0.65 },
+}
+function Raid.Pastille (parent)
+	local p = CreateFrame("Frame", nil, parent)
+	p:SetHeight(16)
+	p.fond = p:CreateTexture(nil, "BACKGROUND") p.fond:SetAllPoints()
+	p.texte = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	p.texte:SetPoint("LEFT", 5, 0)
+	return p
+end
+function Raid.PoserPastille (p, texte, sens)
+	if not texte then p:Hide() return end
+	local c = ETATS[sens] or ETATS.neutre
+	p.texte:SetText(texte) p.texte:SetTextColor(c[1], c[2], c[3])
+	p.fond:SetColorTexture(c[1], c[2], c[3], sens == "neutre" and 0.07 or 0.12)
+	p:SetWidth(p.texte:GetStringWidth() + 10)
+	p:Show()
+end
+
+-- La tuile chiffrée : une valeur en blanc, son libellé dessous.
+function Raid.Tuile (parent, largeur)
+	local t = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+	t:SetSize(largeur, 34)
+	t:SetBackdrop({ edgeFile = BLANC8, edgeSize = 1 })
+	t:SetBackdropBorderColor(1, 1, 1, 0.08)
+	t.valeur = t:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+	t.valeur:SetPoint("TOPLEFT", 7, -4)
+	t.libelle = t:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	t.libelle:SetPoint("BOTTOMLEFT", 7, 4)
+	t.Poser = function (self, v, l) self.valeur:SetText(v) self.libelle:SetText(l) end
+	return t
+end
+
+-- La barre de temps d'un tour (objections, vote, Suicide King) : ce qui reste, en jaune.
+function Raid.Compte (parent, largeur)
+	local c = CreateFrame("Frame", nil, parent)
+	c:SetSize(largeur, 3)
+	c.fond = c:CreateTexture(nil, "BACKGROUND") c.fond:SetAllPoints() c.fond:SetColorTexture(1, 1, 1, 0.08)
+	c.reste = c:CreateTexture(nil, "ARTWORK") c.reste:SetPoint("TOPLEFT") c.reste:SetPoint("BOTTOMLEFT")
+	c.reste:SetColorTexture(1, 0.8, 0.2, 0.9)
+	c.largeur = largeur
+	return c
+end
+function Raid.PoserCompte (c, a)
+	local duree = a and a.duree
+	if not duree or not a.fin or duree <= 0 then c:Hide() return end
+	local part = math.max(0, math.min(1, (a.fin - GetTime()) / duree))
+	if part <= 0 then c:Hide() return end
+	c.reste:SetWidth(math.max(1, c.largeur * part))
+	c:Show()
+end
+
 -- Où s'ouvrent les infobulles des fenêtres du butin : au-dessus de l'élément survolé, calées à sa gauche. À droite
 -- (« ANCHOR_RIGHT »), une ligne large les renvoyait au bout de la fenêtre, et les comparaisons du jeu plus loin encore.
 function Raid.Ancrer (proprio)
