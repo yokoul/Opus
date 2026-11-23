@@ -48,6 +48,8 @@ Raid.Soiree = Soiree
 function Raid.Noter (lettre, champs)
 	local s = Soiree()
 	s.n = s.n + 1
+	-- une soirée de guilde (pas un essai hors groupe) : son rapport part au site par le bridge
+	if Raid.db.ouverte and (IsInRaid() or IsInGroup()) then s.guilde = true end
 	local e = { lettre = lettre, id = s.ml .. "/" .. s.debut .. "/" .. s.n, t = time() }
 	for k, v in pairs(champs or {}) do e[k] = v end
 	s.evenements[#s.evenements + 1] = e

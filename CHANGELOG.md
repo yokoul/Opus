@@ -3,6 +3,9 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## À paraître
+- Raids : avec le bridge, le rapport de la soirée part tout seul au site à la déconnexion (ou au /reload), sans copier-coller. Il est déposé à la fermeture de la soirée de guilde (ou en quittant le raid), et complété s'il change encore ; les essais hors groupe ne partent pas. L'export à coller reste possible sans bridge.
+
 ## 0.31.1
 - Raids : « Ma liste » et « Historique » restaient vides en jeu (le texte n'était pas affiché, et la barre de défilement débordait de la fenêtre).
 

@@ -275,7 +275,7 @@ local function ConstruireSoir (cadre, largeur)
 	cadre.rapport = Texte(-286)
 	cadre.exporter = Opus.Bouton(cadre, "Exporter le rapport", 160, function () Raid.Exporter() end)
 	cadre.exporter:SetPoint("TOPRIGHT", -8, -280)
-	Opus.Bulle(cadre.exporter, "Exporter le rapport", "À coller sur le site, page Raids, « Rapports » du palier. L'exporter plusieurs fois ne compte rien en double.")
+	Opus.Bulle(cadre.exporter, "Exporter le rapport", "Avec le bridge, le rapport part tout seul au site à la déconnexion. Sans lui, à coller sur le site, page Raids, « Rapports » du palier. Rien ne compte en double.")
 end
 
 ------------------------------------------------------------------------

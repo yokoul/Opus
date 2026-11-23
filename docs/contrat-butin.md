@@ -62,6 +62,15 @@ récentes, avec les présents et les attributions dans l'ordre de la soirée), e
 `instantanes`, la chaîne `OLS1:I:` de chaque palier, que l'onglet Raids importe d'un clic. L'instantané ainsi
 apporté date de la dernière connexion.
 
+Dans l'autre sens, le rapport part sans copier-coller. Opus dépose la chaîne `OLS1:R:` dans `OpusDB.raid.rapport`
+(`chaine`, `id` de la soirée, `n` événements, `complet`, `t`) quand la soirée de guilde se ferme, à l'export, et à la
+déconnexion ou au /reload (la soirée encore ouverte part alors sans les écarts « pas_remis », notés à sa fermeture).
+Seule une soirée de guilde se dépose : une annonce faite en groupe, soirée ouverte, la marque (`soiree.guilde`) ; les
+essais hors groupe restent en jeu. Le bridge l'envoie à `POST /bridge/report` (`{ text }`) dès que WoW a écrit le
+fichier, et une seule fois par chaîne. Le site l'importe comme s'il était collé, dans le palier de son instantané (à
+défaut, celui où le rapport est déjà, ou le seul palier ouvert), et seulement pour un officier du butin ; un refus
+(422, avec son message) n'est pas renvoyé.
+
 ## Proposition calculée
 
 Pour un objet, l'addon classe les candidats **présents dans le raid** par un score sur 100 :

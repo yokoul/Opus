@@ -51,11 +51,12 @@ local function PasRemis (s)
 	return n
 end
 
--- Le rapport de la soirée en cours (ou de la dernière) ; nil s'il n'y en a pas.
-function Raid.Rapport ()
+-- Le rapport de la soirée en cours (ou de la dernière) ; nil s'il n'y en a pas. sansEcarts : sans noter les
+-- attributions pas encore remises (la soirée continue peut-être).
+function Raid.Rapport (sansEcarts)
 	local s = Raid.db.soiree
 	if not s or #s.evenements == 0 then return nil end
-	local nonRemis = PasRemis(s)
+	local nonRemis = sansEcarts and 0 or PasRemis(s)
 	local lignes = { table.concat({ "E", s.ml .. "/" .. s.debut, Champ(s.instantane), Champ(s.ml), s.debut, s.derniere or time() }, ";") }
 	local compte = {}
 	for _, e in ipairs(s.evenements) do
@@ -69,6 +70,22 @@ function Raid.Rapport ()
 	end
 	return Raid.Signer("OLS1:R:" .. table.concat(lignes, "~")), compte, nonRemis
 end
+
+-- Le rapport déposé pour le bridge (OpusDB.raid.rapport), qui l'envoie au site quand WoW écrit ses SavedVariables :
+-- à la déconnexion ou au /reload. Seulement une soirée de guilde, et seulement si elle a changé depuis le dernier dépôt.
+function Raid.Deposer (sansEcarts)
+	local s = Raid.db.soiree
+	if not s or not s.guilde then return end
+	local d = Raid.db.rapport
+	if d and d.id == s.ml .. "/" .. s.debut and d.n == #s.evenements and (sansEcarts or d.complet) then return end
+	local chaine = Raid.Rapport(sansEcarts)
+	if not chaine then return end
+	-- compté après coup : les écarts « pas_remis » viennent de s'ajouter au journal
+	Raid.db.rapport = { id = s.ml .. "/" .. s.debut, n = #s.evenements, complet = not sansEcarts or nil, chaine = chaine, t = time() }
+end
+
+-- à la déconnexion (ou au /reload) : la soirée en cours part telle quelle, les écarts attendent sa fermeture
+Opus.Ecoute("PLAYER_LOGOUT", function () if Raid.db then Raid.Deposer(Raid.db.ouverte ~= nil) end end)
 
 ------------------------------------------------------------------------
 -- la fenêtre : la chaîne sélectionnée, à copier (Ctrl+C) et coller sur le site
@@ -89,8 +106,8 @@ local function Construire ()
 	local aide = z:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	aide:SetPoint("TOPLEFT", 12, -12) aide:SetPoint("TOPRIGHT", -12, -12)
 	aide:SetJustifyH("LEFT") aide:SetSpacing(3)
-	aide:SetText("Copie la chaîne (Ctrl+C, elle est déjà sélectionnée) et colle-la sur le site Opus, page « Rapports » du palier. "
-		.. "L'exporter encore plus tard ne compte rien en double.")
+	aide:SetText("Avec le bridge, le rapport part tout seul au site à la déconnexion (ou au /reload). Sans lui : copie la chaîne "
+		.. "(Ctrl+C, elle est déjà sélectionnée) et colle-la sur le site Opus, page « Rapports » du palier. Rien ne compte en double.")
 	f.texte = CreateFrame("EditBox", nil, z, "InputBoxTemplate")
 	f.texte:SetSize(410, 20) f.texte:SetPoint("TOPLEFT", 18, -56) f.texte:SetAutoFocus(true)
 	f.texte:SetMaxLetters(0)
@@ -114,6 +131,7 @@ local NOMS = { T = "objet", A = "attribution", M = "remise", K = "écart", X = "
 local function Exporter ()
 	local chaine, compte, nonRemis = Raid.Rapport()
 	if not chaine then Msg("rien à exporter : aucune annonce dans la soirée.") return end
+	Raid.Deposer()
 	if not f then Construire() end
 	f.chaine = chaine
 	f.texte:SetText(chaine)

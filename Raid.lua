@@ -126,7 +126,8 @@ local function Verifier ()
 	if not IsInRaid() and not IsInGroup() then
 		Raid.db.ouverte = nil
 		suspendue = false
-		Raid.Msg("plus de raid : la soirée de guilde est fermée.")
+		if Raid.Deposer then Raid.Deposer() end
+		Raid.Msg("plus de raid : la soirée de guilde est fermée. Le rapport part au site par le bridge à la déconnexion.")
 		if Opus.Rafraichir then Opus.Rafraichir() end
 		return
 	end
@@ -164,7 +165,8 @@ function Raid.FermerSoiree ()
 	if not Raid.db.ouverte then Raid.Msg("aucune soirée ouverte.") return end
 	if not Raid.PeutGerer() then Raid.Msg("fermer la soirée " .. Raid.QuiPeut() .. ".") return end
 	Raid.db.ouverte = nil
-	Raid.Msg("soirée de guilde fermée. Pense à exporter le rapport (onglet Raids).")
+	if Raid.Deposer then Raid.Deposer() end
+	Raid.Msg("soirée de guilde fermée. Le rapport part au site par le bridge à la déconnexion ; sans bridge, exporte-le (onglet Raids).")
 	if Opus.Rafraichir then Opus.Rafraichir() end
 end
 
