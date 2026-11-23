@@ -116,6 +116,7 @@ local function FinVote (a)
 		Raid.DiffuserAttribution(a)
 		Raid.Annoncer(string.format("#%d %s : vote %s. La proposition est renversée : les officiers tranchent.", a.n, a.lien, bilan))
 		Rafraichir()
+		if Raid.OuvrirDecision then Raid.OuvrirDecision(a) end
 	else
 		Attribuer(a, a.propose, "wish", " : vote " .. bilan .. (atteint and "" or " (non atteint)") .. ", la proposition tient")
 	end
@@ -176,6 +177,8 @@ local function Objecter (a, nom)
 		a.n, nom, VOTE / 60, a.n, a.n, a.quorum, a.nElecteurs))
 	C_Timer.After(VOTE, function () FinVote(a) end)
 	Rafraichir()
+	-- chez celui qui a annoncé : la fiche s'ouvre sur l'objection, pour suivre le vote (et y voter)
+	if Raid.OuvrirFiche then Raid.OuvrirFiche(a) end
 end
 
 -- Une objection, un vote ou un « je le veux » (Suicide King), venu du canal raid ou de la fenêtre d'un joueur

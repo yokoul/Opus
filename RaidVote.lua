@@ -22,7 +22,7 @@ end
 local function Texte (a)
 	if a.etat == "delai" then return a.propose .. " — objections encore " .. Chrono(a) end
 	if a.etat == "vote" then
-		return "objection de " .. (a.auteur or "?") .. " — vote " .. Chrono(a) .. (a.candidat and " (candidat : tu ne votes pas)" or a.monVote and (" — ton vote : " .. a.monVote) or "")
+		return "objection de " .. (a.auteur or "?") .. " — vote " .. Chrono(a) .. (a.candidat and " (candidat, pas de vote)" or a.monVote and (" — ton vote : " .. a.monVote) or "")
 	end
 	if a.etat == "attribue" then return "attribué à " .. (a.attributaire ~= "" and a.attributaire or "?") end
 	if a.etat == "trancher" then return "proposition renversée : les officiers tranchent" end
@@ -122,6 +122,8 @@ function Raid.RafraichirVote ()
 		l.objecter:SetText(a.objecte and "Objecté" or "Objecter")
 		local vote = a.etat == "vote" and not a.candidat
 		l.pour:SetShown(vote) l.contre:SetShown(vote)
+		-- sans bouton à droite, l'état prend toute la ligne
+		l.etat:SetWidth((l.veux:IsShown() or l.objecter:IsShown() or vote) and 256 or 390)
 		l.pour:SetEnabled(a.monVote ~= "pour") l.contre:SetEnabled(a.monVote ~= "contre")
 		l:Show()
 	end

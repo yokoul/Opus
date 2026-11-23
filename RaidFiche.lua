@@ -195,6 +195,10 @@ local function Construire ()
 	f.motif:SetScript("OnEnterPressed", function () f.ok:Click() end)
 	f.motifAide = f.bas:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	f.motifAide:SetPoint("LEFT", precedent, "RIGHT", 12, 0) f.motifAide:SetText("motif annoncé au raid, obligatoire")
+	-- pendant le vote, s'il est électeur (pas candidat) : sa voix d'ici, comme un « !pour n » / « !contre n »
+	f.contre = Opus.Bouton(z, "Contre", 80, function () Raid.Recevoir("contre", f.attribution.n, Raid.MonNom()) Raid.RafraichirFiche() end)
+	f.pour = Opus.Bouton(z, "Pour", 80, function () Raid.Recevoir("pour", f.attribution.n, Raid.MonNom()) Raid.RafraichirFiche() end)
+	f.monVote = z:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	-- avant l'annonce : « Annoncer » d'ici
 	f.annoncer = Opus.Bouton(z, "Annoncer", 110, function ()
 		if f.objetButin and Raid.AnnoncerObjet then Raid.AnnoncerObjet(f.objetButin) end
@@ -210,13 +214,15 @@ local function Etat (a, r)
 			or "aucun candidat présent » Suicide King"
 	end
 	local texte = (a.propose and a.propose ~= "?") and ("Proposé : " .. a.propose .. " · ") or ""
-	if a.objecteurs and #a.objecteurs > 0 then texte = texte .. "objection de " .. table.concat(a.objecteurs, ", ") .. " · " end
+	local objection = a.objecteurs and #a.objecteurs > 0
+	if objection then texte = texte .. "|cffff8040objection de " .. table.concat(a.objecteurs, ", ") .. "|r · " end
 	if a.etat == "trancher" then
 		local pour, contre = 0, 0
 		for _, v in pairs(a.votes or {}) do if v == "pour" then pour = pour + 1 else contre = contre + 1 end end
 		if pour + contre > 0 then texte = texte .. string.format("vote %d pour, %d contre · ", pour, contre) end
 		return texte .. "|cffffd100aux officiers de trancher|r"
 	end
+	if a.etat == "delai" or a.etat == "vote" then return texte .. (Raid.EtatAttribution(a):gsub("^#%d+ ", ""):gsub("^.- — ", "")) end
 	return (Raid.EtatAttribution(a):gsub("^#%d+ ", ""))
 end
 
@@ -281,6 +287,18 @@ function Raid.RafraichirFiche ()
 		y = y + 88
 	elseif f.annoncer:IsShown() then
 		f.annoncer:ClearAllPoints() f.annoncer:SetPoint("TOPRIGHT", -12, -y)
+		y = y + 30
+	end
+	local moi = Raid.MonNom()
+	local electeur = a and a.etat == "vote" and not (a.candidats and a.candidats[moi]) and (not a.electeurs or a.electeurs[moi])
+	f.pour:SetShown(electeur) f.contre:SetShown(electeur) f.monVote:SetShown(electeur)
+	if electeur then
+		local v = a.votes and a.votes[moi]
+		f.contre:ClearAllPoints() f.contre:SetPoint("TOPRIGHT", -12, -y)
+		f.pour:ClearAllPoints() f.pour:SetPoint("RIGHT", f.contre, "LEFT", -6, 0)
+		f.pour:SetEnabled(v ~= "pour") f.contre:SetEnabled(v ~= "contre")
+		f.monVote:ClearAllPoints() f.monVote:SetPoint("RIGHT", f.pour, "LEFT", -12, 0)
+		f.monVote:SetText(v and ("ton vote : " .. v) or "tu votes : la proposition tient ?")
 		y = y + 30
 	end
 	f:SetHeight(y + 38)
