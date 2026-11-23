@@ -48,7 +48,7 @@ Raid.Ecoute = Opus.Ecoute
 -- L'infobulle d'un objet : par son lien, ou par son itemID quand le jeu ne l'a pas encore (elle le charge au passage).
 function Raid.Infobulle (proprio, lien, id)
 	GameTooltip:SetOwner(proprio, "ANCHOR_RIGHT")
-	if lien and lien:find("|H", 1, true) then GameTooltip:SetHyperlink(lien)
+	if lien and (lien:find("|H", 1, true) or lien:find("^item:")) then GameTooltip:SetHyperlink(lien)
 	elseif tonumber(id) and GameTooltip.SetItemByID then GameTooltip:SetItemByID(tonumber(id))
 	elseif tonumber(id) then GameTooltip:SetHyperlink("item:" .. tonumber(id))
 	else GameTooltip:Hide() return end
@@ -71,7 +71,7 @@ function Raid.Icone (parent, taille)
 	b:SetScript("OnEnter", function (self) Raid.Infobulle(self, self.lien, self.id) end)
 	b:SetScript("OnLeave", GameTooltip_Hide)
 	-- Maj+clic : le lien dans la discussion, comme ailleurs dans le jeu
-	b:SetScript("OnClick", function (self) if IsModifiedClick("CHATLINK") and self.lien then ChatEdit_InsertLink(self.lien) end end)
+	b:SetScript("OnClick", function (self) if IsModifiedClick("CHATLINK") and self.lien and self.lien:find("|H", 1, true) then ChatEdit_InsertLink(self.lien) end end)
 	return b
 end
 function Raid.PoserIcone (b, id, lien)

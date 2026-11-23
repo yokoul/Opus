@@ -97,6 +97,15 @@ local function BoutonChoix (l, i)
 		a.monVote = self.nom
 		Raid.RafraichirVote()
 	end)
+	-- ce que le candidat porte à cet emplacement, face à l'objet
+	b:SetScript("OnEnter", function (self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:AddLine(self.nom, 1, 1, 1)
+		Raid.InfobulleEquipement(self.nom, self.annonce.id)
+		GameTooltip:AddLine("Clic : voter pour lui.", 0.6, 0.6, 0.6)
+		GameTooltip:Show()
+	end)
+	b:SetScript("OnLeave", GameTooltip_Hide)
 	l.choix[i] = b
 	return b
 end
@@ -169,6 +178,8 @@ function Raid.RecevoirAnnonce (ml, c)
 		local moi, candidat = Raid.MonNom(), false
 		for _, nom in ipairs(Raid.Liste(c[6])) do if nom == moi then candidat = true end end
 		Raid.annonces[#Raid.annonces + 1] = { ml = ml, n = n, id = id, lien = Raid.LienDe(id), propose = c[4] or "?", etat = "delai", fin = GetTime() + secondes, candidat = candidat }
+		-- leur équipement, pour comparer au moment du vote
+		Raid.Prioriser(Raid.Liste(c[6]))
 	else
 		local a = Trouver(ml, n)
 		if not a then return end

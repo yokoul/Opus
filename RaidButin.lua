@@ -250,6 +250,9 @@ Raid.Ecoute("LOOT_OPENED", function ()
 	if #releves == 0 then return end
 	Garder(releves)
 	Raid.MontrerButin()
+	local ids = {}
+	for _, o in ipairs(releves) do ids[#ids + 1] = o.id end
+	Raid.PrioriserObjets(ids)
 end)
 
 ------------------------------------------------------------------------

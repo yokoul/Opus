@@ -8,10 +8,12 @@ local _, Opus = ...
 local Raid = Opus.Raid
 local Msg = Raid.Msg
 
-local LARGEUR = 560
+local LARGEUR = 650
 local BARRE = 170                   -- la largeur d'un score de 100
 local HAUT_LIGNE = 26
 local MAX_LIGNES = 12
+local PORTE = 222                   -- la colonne de l'équipement porté : deux icônes et l'écart de niveau
+local X = 312                       -- le début de la barre du score
 
 -- les quatre termes du score, dans l'ordre de la barre ; les couleurs se distinguent aussi sans la teinte (clarté)
 local TERMES = {
@@ -84,7 +86,7 @@ local function Ligne (n)
 	l.nom:SetPoint("LEFT", 12, 0) l.nom:SetWidth(132) l.nom:SetJustifyH("LEFT") l.nom:SetWordWrap(false)
 	l.rang = l:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	l.rang:SetPoint("LEFT", 148, 0) l.rang:SetWidth(70) l.rang:SetJustifyH("LEFT") l.rang:SetWordWrap(false)
-	l.piste = l:CreateTexture(nil, "BORDER") l.piste:SetSize(BARRE, 10) l.piste:SetPoint("LEFT", 222, 0) Teinte(l.piste, 0, 0, 0, 0.45)
+	l.piste = l:CreateTexture(nil, "BORDER") l.piste:SetSize(BARRE, 10) l.piste:SetPoint("LEFT", X, 0) Teinte(l.piste, 0, 0, 0, 0.45)
 	l.segments = {}
 	for k, t in ipairs(TERMES) do
 		local s = l:CreateTexture(nil, "ARTWORK")
@@ -92,11 +94,21 @@ local function Ligne (n)
 		l.segments[k] = s
 	end
 	l.score = l:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	l.score:SetPoint("LEFT", 222 + BARRE + 6, 0) l.score:SetWidth(40) l.score:SetJustifyH("RIGHT")
+	l.score:SetPoint("LEFT", X + BARRE + 6, 0) l.score:SetWidth(40) l.score:SetJustifyH("RIGHT")
 	l.soir = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	l.soir:SetPoint("LEFT", 222 + BARRE + 56, 0) l.soir:SetWidth(52) l.soir:SetJustifyH("LEFT")
+	l.soir:SetPoint("LEFT", X + BARRE + 56, 0) l.soir:SetWidth(52) l.soir:SetJustifyH("LEFT")
 	l.palier = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	l.palier:SetPoint("LEFT", 222 + BARRE + 108, 0) l.palier:SetWidth(52) l.palier:SetJustifyH("LEFT")
+	l.palier:SetPoint("LEFT", X + BARRE + 108, 0) l.palier:SetWidth(52) l.palier:SetJustifyH("LEFT")
+	-- ce qu'il porte à l'emplacement : une icône par case (deux pour bagues, bijoux, armes), l'écart de niveau
+	l.portes = {}
+	for k = 1, 2 do
+		local b = Raid.Icone(l, 20)
+		b:SetPoint("LEFT", PORTE + (k - 1) * 23, 0)
+		b.vide = b:CreateTexture(nil, "BACKGROUND") b.vide:SetAllPoints() Teinte(b.vide, 0, 0, 0, 0.45)
+		l.portes[k] = b
+	end
+	l.ecart = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	l.ecart:SetPoint("LEFT", PORTE + 48, 0) l.ecart:SetWidth(38) l.ecart:SetJustifyH("LEFT")
 	l:SetScript("OnClick", function (self)
 		if not self.choix then return end
 		if f.decider then f.choix = self.choix
@@ -113,6 +125,7 @@ local function Ligne (n)
 			local v = c.termes[t.cle]
 			GameTooltip:AddDoubleLine(string.format("%s (%.2f × %d)", t.nom, v, p[t.cle]), Raid.Score(v * p[t.cle]), t.r, t.g, t.b, 1, 1, 1)
 		end
+		Raid.InfobulleEquipement(c.nom, f.id)
 		if f.decider then GameTooltip:AddLine("Clic : lui attribuer l'objet.", 0.6, 0.6, 0.6)
 		elseif f.electeur then GameTooltip:AddLine("Clic : voter pour lui.", 0.6, 0.6, 0.6) end
 		GameTooltip:Show()
@@ -148,8 +161,8 @@ local function Construire ()
 		t:SetPoint("TOPLEFT", 12 + x, -52) t:SetWidth(l) t:SetJustifyH(j or "LEFT") t:SetText(texte)
 		return t
 	end
-	Tete("candidat présent", 12, 132) Tete("rang · rôle", 148, 70) Tete("score", 222, BARRE)
-	f.teteSoir = Tete("ce soir", 222 + BARRE + 56, 52) Tete("palier", 222 + BARRE + 108, 52)
+	Tete("candidat présent", 12, 132) Tete("rang · rôle", 148, 70) Tete("porté", PORTE, 84) Tete("score", X, BARRE)
+	f.teteSoir = Tete("ce soir", X + BARRE + 56, 52) Tete("palier", X + BARRE + 108, 52)
 	f.haut = 66
 	f.absents = z:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	f.absents:SetJustifyH("LEFT") f.absents:SetWidth(LARGEUR - 40) f.absents:SetWordWrap(false)
@@ -267,6 +280,18 @@ function Raid.RafraichirFiche ()
 			if largeur >= 1 then s:SetPoint("LEFT", l.piste, "LEFT", x, 0) s:SetWidth(largeur) s:Show() else s:Hide() end
 			x = x + largeur
 		end
+		local eq = Raid.Comparer(c.nom, f.id)
+		for i, b in ipairs(l.portes) do
+			local case = eq and eq.cases and eq.cases[i]
+			if case and case.id then
+				Raid.PoserIcone(b, case.id, case.lien) b.image:Show() b.vide:Hide() b:Show()
+			elseif case then
+				b.id, b.lien = nil, nil b.image:Hide() b.vide:Show() b:Show()
+			else b:Hide() end
+		end
+		l.ecart:ClearAllPoints()
+		l.ecart:SetPoint("LEFT", PORTE + (eq and eq.cases and #eq.cases or 0) * 23 + 2, 0)
+		l.ecart:SetText(Raid.TexteEcart(eq))
 		l.score:SetText(Raid.Score(c.score))
 		local ns, np = soir[c.nom] or 0, palier and (palier[c.nom] or 0)
 		if a and a.etat == "vote" then
@@ -325,6 +350,7 @@ function Raid.OuvrirFiche (o)
 	if f.attribution ~= a or f.id ~= o.id then f.choix, f.forcer = nil, false f.motif:SetText("") end
 	f.attribution, f.id, f.lien = a, o.id, o.lien
 	f.objetButin = (not o.etat) and o or nil
+	Raid.PrioriserObjets({ o.id })
 	f:Show()
 	Raid.RafraichirFiche()
 	if f.decider then f.motif:SetFocus() end
