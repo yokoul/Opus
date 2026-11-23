@@ -66,7 +66,9 @@ Raid.Ecoute("CHAT_MSG_ADDON", function (prefixe, message, canal, expediteur)
 		if #Raid.attributions > 0 then Raid.Recevoir(REPONSES[c[1]], tonumber(c[2]), expediteur, c[3]) end
 		return
 	end
-	if de == moi then return end -- nos propres annonces nous reviennent
+	-- nos propres annonces nous reviennent : seul le Suicide King (et son résultat) passe, le maître du butin peut aussi
+	-- s'y déclarer d'un bouton ; le reste, il le suit dans sa fenêtre du butin et la fiche
+	if de == moi and c[1] ~= "S" and c[1] ~= "R" then return end
 	-- une annonce ne compte que d'un membre de la guilde : un autre maître du butin n'ouvre rien chez nous
 	if not m then return end
 	if Raid.RecevoirAnnonce then Raid.RecevoirAnnonce(de, c) end
