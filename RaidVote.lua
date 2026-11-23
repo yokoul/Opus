@@ -79,11 +79,14 @@ local function Ligne (k)
 		self.annonce.veut = true
 		Raid.RafraichirVote()
 	end)
-	-- « Passer » : pas intéressé par ce Suicide King, la ligne s'en va (rien n'est envoyé : ne pas se déclarer suffit)
+	-- « Passer » : pas intéressé par ce Suicide King ; le maître du butin le sait (le tour finit quand tous ont répondu),
+	-- et la ligne s'en va
 	l.passer = Bouton(l, "Passer", 70)
 	l.passer:SetPoint("RIGHT", l.veux, "LEFT", -6, 0)
 	l.passer:SetScript("OnClick", function (self)
-		self.annonce.finie = GetTime() - GARDER - 1
+		local a = self.annonce
+		if not Raid.Repondre("X", a.n) then SendChatMessage("!passe " .. a.n, IsInRaid() and "RAID" or "PARTY") end
+		a.finie = GetTime() - GARDER - 1
 		Raid.RafraichirVote()
 	end)
 	-- le vote : un bouton par candidat, sous la ligne (créés à la demande)

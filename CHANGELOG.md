@@ -17,7 +17,7 @@ Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://disc
 - Réglages : une vue « Butin » à côté de « Réglages » et « À propos ». Les durées des tours d'attribution s'y règlent (délai d'objection, de 1 à 5 min ; vote, de 1 à 3 min ; Suicide King, de 30 s à 2 min), avec la part de la guilde pour ouvrir une soirée, l'échange automatique et la comparaison du butin en donjon (déplacée de la vue de base). Les durées comptent chez le maître du butin.
 - Raids : les fenêtres du butin ont un cadre sombre à liseré doré, sans la bande grise sous le titre ni les bords qui dépassaient.
 - Raids : la fiche d'un objet hors liste montre les présents (les déclarés au Suicide King en tête, dans l'ordre de la liste, puis ceux qui peuvent le porter), avec leur place dans la liste et la comparaison d'équipement ; l'état du Suicide King dit qui est en tête.
-- Raids : « Passer » sur un Suicide King, dans la fenêtre des joueurs.
+- Raids : « Passer » sur un Suicide King, dans la fenêtre des joueurs (ou « !passe n » dans le canal raid). Quand tous les présents ont dit « Je le veux » ou « Passer », le tour finit sans attendre la fin du temps.
 - Raids : /opus raid essai, pour essayer une soirée en donjon à quelques-uns. Un instantané fabriqué en jeu (ton groupe et quatre figurants), des candidats pour chaque objet ramassé, la fenêtre du butin en groupe ; rien de cette soirée ne part au site.
 
 ## 0.32.0

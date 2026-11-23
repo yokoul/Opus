@@ -221,14 +221,20 @@ local function Objecter (a, nom, motif)
 end
 
 -- Une objection, un vote ou un « je le veux » (Suicide King), venu du canal raid ou de la fenêtre d'un joueur
--- (Comm.lua) : mot = « objection », « pour », « contre » ou « sk » ; n = le numéro de l'annonce, ou nil.
+-- (Comm.lua) : mot = « objection », « vote », « pour », « sk » ou « passe » ; n = le numéro de l'annonce, ou nil.
 function Raid.Recevoir (mot, n, expediteur, choix)
 	local m = Raid.Identifier(expediteur, true)
 	local nom = m and m.nom or Raid.Court(expediteur)
 	if not nom then return end
-	if mot == "sk" then
+	if mot == "sk" or mot == "passe" then
 		local a = Visee(n, "sk")
-		if a then a.interesses[nom] = true Rafraichir() end
+		if not a then return end
+		a.passes = a.passes or {}
+		if mot == "sk" then a.interesses[nom], a.passes[nom] = true, nil
+		else a.passes[nom], a.interesses[nom] = true, nil end
+		Rafraichir()
+		-- tout le monde a répondu (je le veux ou je passe) : inutile d'attendre la fin du temps
+		if Raid.ToutLeMondeARepondu(a) then Raid.FinSK(a) end
 		return
 	end
 	if mot == "objection" then
@@ -260,13 +266,13 @@ function Raid.Recevoir (mot, n, expediteur, choix)
 	Rafraichir()
 end
 
--- Un message du canal raid (ou de groupe) : « !objection n [motif] », « !vote n k », « !sk n » (et « !pour n »).
+-- Un message du canal raid (ou de groupe) : « !objection n [motif] », « !vote n k », « !sk n », « !passe n » (et « !pour n »).
 function Raid.Entendre (message, expediteur)
 	message, expediteur = Propre(message), Propre(expediteur)
 	if not message or not expediteur then return end
 	local mot, n, reste = strtrim(message):match("^!(%a+)%s*(%d*)%s*(.-)$")
 	mot = mot and mot:lower()
-	if mot ~= "objection" and mot ~= "vote" and mot ~= "pour" and mot ~= "sk" then return end
+	if mot ~= "objection" and mot ~= "vote" and mot ~= "pour" and mot ~= "sk" and mot ~= "passe" then return end
 	-- « !vote 2 » : le candidat n° 2 du seul vote en cours
 	if mot == "vote" and reste == "" then n, reste = nil, n end
 	Raid.Recevoir(mot, tonumber(n), expediteur, reste)

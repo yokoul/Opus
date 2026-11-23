@@ -1,6 +1,7 @@
 -- RaidSuicideKing.lua : les objets hors wishlist (ou sans candidat présent), et ceux dont personne ne veut
--- Annonce « Suicide King » : pendant une minute, les intéressés se déclarent (« Je le veux » dans leur fenêtre, ou
--- « !sk n » dans le canal raid). L'intéressé présent le plus haut dans la liste gagne et passe en bas ; les autres
+-- Annonce « Suicide King » : pendant le temps réglé, les intéressés se déclarent (« Je le veux » dans leur fenêtre, ou
+-- « !sk n » dans le canal raid) ; les autres peuvent passer (« Passer », « !passe n »). Quand tous les présents ont
+-- répondu, le tour finit sans attendre. L'intéressé présent le plus haut dans la liste gagne et passe en bas ; les autres
 -- gardent leur ordre. Un intéressé absent de la liste passe après tous ceux qui y sont (puis par ordre alphabétique).
 -- Personne : désenchantement par le premier désenchanteur présent (instantané, « Z »), sinon la banque.
 -- La liste de la soirée part de l'instantané et bouge à chaque gain ; le site la recalcule depuis le rapport.
@@ -22,8 +23,8 @@ end
 function Raid.LancerSK (a, debut)
 	local duree = Raid.Duree("sk")
 	a.etat, a.fin, a.interesses = "sk", GetTime() + duree, {}
-	Raid.Annoncer(string.format("#%d %s. Intéressés : « !sk %d » (%s), le plus haut dans la liste Suicide King gagne.",
-		a.n, (debut or a.lien):gsub("%.$", ""), a.n, Raid.TexteDuree(duree)))
+	Raid.Annoncer(string.format("#%d %s. Intéressés : « !sk %d », sinon « !passe %d » (%s), le plus haut dans la liste Suicide King gagne.",
+		a.n, (debut or a.lien):gsub("%.$", ""), a.n, a.n, Raid.TexteDuree(duree)))
 	if Raid.Diffuser then Raid.Diffuser("S", a.n, a.id, duree) end
 	C_Timer.After(duree, function () Raid.FinSK(a) end)
 	Rafraichir()
@@ -49,6 +50,20 @@ function Raid.ClassementSK (a, liste)
 		return x < y
 	end)
 	return candidats, pos
+end
+
+-- Chaque présent a dit « Je le veux » ou « Passer » (les figurants de l'essai ne comptent pas) : le tour peut finir.
+function Raid.ToutLeMondeARepondu (a)
+	local presents = Raid.Presents()
+	if not presents then return false end
+	local n = 0
+	for nom in pairs(presents) do
+		if not Raid.Figurant(nom) then
+			n = n + 1
+			if not a.interesses[nom] and not (a.passes and a.passes[nom]) then return false end
+		end
+	end
+	return n > 0
 end
 
 function Raid.FinSK (a)

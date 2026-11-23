@@ -4,7 +4,8 @@
 --   V;n;secondes;quorum;électeurs;auteur;candidats;motif   une objection : le vote est ouvert, entre ces candidats
 --   S;n;itemID;secondes                               un Suicide King : les intéressés se déclarent
 --   R;n;état;attributaire                             la fin : attribue, trancher, de ou banque
--- Les joueurs lui répondent, sur le même canal : O;n;motif (objection), B;n;candidat (un vote), W;n (je le veux).
+-- Les joueurs lui répondent, sur le même canal : O;n;motif (objection), B;n;candidat (un vote), W;n (je le veux),
+-- X;n (je passe, au Suicide King).
 -- Le canal raid (« !objection »…) reste ouvert à côté : un joueur sans addon, ou des messages d'addon bloqués en
 -- instance, n'empêchent rien. Le maître du butin compte une voix par joueur, d'où qu'elle vienne.
 local _, Opus = ...
@@ -51,7 +52,7 @@ function Raid.Repondre (mot, n, quoi)
 	return Envoyer(mot .. FS .. n .. (quoi and (FS .. tostring(quoi):gsub("[;~]", " ")) or ""))
 end
 
-local REPONSES = { O = "objection", B = "vote", P = "pour", W = "sk" }
+local REPONSES = { O = "objection", B = "vote", P = "pour", W = "sk", X = "passe" }
 
 Raid.Ecoute("CHAT_MSG_ADDON", function (prefixe, message, canal, expediteur)
 	if prefixe ~= PREFIXE then return end
