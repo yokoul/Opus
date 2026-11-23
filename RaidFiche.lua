@@ -8,12 +8,13 @@ local _, Opus = ...
 local Raid = Opus.Raid
 local Msg = Raid.Msg
 
-local LARGEUR = 650
-local BARRE = 170                   -- la largeur d'un score de 100
+local LARGEUR = 810
+local BARRE = 140                   -- la largeur d'un score de 100
 local HAUT_LIGNE = 26
 local MAX_LIGNES = 12
-local PORTE = 222                   -- la colonne de l'équipement porté : deux icônes et l'écart de niveau
-local X = 312                       -- le début de la barre du score
+local PORTE = 222                   -- la colonne de l'équipement porté : deux icônes et le verdict (écart de niveau)
+local CHANGE = 316                  -- ce qui change : les trois caractéristiques qui bougent le plus
+local X = 470                       -- le début de la barre du score
 
 -- les quatre termes du score, dans l'ordre de la barre ; les couleurs se distinguent aussi sans la teinte (clarté)
 local TERMES = {
@@ -107,8 +108,9 @@ local function Ligne (n)
 		b.vide = b:CreateTexture(nil, "BACKGROUND") b.vide:SetAllPoints() Teinte(b.vide, 0, 0, 0, 0.45)
 		l.portes[k] = b
 	end
-	l.ecart = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	l.ecart:SetPoint("LEFT", PORTE + 48, 0) l.ecart:SetWidth(38) l.ecart:SetJustifyH("LEFT")
+	l.verdict = Raid.Verdict(l)
+	l.change = Raid.Pastilles(l, 3)
+	l.change:SetPoint("LEFT", CHANGE, 0)
 	l:SetScript("OnClick", function (self)
 		if not self.choix then return end
 		if f.decider then f.choix = self.choix
@@ -161,7 +163,7 @@ local function Construire ()
 		t:SetPoint("TOPLEFT", 12 + x, -52) t:SetWidth(l) t:SetJustifyH(j or "LEFT") t:SetText(texte)
 		return t
 	end
-	Tete("candidat présent", 12, 132) Tete("rang · rôle", 148, 70) Tete("porté", PORTE, 84) Tete("score", X, BARRE)
+	Tete("candidat présent", 12, 132) Tete("rang · rôle", 148, 70) Tete("porté", PORTE, 84) Tete("ce qui change", CHANGE, 140) Tete("score", X, BARRE)
 	f.teteSoir = Tete("ce soir", X + BARRE + 56, 52) Tete("palier", X + BARRE + 108, 52)
 	f.haut = 66
 	f.absents = z:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -289,9 +291,10 @@ function Raid.RafraichirFiche ()
 				b.id, b.lien = nil, nil b.image:Hide() b.vide:Show() b:Show()
 			else b:Hide() end
 		end
-		l.ecart:ClearAllPoints()
-		l.ecart:SetPoint("LEFT", PORTE + (eq and eq.cases and #eq.cases or 0) * 23 + 2, 0)
-		l.ecart:SetText(Raid.TexteEcart(eq))
+		l.verdict:ClearAllPoints()
+		l.verdict:SetPoint("LEFT", PORTE + (eq and eq.cases and #eq.cases or 0) * 23 + 2, 0)
+		Raid.PoserVerdict(l.verdict, eq)
+		Raid.PoserPastilles(l.change, eq, f.id, f.lien)
 		l.score:SetText(Raid.Score(c.score))
 		local ns, np = soir[c.nom] or 0, palier and (palier[c.nom] or 0)
 		if a and a.etat == "vote" then

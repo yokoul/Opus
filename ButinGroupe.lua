@@ -7,8 +7,11 @@ local _, Opus = ...
 local Raid = Opus.Raid
 
 local GARDER = 20                   -- secondes d'affichage après le gagnant
-local LARGEUR = 420
-local HAUT_MEMBRE = 18
+local LARGEUR = 560
+local HAUT_MEMBRE = 20
+local TETE = 52                     -- la hauteur de l'objet et des en-têtes, au-dessus des membres
+-- les colonnes
+local PEUT, PORTE, CHANGE, CHOIX_X, JET = 124, 180, 262, 396, 470
 
 local tirages = {}                  -- { rollID, id, lien, fin, choix = { [nom] = { quoi, jet } }, gagnant, finie }
 local essai = false                 -- /opus raid jet : la fenêtre, seul et hors groupe
@@ -152,24 +155,25 @@ local function Membre (b, k)
 		GameTooltip:Show()
 	end)
 	m:SetScript("OnLeave", GameTooltip_Hide)
-	m:SetPoint("TOPLEFT", 0, -42 - (k - 1) * HAUT_MEMBRE)
+	m:SetPoint("TOPLEFT", 0, -TETE - (k - 1) * HAUT_MEMBRE)
 	m.nom = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	m.nom:SetPoint("LEFT", 4, 0) m.nom:SetWidth(118) m.nom:SetJustifyH("LEFT") m.nom:SetWordWrap(false)
 	m.peut = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	m.peut:SetPoint("LEFT", 124, 0) m.peut:SetWidth(52) m.peut:SetJustifyH("LEFT")
+	m.peut:SetPoint("LEFT", PEUT, 0) m.peut:SetWidth(52) m.peut:SetJustifyH("LEFT")
 	m.portes = {}
 	for i = 1, 2 do
 		local icone = Raid.Icone(m, 16)
-		icone:SetPoint("LEFT", 180 + (i - 1) * 18, 0)
+		icone:SetPoint("LEFT", PORTE + (i - 1) * 18, 0)
 		icone.vide = icone:CreateTexture(nil, "BACKGROUND") icone.vide:SetAllPoints() icone.vide:SetColorTexture(0, 0, 0, 0.45)
 		m.portes[i] = icone
 	end
-	m.ecart = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	m.ecart:SetWidth(40) m.ecart:SetJustifyH("LEFT")
+	m.verdict = Raid.Verdict(m)
+	m.change = Raid.Pastilles(m, 2)
+	m.change:SetPoint("LEFT", CHANGE, 0)
 	m.choix = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	m.choix:SetPoint("LEFT", 262, 0) m.choix:SetWidth(78) m.choix:SetJustifyH("LEFT")
+	m.choix:SetPoint("LEFT", CHOIX_X, 0) m.choix:SetWidth(72) m.choix:SetJustifyH("LEFT")
 	m.jet = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	m.jet:SetPoint("LEFT", 340, 0) m.jet:SetWidth(36) m.jet:SetJustifyH("RIGHT")
+	m.jet:SetPoint("LEFT", JET, 0) m.jet:SetWidth(36) m.jet:SetJustifyH("RIGHT")
 	b.membres[k] = m
 	return m
 end
@@ -188,6 +192,10 @@ local function Bloc (k)
 	b.objet:SetScript("OnLeave", GameTooltip_Hide)
 	b.etat = b:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	b.etat:SetPoint("TOPLEFT", 40, -18) b.etat:SetWidth(LARGEUR - 90) b.etat:SetJustifyH("LEFT")
+	for _, t in ipairs({ { "membre", 4 }, { "équipe ?", PEUT }, { "porté", PORTE }, { "ce qui change", CHANGE }, { "choix", CHOIX_X }, { "jet", JET } }) do
+		local e = b:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+		e:SetPoint("TOPLEFT", t[2], -38) e:SetText(t[1])
+	end
 	b.membres = {}
 	blocs[k] = b
 	return b
@@ -223,12 +231,21 @@ function Opus.RafraichirButinGroupe ()
 		b.etat:SetText((niveau and ("niv. d'objet " .. niveau .. " · ") or "")
 			.. (t.gagnant and ("gagné par " .. Opus.Blanc(t.gagnant)) or t.finie and "tout le monde a passé" or ("jets encore " .. reste .. " s")))
 		for _, m in ipairs(b.membres) do m:Hide() end
-		for i, mb in ipairs(membres) do
+		-- ceux qui peuvent l'équiper d'abord ; les autres en bas, estompés
+		local ordre = {}
+		for i, mb in ipairs(membres) do ordre[i] = { mb = mb, peut = Peut(mb.unite, t.id), i = i } end
+		table.sort(ordre, function (a, b2)
+			local pa, pb = a.peut == "oui" and 0 or 1, b2.peut == "oui" and 0 or 1
+			if pa ~= pb then return pa < pb end
+			return a.i < b2.i
+		end)
+		for i, o in ipairs(ordre) do
+			local mb, peut = o.mb, o.peut
 			local m = Membre(b, i)
 			local _, classe = UnitClass(mb.unite)
 			m.nom:SetText((mb.nom == t.gagnant and "|cffffd100» |r" or "") .. Opus.Couleur(classe) .. mb.nom .. "|r")
-			local peut = Peut(mb.unite, t.id)
 			m.tirage, m.nomMembre, m.portable = t, mb.nom, peut
+			m:SetAlpha((peut == "oui" or peut == nil) and 1 or 0.45)
 			m.peut:SetText(peut == "oui" and "|cff40ff40peut|r" or peut == "non" and Opus.Gris("non") or peut and ("|cffff8040" .. peut .. "|r") or Opus.Gris("—"))
 			local eq = peut and peut ~= "non" and Raid.Comparer(mb.nom, t.id) or nil
 			for j, icone in ipairs(m.portes) do
@@ -237,18 +254,19 @@ function Opus.RafraichirButinGroupe ()
 				elseif c then icone.id, icone.lien = nil, nil icone.image:Hide() icone.vide:Show() icone:Show()
 				else icone:Hide() end
 			end
-			m.ecart:ClearAllPoints()
-			m.ecart:SetPoint("LEFT", 180 + (eq and eq.cases and #eq.cases or 0) * 18 + 2, 0)
-			m.ecart:SetText(eq and Raid.TexteEcart(eq) or "")
+			m.verdict:ClearAllPoints()
+			m.verdict:SetPoint("LEFT", PORTE + (eq and eq.cases and #eq.cases or 0) * 18 + 2, 0)
+			Raid.PoserVerdict(m.verdict, eq)
+			Raid.PoserPastilles(m.change, eq, t.id, t.lien)
 			local c = t.choix[mb.nom]
 			m.choix:SetText(c and c.quoi and CHOIX[c.quoi] or Opus.Gris(t.finie and "—" or "…"))
 			m.jet:SetText(c and c.jet and ((mb.nom == t.gagnant and "|cffffd100" or "|cffffffff") .. c.jet .. "|r") or "")
 			m:Show()
 		end
 		b:ClearAllPoints() b:SetPoint("TOPLEFT", 12, -y)
-		b:SetHeight(42 + #membres * HAUT_MEMBRE)
+		b:SetHeight(TETE + #membres * HAUT_MEMBRE)
 		b:Show()
-		y = y + 42 + #membres * HAUT_MEMBRE + 12
+		y = y + TETE + #membres * HAUT_MEMBRE + 12
 	end
 	f:SetHeight(y + 30)
 	f:Show()

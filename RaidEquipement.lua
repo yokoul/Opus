@@ -194,7 +194,7 @@ function Raid.EcartStats (r, id, lien)
 	local liste = {}
 	for cle in pairs(ecarts) do
 		local e = (nouveau[cle] or 0) - (ancien[cle] or 0)
-		if math.abs(e) >= 0.05 then liste[#liste + 1] = { nom = _G[cle] or cle, ecart = e } end
+		if math.abs(e) >= 0.05 then liste[#liste + 1] = { cle = cle, nom = _G[cle] or cle, ecart = e } end
 	end
 	table.sort(liste, function (a, b)
 		if math.abs(a.ecart) ~= math.abs(b.ecart) then return math.abs(a.ecart) > math.abs(b.ecart) end
@@ -232,6 +232,98 @@ function Raid.InfobulleEquipement (nom, id, lien)
 			else GameTooltip:AddDoubleLine(s.nom, "−" .. v, 0.8, 0.8, 0.8, 1, 0.35, 0.35) end
 		end
 	elseif stats then GameTooltip:AddLine("mêmes caractéristiques", 0.6, 0.6, 0.6) end
+end
+
+------------------------------------------------------------------------
+-- l'affichage en ligne : un verdict, puis les caractéristiques qui bougent le plus
+------------------------------------------------------------------------
+
+local VERT, ROUGE, GRIS = { 0.25, 1, 0.25 }, { 1, 0.35, 0.35 }, { 0.6, 0.6, 0.6 }
+
+-- la case du verdict : l'écart de niveau d'objet sur fond teinté (+14 vert, −4 rouge, « vide », « = », « ? »)
+function Raid.Verdict (parent)
+	local v = CreateFrame("Frame", nil, parent)
+	v:SetSize(36, 16)
+	v.fond = v:CreateTexture(nil, "BACKGROUND") v.fond:SetAllPoints()
+	v.texte = v:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	v.texte:SetAllPoints() v.texte:SetJustifyH("CENTER")
+	return v
+end
+function Raid.PoserVerdict (v, r)
+	if not r then v:Hide() return end
+	local texte, c, fond = "?", GRIS, 0.06
+	if not r.inconnu then
+		local vide = true
+		for _, x in ipairs(r.cases) do if not x.vide then vide = false end end
+		if vide then texte, c, fond = "vide", VERT, 0.14
+		elseif not r.ecart then texte = "…"
+		elseif r.ecart > 0 then texte, c, fond = "+" .. r.ecart, VERT, 0.14
+		elseif r.ecart < 0 then texte, c, fond = "−" .. -r.ecart, ROUGE, 0.14
+		else texte = "=" end
+	end
+	v.texte:SetText(texte) v.texte:SetTextColor(c[1], c[2], c[3])
+	v.fond:SetColorTexture(c[1], c[2], c[3], fond)
+	v:Show()
+end
+
+-- les caractéristiques en abrégé, pour tenir sur une ligne (l'infobulle garde les noms entiers)
+local ABREGE = {
+	ITEM_MOD_STRENGTH_SHORT = "For", ITEM_MOD_AGILITY_SHORT = "Agi", ITEM_MOD_STAMINA_SHORT = "Endu",
+	ITEM_MOD_INTELLECT_SHORT = "Int", ITEM_MOD_SPIRIT_SHORT = "Esp", ITEM_MOD_ATTACK_POWER_SHORT = "PA",
+	ITEM_MOD_RANGED_ATTACK_POWER_SHORT = "PA dist", ITEM_MOD_SPELL_POWER_SHORT = "Sorts",
+	ITEM_MOD_SPELL_DAMAGE_DONE_SHORT = "Sorts", ITEM_MOD_SPELL_HEALING_DONE_SHORT = "Soins",
+	ITEM_MOD_CRIT_RATING_SHORT = "Crit", ITEM_MOD_CRIT_SPELL_RATING_SHORT = "Crit sorts", ITEM_MOD_HIT_RATING_SHORT = "Toucher",
+	ITEM_MOD_HIT_SPELL_RATING_SHORT = "Toucher sorts", ITEM_MOD_DEFENSE_SKILL_RATING_SHORT = "Déf",
+	ITEM_MOD_DODGE_RATING_SHORT = "Esquive", ITEM_MOD_PARRY_RATING_SHORT = "Parade", ITEM_MOD_BLOCK_RATING_SHORT = "Blocage",
+	ITEM_MOD_BLOCK_VALUE_SHORT = "Bloc", ITEM_MOD_DAMAGE_PER_SECOND_SHORT = "DPS", ITEM_MOD_MANA_REGENERATION_SHORT = "Mana/5",
+	ITEM_MOD_HEALTH_REGENERATION_SHORT = "Vie/5",
+	RESISTANCE1_NAME = "Rés sacré", RESISTANCE2_NAME = "Rés feu", RESISTANCE3_NAME = "Rés nature",
+	RESISTANCE4_NAME = "Rés givre", RESISTANCE5_NAME = "Rés ombre", RESISTANCE6_NAME = "Rés arcanes",
+}
+local CACHEES = { RESISTANCE0_NAME = true }    -- l'armure : elle suit le niveau d'objet, elle prendrait la place
+
+-- n pastilles côte à côte : « +5 For » sur vert, « −5 Agi » sur rouge
+function Raid.Pastilles (parent, n)
+	local p = CreateFrame("Frame", nil, parent)
+	p:SetSize(1, 16)
+	p.cases = {}
+	for k = 1, n do
+		local c = CreateFrame("Frame", nil, p)
+		c:SetHeight(16)
+		c.fond = c:CreateTexture(nil, "BACKGROUND") c.fond:SetAllPoints()
+		c.texte = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		c.texte:SetPoint("LEFT", 4, 0)
+		p.cases[k] = c
+	end
+	p.aucune = p:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	p.aucune:SetPoint("LEFT")
+	return p
+end
+function Raid.PoserPastilles (p, r, id, lien)
+	for _, c in ipairs(p.cases) do c:Hide() end
+	p.aucune:SetText("")
+	local stats = r and not r.inconnu and Raid.EcartStats(r, id, lien)
+	if not stats then return end
+	local k, x = 0, 0
+	for _, s in ipairs(stats) do
+		if k >= #p.cases then break end
+		if not CACHEES[s.cle] then
+			k = k + 1
+			local c = p.cases[k]
+			local v = math.abs(s.ecart)
+			v = (v == math.floor(v)) and tostring(v) or string.format("%.1f", v)
+			local col = s.ecart > 0 and VERT or ROUGE
+			c.texte:SetText((s.ecart > 0 and "+" or "−") .. v .. " " .. (ABREGE[s.cle] or s.nom))
+			c.texte:SetTextColor(col[1], col[2], col[3])
+			c.fond:SetColorTexture(col[1], col[2], col[3], 0.09)
+			local largeur = c.texte:GetStringWidth() + 8
+			c:SetWidth(largeur)
+			c:ClearAllPoints() c:SetPoint("LEFT", p, "LEFT", x, 0)
+			x = x + largeur + 3
+			c:Show()
+		end
+	end
+	if k == 0 then p.aucune:SetText("mêmes caractéristiques") end
 end
 
 -- les noms d'objets arrivés après coup
