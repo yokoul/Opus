@@ -52,6 +52,16 @@ Exemple (abrégé) :
 OLS1:I:E;i-2026-12-09-a;T1;1765230000;1;12~P;50;25;15;10~J;Basara Nore;tank;0.5;1;0;main~J;Kibrom Felheart;heal;0;0.2;0.4;reroll~W;19019;Basara Nore:1,Kibrom Felheart:3~S;Kibrom Felheart,Basara Nore~#1a2b3c4d
 ```
 
+## Par le bridge
+
+Le client opus-bridge écrit dans `OpusBridgeFeed.raids` ce que le site prépare pour le membre connecté (`GET /bridge/feed`,
+clés françaises) : `maj` (date de génération), `paliers` (les paliers en cours, du plus récent au plus ancien ; pour
+chacun ses `listes` — perso, statut, rôle, objets avec leur rang et la date de réception, prios perdues, dernier loot
+en soirées (-1 : jamais servi), rang et longueur du Suicide King, présences — et ses `soirees` validées, les 12 plus
+récentes, avec les présents et les attributions dans l'ordre de la soirée), et pour un officier du butin
+`instantanes`, la chaîne `OLS1:I:` de chaque palier, que l'onglet Raids importe d'un clic. L'instantané ainsi
+apporté date de la dernière connexion.
+
 ## Proposition calculée
 
 Pour un objet, l'addon classe les candidats **présents dans le raid** par un score sur 100 :
