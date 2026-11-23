@@ -119,9 +119,9 @@ local function Ligne (n)
 		Raid.AnnoncerObjet(self.objet)
 	end)
 	-- la fiche de décision de l'objet (RaidFiche.lua) : les candidats, leurs scores, ce qu'ils ont déjà reçu
-	l.fiche = Opus.Bouton(l, "Fiche", 60, function (self) Raid.OuvrirFiche(self.objet) end)
+	l.fiche = Opus.Bouton(l, "Détails", 60, function (self) Raid.OuvrirFiche(self.objet) end)
 	l.fiche:SetPoint("RIGHT", l.annoncer, "LEFT", -6, 0)
-	Opus.Bulle(l.fiche, "Fiche de décision", "Les candidats présents, leur score décomposé et ce qu'ils ont déjà reçu ce soir et sur le palier.")
+	Opus.Bulle(l.fiche, "Détails de l'objet", "Les candidats présents (ou, hors liste, ceux qui peuvent le porter), leur score décomposé, ce qu'ils portent et ce que l'objet leur changerait, ce qu'ils ont déjà reçu ce soir et sur le palier.")
 	-- « DE » : hors liste, droit au désenchanteur, sans annonce
 	l.de = Opus.Bouton(l, "DE", 44, function (self)
 		local o = self.objet

@@ -267,7 +267,7 @@ function Raid.RafraichirFiche ()
 	f.objet.texte:SetText(f.lien)
 	Raid.PoserIcone(f.icone, f.id, f.lien)
 	f.etat:SetText(Etat(a, r))
-	f:SetTitle(a and ("Fiche de décision #" .. a.n) or "Fiche de décision")
+	f:SetTitle(a and ("Détails de l'objet #" .. a.n) or "Détails de l'objet")
 	local soir, palier = RecuCeSoir(), RecuPalier()
 	local poids = Raid.db.instantane and Raid.db.instantane.poids
 	local candidats = r and r.candidats or {}
