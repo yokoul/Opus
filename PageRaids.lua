@@ -42,6 +42,14 @@ local function Lien (o)
 	return q and (q.hex .. nom .. "|r") or nom
 end
 
+-- sans bloc raids : le bridge manque, ou il est d'une version qui ne l'écrit pas encore
+local function SansFlux (quoi)
+	if type(OpusBridgeFeed) == "table" then
+		return Opus.Gris(quoi .. " arrive" .. (quoi:find(" et ") and "nt" or "") .. " avec la dernière version du bridge : il se met à jour tout seul, puis reconnecte-toi.")
+	end
+	return Opus.Gris(quoi .. " arrive" .. (quoi:find(" et ") and "nt" or "") .. " ici avec le bridge : installe-le depuis opus-guild.eu/bridge (une ligne à coller), puis reconnecte-toi.")
+end
+
 local function Moi (nom) return nom and Raid.MonNom() and nom:lower() == Raid.MonNom():lower() end
 
 local function Dernier (n)
@@ -100,7 +108,7 @@ local function TexteListe ()
 		for k, nom in ipairs(sk) do if nom == moi then L(Opus.Gris("Suicide King : rang " .. k .. " sur " .. #sk)) end end
 		L()
 	end
-	L(Opus.Gris("Ta liste, tes soirées et l'historique des attributions arrivent ici avec le bridge : installe-le depuis opus-guild.eu/bridge (une ligne à coller), puis reconnecte-toi."))
+	L(SansFlux("Ta liste, tes soirées et l'historique des attributions"))
 	return table.concat(lignes, "\n")
 end
 
@@ -110,7 +118,7 @@ end
 
 local function TexteHistorique ()
 	local flux = Raid.Flux()
-	if not flux then return Opus.Gris("L'historique des soirées arrive avec le bridge : installe-le depuis opus-guild.eu/bridge (une ligne à coller), puis reconnecte-toi.") end
+	if not flux then return SansFlux("L'historique des soirées") end
 	local lignes = {}
 	local function L (t) lignes[#lignes + 1] = t or " " end
 	local moi = Raid.MonNom()
