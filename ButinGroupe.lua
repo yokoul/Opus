@@ -1,12 +1,15 @@
 -- ButinGroupe.lua : en donjon, à chaque jet de butin de groupe, qui peut équiper l'objet, ce qu'il y gagne, et qui jette quoi
--- Activé dans les réglages, vue « Butin » (« Comparer le butin en donjon »). En groupe (pas en raid), chaque objet mis en jeu ouvre
--- une ligne : pour chaque membre, s'il peut le porter (classe, niveau), ce qu'il porte à cet emplacement et l'écart de
+-- Activé dans les réglages, vue « Butin » (« Comparer le butin en donjon »). En groupe (pas en raid), chaque objet mis en
+-- jeu a sa bande, accrochée à droite du cadre de jet du jeu (dé, cupidité, passer) et partie avec lui : une ligne par
+-- membre qui peut le porter (sans cadre du jeu visible, la fenêtre « Opus : butin du groupe » prend le relais). Pour
+-- chaque membre, s'il peut le porter (classe, niveau), ce qu'il porte à cet emplacement et l'écart de
 -- niveau d'objet (l'inspection de RaidEquipement.lua), puis son choix (besoin, cupidité, passe) et son jet, lus dans
 -- le journal du butin : rien n'est demandé aux autres, un membre sans Opus apparaît comme les autres.
 local _, Opus = ...
 local Raid = Opus.Raid
 
-local GARDER = 20                   -- secondes d'affichage après le gagnant
+local GARDER = 20                   -- secondes d'affichage après le gagnant (dans la fenêtre)
+local LARGE_BANDE = 372
 local LARGEUR = 560
 local HAUT_MEMBRE = 20
 local TETE = 52                     -- la hauteur de l'objet et des en-têtes, au-dessus des membres
@@ -204,6 +207,118 @@ local function Bloc (k)
 	return b
 end
 
+------------------------------------------------------------------------
+-- la bande, accrochée au cadre de jet du jeu
+------------------------------------------------------------------------
+
+-- le cadre de jet du jeu pour ce tirage, s'il est affiché
+local function CadreDeJet (rollID)
+	for i = 1, (NUM_GROUP_LOOT_FRAMES or 4) do
+		local c = _G["GroupLootFrame" .. i]
+		if c and c:IsShown() and c.rollID == rollID then return c end
+	end
+end
+
+local bandes = {}                   -- [cadre de jet du jeu] = bande
+
+local COURT = { besoin = "|cff40ff40Besoin|r", ["cupidité"] = "|cffffd100Cupidité|r", ["désenchanter"] = "|cffc080ffDés.|r", passe = "|cff808080Passe|r" }
+
+local function LigneBande (b, k)
+	if b.lignes[k] then return b.lignes[k] end
+	local m = CreateFrame("Button", nil, b)
+	m:SetSize(LARGE_BANDE - 12, HAUT_MEMBRE)
+	m:SetPoint("TOPLEFT", 6, -6 - (k - 1) * HAUT_MEMBRE)
+	m.survol = m:CreateTexture(nil, "HIGHLIGHT") m.survol:SetAllPoints() m.survol:SetColorTexture(1, 1, 1, 0.05)
+	m:SetScript("OnEnter", function (self)
+		local t = self.tirage
+		if not t then return end
+		Raid.Ancrer(self)
+		GameTooltip:AddLine(self.nomMembre, 1, 1, 1)
+		if self.portable == "non" then GameTooltip:AddLine("Ne peut pas porter cet objet.", 0.6, 0.6, 0.6)
+		elseif self.portable then Raid.InfobulleEquipement(self.nomMembre, t.id, t.lien, self.classeNom) end
+		GameTooltip:Show()
+	end)
+	m:SetScript("OnLeave", GameTooltip_Hide)
+	m.nom = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	m.nom:SetPoint("LEFT", 2, 0) m.nom:SetWidth(108) m.nom:SetJustifyH("LEFT") m.nom:SetWordWrap(false)
+	m.verdict = Raid.Verdict(m)
+	m.verdict:SetPoint("LEFT", 112, 0)
+	m.niveau = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	m.niveau:SetPoint("LEFT", 112, 0)
+	m.change = Raid.Pastilles(m, 2)
+	m.change:SetPoint("LEFT", 162, 0)
+	m.choix = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	m.choix:SetPoint("LEFT", 286, 0) m.choix:SetWidth(52) m.choix:SetJustifyH("LEFT")
+	m.jet = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	m.jet:SetPoint("LEFT", 334, 0) m.jet:SetWidth(24) m.jet:SetJustifyH("RIGHT")
+	b.lignes[k] = m
+	return m
+end
+
+local function BandeDe (cadre)
+	if bandes[cadre] then return bandes[cadre] end
+	local b = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+	if b.SetBackdrop then
+		b:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+			tile = true, tileSize = 16, edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+		b:SetBackdropColor(0.05, 0.05, 0.08, 0.92)
+		b:SetBackdropBorderColor(0.83, 0.69, 0.22, 0.8)
+	end
+	b:SetWidth(LARGE_BANDE)
+	b:SetPoint("TOPLEFT", cadre, "TOPRIGHT", 4, 0)
+	b.lignes = {}
+	-- le cadre du jeu s'en va (jet fini, objet ramassé) : la bande avec lui
+	cadre:HookScript("OnHide", function () b:Hide() end)
+	bandes[cadre] = b
+	return b
+end
+
+-- Les lignes d'un tirage : ceux qui peuvent le porter (ou bientôt), puis ceux qui ne peuvent pas mais ont fait un
+-- choix (un « Besoin » se remarque) ; pour un objet qui ne s'équipe pas, ceux qui ont choisi.
+local function LignesDuTirage (t, membres)
+	local lignes = {}
+	for i, mb in ipairs(membres) do
+		local peut = Peut(mb.unite, t.id)
+		local choix = t.choix[mb.nom]
+		if peut == "oui" or (peut and peut ~= "non") or (choix and choix.quoi) then
+			lignes[#lignes + 1] = { mb = mb, peut = peut, i = i }
+		end
+	end
+	table.sort(lignes, function (a, z)
+		local pa = a.peut == "oui" and 0 or (a.peut and a.peut ~= "non") and 1 or 2
+		local pz = z.peut == "oui" and 0 or (z.peut and z.peut ~= "non") and 1 or 2
+		if pa ~= pz then return pa < pz end
+		return a.i < z.i
+	end)
+	return lignes
+end
+
+local function PoserBande (t, cadre, membres)
+	local b = BandeDe(cadre)
+	for _, m in ipairs(b.lignes) do m:Hide() end
+	local lignes = LignesDuTirage(t, membres)
+	if #lignes == 0 then b:Hide() return end
+	for k, o in ipairs(lignes) do
+		local mb, peut = o.mb, o.peut
+		local m = LigneBande(b, k)
+		local _, classe = UnitClass(mb.unite)
+		m.tirage, m.nomMembre, m.portable, m.classeNom = t, mb.nom, peut, classe
+		m.nom:SetText(Opus.Couleur(classe) .. mb.nom .. "|r")
+		m:SetAlpha(peut == "oui" and 1 or 0.55)
+		local eq = peut == "oui" and Raid.Comparer(mb.nom, t.id) or nil
+		m.niveau:SetText(peut and peut ~= "oui" and peut ~= "non" and ("|cffff8040" .. peut .. "|r") or (peut == "non" and Opus.Gris("ne peut pas")) or "")
+		if eq then Raid.PoserVerdict(m.verdict, eq, t.id, t.lien, classe) else m.verdict:Hide() end
+		Raid.PoserPastilles(m.change, eq, t.id, t.lien)
+		local c = t.choix[mb.nom]
+		m.choix:SetText(c and c.quoi and COURT[c.quoi] or Opus.Gris("…"))
+		m.jet:SetText(c and c.jet and ("|cffffffff" .. c.jet .. "|r") or "")
+		m:Show()
+	end
+	b:SetHeight(12 + #lignes * HAUT_MEMBRE)
+	b:SetFrameStrata(cadre:GetFrameStrata())
+	b:Show()
+end
+
 function Opus.RafraichirButinGroupe ()
 	-- les tirages finis depuis un moment s'en vont
 	local garde = {}
@@ -216,18 +331,30 @@ function Opus.RafraichirButinGroupe ()
 	if #tirages == 0 then essai, masquee = false, false end
 	if #tirages == 0 or not (Opus.ButinGroupeActif() or essai) then
 		if f then f:Hide() end
+		for _, b in pairs(bandes) do b:Hide() end
+		return
+	end
+	local membres = Membres()
+	-- chaque tirage dont le cadre de jet du jeu est affiché : sa bande ; les autres, dans la fenêtre
+	local enFenetre = {}
+	for _, t in ipairs(tirages) do
+		local cadre = t.rollID and t.rollID > 0 and CadreDeJet(t.rollID)
+		if cadre then t.aEuCadre = true PoserBande(t, cadre, membres)
+		elseif not t.aEuCadre and GetTime() - (t.debut or 0) > 1 then enFenetre[#enFenetre + 1] = t end
+	end
+	if #enFenetre == 0 then
+		if f then f:Hide() end
 		return
 	end
 	if not f then Construire() end
 	if masquee then return end
 	-- tout est joué : la fenêtre s'efface d'elle-même (le résultat reste lisible quelques secondes)
 	local enCours = false
-	for _, t in ipairs(tirages) do if not t.finie then enCours = true end end
+	for _, t in ipairs(enFenetre) do if not t.finie then enCours = true end end
 	if not enCours and not f:IsShown() then return end
 	for _, b in ipairs(blocs) do b:Hide() end
-	local membres = Membres()
 	local y = 10
-	for k, t in ipairs(tirages) do
+	for k, t in ipairs(enFenetre) do
 		if k > 4 then break end
 		local b = Bloc(k)
 		t.lien = Raid.LienAJour(t.lien, t.id)
@@ -290,8 +417,10 @@ Raid.Ecoute("START_LOOT_ROLL", function (rollID, duree)
 	local lien = GetLootRollItemLink and GetLootRollItemLink(rollID)
 	local id = lien and tonumber(lien:match("item:(%d+)"))
 	if not id then return end
-	tirages[#tirages + 1] = { rollID = rollID, id = id, lien = lien, fin = GetTime() + (duree or 60000) / 1000, choix = {} }
+	tirages[#tirages + 1] = { rollID = rollID, id = id, lien = lien, fin = GetTime() + (duree or 60000) / 1000, choix = {}, debut = GetTime() }
 	masquee = false
+	-- le jeu affiche son cadre de jet dans le même instant : on repasse juste après pour s'y accrocher
+	C_Timer.After(0.2, Opus.RafraichirButinGroupe)
 	-- tout le groupe passe devant à l'inspection
 	local noms = {}
 	for _, m in ipairs(Membres()) do noms[#noms + 1] = m.nom end
@@ -332,7 +461,7 @@ Raid.Commande("jet", "jet <itemID>", "essayer la fenêtre du butin de groupe (do
 	local id = tonumber((texte or ""):match("%d+"))
 	if not id then Raid.Msg("/opus raid jet <itemID> (le numéro de l'objet, par exemple sur wowhead).") return end
 	essai, masquee = true, false
-	tirages[#tirages + 1] = { rollID = -1, id = id, lien = Raid.LienDe(id), fin = GetTime() + 60, choix = {} }
+	tirages[#tirages + 1] = { rollID = -1, id = id, lien = Raid.LienDe(id), fin = GetTime() + 60, choix = {}, debut = GetTime() - 2 }
 	Raid.Prioriser((function () local n = {} for _, m in ipairs(Membres()) do n[#n + 1] = m.nom end return n end)())
 	Opus.RafraichirButinGroupe()
 end)

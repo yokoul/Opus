@@ -24,6 +24,7 @@ Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://disc
 - Donjons : la fenêtre du butin de groupe se ferme (croix ou Échap) et ne revient qu'au jet suivant ; quand tout est joué, elle ne se rouvre plus.
 - Raids et donjons : avec Pawn, le verdict de la comparaison est le gain de l'objet dans la meilleure spé de chacun (« +53 % », avec les échelles Classic de Pawn, par classe), face à la pièce qu'il remplacerait ; l'écart de niveau d'objet ne reste qu'en indice gris, car il ne dit pas la valeur d'une pièce. L'infobulle nomme la spé.
 - Raids et donjons : les infobulles s'ouvrent au-dessus de l'élément survolé, au lieu de partir au bout de la ligne.
+- Donjons : la comparaison du butin de groupe tient dans une bande accrochée à droite de chaque cadre de jet du jeu, qui part avec lui : une ligne par membre qui peut porter l'objet (son gain Pawn, ses deux caractéristiques qui changent, son choix et son jet), et ceux qui ne peuvent pas mais ont fait un choix, estompés. Un objet qui ne s'équipe pas n'a de lignes que pour les choix faits. Le détail reste au survol ; la grande fenêtre ne sert plus que de repli (cadres de jet remplacés par un autre addon, /opus raid jet).
 - Raids : /opus raid essai, pour essayer une soirée en donjon à quelques-uns. Un instantané fabriqué en jeu (ton groupe et quatre figurants), des candidats pour chaque objet ramassé, la fenêtre du butin en groupe ; rien de cette soirée ne part au site.
 
 ## 0.32.0
