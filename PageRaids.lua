@@ -33,8 +33,9 @@ function Raid.Flux ()
 end
 
 -- le lien d'un objet du flux : celui du jeu s'il est en cache, sinon son nom à la couleur de sa qualité
+local Info = (C_Item and C_Item.GetItemInfo) or GetItemInfo
 local function Lien (o)
-	local _, lien = GetItemInfo(o.id)
+	local _, lien = Info(o.id)
 	if lien then return lien end
 	if C_Item and C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, o.id) end
 	local q = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[QUALITES[o.qualite or ""] or 1]
@@ -297,16 +298,20 @@ local function ConstruireTexte (cadre, largeur)
 	x:SetScript("OnHyperlinkClick", function (_, lien, texte, bouton) SetItemRef(lien, texte, bouton) end)
 	cadre.texte = x:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	cadre.texte:SetPoint("TOPLEFT", 4, -4) cadre.texte:SetWidth(largeur - 30) cadre.texte:SetJustifyH("LEFT") cadre.texte:SetSpacing(4)
+	cadre.contenu = x
 	cadre.ascenseur = Opus.Ascenseur(cadre, function (d) defile = d Opus.Rafraichir() end)
 	cadre.ascenseur:SetPoint("TOPRIGHT", cadre.defile, "TOPRIGHT", 14, 0)
 	cadre.ascenseur:SetPoint("BOTTOMRIGHT", cadre.defile, "BOTTOMRIGHT", 14, 0)
+	cadre.ascenseur:Hide()
 end
 
 local function RafraichirTexte (cadre, texte)
 	cadre.texte:SetText(texte)
 	local total = cadre.texte:GetStringHeight() + 12
 	local visible = math.min(total, VUE_MAX)
+	cadre.contenu:SetHeight(total)
 	cadre.defile:SetHeight(visible)
+	cadre:SetHeight(visible)
 	defile = math.max(0, math.min(defile, total - visible))
 	cadre.defile:SetVerticalScroll(defile)
 	cadre.ascenseur:Recaler(defile, total, visible)
