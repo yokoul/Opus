@@ -111,7 +111,7 @@ par sa lettre, son identifiant et sa date ; l'identifiant est `<maître du butin
 | `V` | Vote | id de `X`, voix du proposé, voix des autres candidats, abstentions, quorum atteint (0/1), gagnant (vide : égalité ou pas de quorum), voix de chaque candidat `nom:voix,…` |
 | `D` | Décision des officiers | id de `O` (vide après un rechargement en plein Suicide King), attributaire, officier, motif |
 | `A` | Attribution | id de `T`, attributaire (vide pour la banque), voie (`wish`, `sk`, `de` ou `banque`) |
-| `M` | Remise | id de `A`, destinataire de l'échange, mode (`echange`, `ramasse`) |
+| `M` | Remise | id de `A`, destinataire, mode (`echange` : par échange ; `ramasse` : le maître du butin lui-même ; `maitre` : donné depuis le corps par le menu du maître du butin) |
 | `K` | Écart constaté | id de `A`, nature (`autre_destinataire`, `pas_remis`, `delai_proche`), détail (le destinataire réel, l'attributaire, ou les secondes d'échange restantes) |
 | `C` | Correction | voir ci-dessous |
 

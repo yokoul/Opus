@@ -161,7 +161,8 @@ function Raid.Lancer (o)
 	local r = Raid.Proposer(o.id, presents)
 	if not r then Msg("aucun instantané importé.") return nil end
 	local s = Soiree()
-	local a = { n = #Raid.attributions + 1, lien = o.lien, id = o.id, votes = {}, objecteurs = {} }
+	-- source : le corps d'où vient l'objet (son GUID), pour le reconnaître quand on le rouvre
+	local a = { n = #Raid.attributions + 1, lien = o.lien, id = o.id, source = o.source, votes = {}, objecteurs = {} }
 	Raid.attributions[a.n] = a
 	-- tous les candidats en wishlist, présents ou non : aucun ne vote sur cet objet
 	a.candidats = {}

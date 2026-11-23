@@ -3,7 +3,8 @@
 -- Quand le jeu annonce l'échange terminé, la remise est notée (événement M) ; un objet attribué qui part à quelqu'un
 -- d'autre est un écart (K « autre_destinataire »). Chaque minute, l'addon lit le temps d'échange restant des objets
 -- pas encore remis (l'infobulle du jeu) et prévient sous 20 minutes (K « delai_proche »).
--- Un objet attribué au maître du butin lui-même est remis d'office (mode « ramasse »).
+-- Un objet attribué au maître du butin lui-même est remis d'office (mode « ramasse ») ; un objet donné depuis le corps
+-- par le menu du maître du butin (« Donner », RaidButin.lua) l'est en mode « maitre ».
 local _, Opus = ...
 local Raid = Opus.Raid
 local Msg = Raid.Msg
@@ -26,6 +27,8 @@ local function Remettre (a, dest, mode)
 	Raid.Noter("M", { attribution = a.evenementA, destinataire = dest, mode = mode })
 	if Raid.RafraichirButin then Raid.RafraichirButin() end
 end
+
+Raid.Remettre = Remettre
 
 -- appelé à chaque attribution (Attribution.lua, SuicideKing.lua)
 function Raid.ApresAttribution (a)

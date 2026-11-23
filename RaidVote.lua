@@ -9,6 +9,7 @@ local GARDER = 20                   -- secondes d'affichage d'un résultat
 Raid.annonces = {}                  -- reçues, dans l'ordre : { ml, n, id, lien, propose, etat, fin, candidat, monVote… }
 
 local f, lignes = nil, {}
+local masquee = false               -- fermée par le joueur : elle ne revient qu'à la prochaine annonce
 
 local function Trouver (ml, n)
 	for _, a in ipairs(Raid.annonces) do if a.ml == ml and a.n == n then return a end end
@@ -43,6 +44,9 @@ local function Construire ()
 	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)
 	f:SetTitle("Opus : attributions")
 	f:Hide()
+	-- fermée (croix, Échap) avec des annonces en cours : elle attend la suivante
+	tinsert(UISpecialFrames, "OpusRaidVote")
+	f:SetScript("OnHide", function () masquee = #Raid.annonces > 0 end)
 end
 
 local function Bouton (parent, texte, largeur)
@@ -116,8 +120,9 @@ function Raid.RafraichirVote ()
 		local a = Raid.annonces[k]
 		if a.finie and GetTime() - a.finie > GARDER then table.remove(Raid.annonces, k) end
 	end
-	if #Raid.annonces == 0 then if f then f:Hide() end return end
+	if #Raid.annonces == 0 then masquee = false if f then f:Hide() end return end
 	if not f then Construire() end
+	if masquee then return end
 	for _, l in ipairs(lignes) do l:Hide() end
 	local y = 10
 	for k, a in ipairs(Raid.annonces) do
@@ -170,6 +175,7 @@ function Raid.RecevoirAnnonce (ml, c)
 		if not a then
 			a = { ml = ml, n = n, id = id, lien = Raid.LienDe(id), propose = "" }
 			Raid.annonces[#Raid.annonces + 1] = a
+			masquee = false
 		end
 		a.etat, a.fin = "sk", GetTime() + secondes
 	elseif genre == "A" then
@@ -178,12 +184,14 @@ function Raid.RecevoirAnnonce (ml, c)
 		local moi, candidat = Raid.MonNom(), false
 		for _, nom in ipairs(Raid.Liste(c[6])) do if nom == moi then candidat = true end end
 		Raid.annonces[#Raid.annonces + 1] = { ml = ml, n = n, id = id, lien = Raid.LienDe(id), propose = c[4] or "?", etat = "delai", fin = GetTime() + secondes, candidat = candidat }
+		masquee = false
 		-- leur équipement, pour comparer au moment du vote
 		Raid.Prioriser(Raid.Liste(c[6]))
 	else
 		local a = Trouver(ml, n)
 		if not a then return end
 		if genre == "V" then
+			masquee = false   -- un vote s'ouvre : la fenêtre revient, il faut pouvoir voter
 			a.etat, a.fin, a.auteur = "vote", GetTime() + (tonumber(c[3]) or 0), c[6]
 			a.choix = Raid.Liste(c[7])
 			a.motif = (c[8] and c[8] ~= "") and c[8] or nil

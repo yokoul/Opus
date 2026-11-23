@@ -12,6 +12,8 @@ Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://disc
 - Raids et donjons : au survol d'un candidat (fiche, bouton de vote) ou d'un membre (butin de groupe), ce que l'objet lui change, caractéristique par caractéristique (+9 Force, −3 Endurance…), face à la pièce qu'il remplacerait : la moins bonne des deux pour bagues, bijoux et armes, suffixes « de l'ours » compris.
 - Raids et donjons : la comparaison se lit d'un coup d'œil. Une case de verdict colorée (+14 sur vert, −4 sur rouge, « vide ») et, en ligne, les caractéristiques qui changent le plus (« +5 For », « −5 Agi ») : trois dans la fiche de décision, deux dans le butin de groupe. En donjon, ceux qui peuvent porter l'objet passent devant, les autres en bas, estompés.
 - Raids : le maître du butin peut lui aussi se déclarer au Suicide King (« Je le veux » dans sa fenêtre) ; il ne recevait pas sa propre annonce.
+- Raids : l'objet attribué est donné tout seul depuis le corps, par le menu du maître du butin (comme Gargul) : tout de suite si la fenêtre de butin est ouverte, sinon quand on rouvre le corps. Un corps rouvert ne relance plus l'objet comme un nouveau butin. Si le jeu refuse (gagnant trop loin, pas éligible), un bouton « Donner » permet de réessayer ; l'échange reste possible. La remise est notée au rapport.
+- Raids : la fenêtre des annonces des joueurs se ferme (croix ou Échap) et ne revient qu'à l'annonce suivante ou à l'ouverture d'un vote.
 - Raids : /opus raid essai, pour essayer une soirée en donjon à quelques-uns. Un instantané fabriqué en jeu (ton groupe et quatre figurants), des candidats pour chaque objet ramassé, la fenêtre du butin en groupe ; rien de cette soirée ne part au site.
 
 ## 0.32.0
