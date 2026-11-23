@@ -78,10 +78,7 @@ local function Destinataire (a)
 end
 
 local function Construire ()
-	f = CreateFrame("Frame", "OpusRaidButin", UIParent, "ButtonFrameTemplate")
-	ButtonFrameTemplate_HidePortrait(f)
-	ButtonFrameTemplate_HideButtonBar(f)
-	f.Inset:SetPoint("TOPLEFT", 4, -24)   -- sans portrait : pas de bande vide sous le titre
+	f = Raid.Cadre("OpusRaidButin")
 	f:SetSize(520, 120) f:SetPoint("TOPLEFT", 260, -140) f:SetFrameStrata("DIALOG") f:SetToplevel(true)
 	f:EnableMouse(true) f:SetMovable(true) f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)
@@ -316,6 +313,8 @@ Raid.Commande("diag", "diag", "pourquoi la fenêtre du butin s'ouvre ou non sur 
 		.. ", seuil de butin : " .. tostring(GetLootThreshold and GetLootThreshold()))
 	DEFAULT_CHAT_FRAME:AddMessage("  instantané : " .. (Raid.db.instantane and Raid.db.instantane.id or "aucun")
 		.. ", dernier corps ouvert : " .. (dernierCorps or "aucun depuis le chargement"))
+	DEFAULT_CHAT_FRAME:AddMessage(string.format("  durées sur ce client : objection %s, vote %s, Suicide King %s",
+		Raid.TexteDuree(Raid.Duree("objection")), Raid.TexteDuree(Raid.Duree("vote")), Raid.TexteDuree(Raid.Duree("sk"))))
 end)
 
 Raid.Ecoute("LOOT_OPENED", function ()

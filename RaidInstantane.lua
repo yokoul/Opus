@@ -188,9 +188,7 @@ local function Bouton (parent, texte, largeur, clic)
 end
 
 local function Construire ()
-	f = CreateFrame("Frame", "OpusRaidImport", UIParent, "ButtonFrameTemplate")
-	ButtonFrameTemplate_HidePortrait(f)
-	ButtonFrameTemplate_HideButtonBar(f)
+	f = Raid.Cadre("OpusRaidImport")
 	f:SetSize(460, 190) f:SetPoint("CENTER") f:SetFrameStrata("DIALOG") f:SetToplevel(true)
 	f:EnableMouse(true) f:SetMovable(true) f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)

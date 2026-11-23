@@ -98,9 +98,7 @@ Opus.Ecoute("PLAYER_LOGOUT", function () if Raid.db then Raid.Deposer(Raid.db.ou
 local f
 
 local function Construire ()
-	f = CreateFrame("Frame", "OpusRaidExport", UIParent, "ButtonFrameTemplate")
-	ButtonFrameTemplate_HidePortrait(f)
-	ButtonFrameTemplate_HideButtonBar(f)
+	f = Raid.Cadre("OpusRaidExport")
 	f:SetSize(460, 170) f:SetPoint("CENTER") f:SetFrameStrata("DIALOG") f:SetToplevel(true)
 	f:EnableMouse(true) f:SetMovable(true) f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)

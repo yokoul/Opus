@@ -119,6 +119,16 @@ local function Ligne (n)
 	end)
 	l:SetScript("OnEnter", function (self)
 		local c = self.candidat
+		if not c and self.membre then
+			-- hors liste : le présent, ce qu'il porte et ce que l'objet lui changerait
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+			GameTooltip:AddLine(self.membre, 1, 1, 1)
+			if self.portable == "non" then GameTooltip:AddLine("Ne peut pas porter cet objet.", 0.6, 0.6, 0.6)
+			else Raid.InfobulleEquipement(self.membre, f.id, f.lien) end
+			if f.decider then GameTooltip:AddLine("Clic : lui attribuer l'objet.", 0.6, 0.6, 0.6) end
+			GameTooltip:Show()
+			return
+		end
 		if not c then return end
 		local p = Raid.db.instantane.poids
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -138,10 +148,7 @@ local function Ligne (n)
 end
 
 local function Construire ()
-	f = CreateFrame("Frame", "OpusRaidFiche", UIParent, "ButtonFrameTemplate")
-	ButtonFrameTemplate_HidePortrait(f)
-	ButtonFrameTemplate_HideButtonBar(f)
-	f.Inset:SetPoint("TOPLEFT", 4, -24)   -- sans portrait : pas de bande vide sous le titre
+	f = Raid.Cadre("OpusRaidFiche")
 	f:SetWidth(LARGEUR) f:SetPoint("TOPLEFT", 260, -280) f:SetFrameStrata("DIALOG") f:SetToplevel(true)
 	f:EnableMouse(true) f:SetMovable(true) f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)
@@ -163,7 +170,7 @@ local function Construire ()
 		t:SetPoint("TOPLEFT", 12 + x, -52) t:SetWidth(l) t:SetJustifyH(j or "LEFT") t:SetText(texte)
 		return t
 	end
-	Tete("candidat présent", 12, 132) Tete("rang · rôle", 148, 70) Tete("porté", PORTE, 84) Tete("ce qui change", CHANGE, 140) Tete("score", X, BARRE)
+	f.teteNom = Tete("candidat présent", 12, 132) f.teteRang = Tete("rang · rôle", 148, 70) Tete("porté", PORTE, 84) Tete("ce qui change", CHANGE, 140) f.teteScore = Tete("score", X, BARRE)
 	f.teteSoir = Tete("ce soir", X + BARRE + 56, 52) Tete("palier", X + BARRE + 108, 52)
 	f.haut = 66
 	f.absents = z:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -309,12 +316,70 @@ function Raid.RafraichirFiche ()
 		Teinte(l.fond, 1, 0.82, 0, choisi and 0.18 or (k == 1 and 0.05 or 0))
 		l:Show()
 	end
+	-- hors liste (Suicide King) : aucun candidat en liste, la fiche montre les présents qui peuvent s'en servir ; les
+	-- déclarés d'abord, dans l'ordre de la liste Suicide King, puis ceux qui peuvent le porter, les autres estompés
+	local horsListe = n == 0 and r ~= nil
+	f.teteNom:SetText(horsListe and "présent" or "candidat présent")
+	f.teteRang:SetText(horsListe and "liste SK" or "rang · rôle")
+	f.teteScore:SetText(horsListe and "Suicide King" or "score")
+	for _, l in ipairs(lignes) do l.piste:SetShown(not horsListe) l.membre, l.portable = nil, nil end
+	if horsListe then
+		local declares, pos = a and Raid.ClassementSK(a) or {}, {}
+		local rangDeclare = {}
+		for k, nom in ipairs(declares) do rangDeclare[nom] = k end
+		for k, nom in ipairs(Raid.ListeSK()) do pos[nom] = k end
+		local membres = {}
+		for _, m in ipairs(Raid.Unites()) do
+			if m.nom then
+				local peut = Opus.PeutPorter and Opus.PeutPorter(m.unite, f.id)
+				local _, classe = UnitClass(m.unite)
+				membres[#membres + 1] = { nom = m.nom, peut = peut, classe = classe, declare = rangDeclare[m.nom] }
+			end
+		end
+		table.sort(membres, function (x, z)
+			if (x.declare or 99) ~= (z.declare or 99) then return (x.declare or 99) < (z.declare or 99) end
+			local px, pz = (x.peut == "oui" or x.peut == nil) and 0 or 1, (z.peut == "oui" or z.peut == nil) and 0 or 1
+			if px ~= pz then return px < pz end
+			return (pos[x.nom] or 999) < (pos[z.nom] or 999)
+		end)
+		n = math.min(#membres, MAX_LIGNES)
+		for k = 1, n do
+			local m, l = membres[k], Ligne(k)
+			l.candidat, l.membre, l.portable, l.choix = nil, m.nom, m.peut, { nom = m.nom, voie = "wish" }
+			local couleur = m.classe and RAID_CLASS_COLORS and RAID_CLASS_COLORS[m.classe]
+			if couleur then Teinte(l.classe, couleur.r, couleur.g, couleur.b) else Teinte(l.classe, 0.5, 0.5, 0.5) end
+			l.nom:SetText(Opus.Couleur(m.classe) .. m.nom .. "|r")
+			l.rang:SetText(pos[m.nom] and ("SK " .. pos[m.nom]) or Opus.Gris("hors liste"))
+			for _, s in ipairs(l.segments) do s:Hide() end
+			local eq = m.peut ~= "non" and Raid.Comparer(m.nom, f.id) or nil
+			for i, b in ipairs(l.portes) do
+				local case = eq and eq.cases and eq.cases[i]
+				if case and case.id then Raid.PoserIcone(b, case.id, case.lien) b.image:Show() b.vide:Hide() b:Show()
+				elseif case then b.id, b.lien = nil, nil b.image:Hide() b.vide:Show() b:Show()
+				else b:Hide() end
+			end
+			l.verdict:ClearAllPoints()
+			l.verdict:SetPoint("LEFT", PORTE + (eq and eq.cases and #eq.cases or 0) * 23 + 2, 0)
+			if m.peut == "non" then l.verdict:Hide() Raid.PoserPastilles(l.change, nil)
+			else Raid.PoserVerdict(l.verdict, eq) Raid.PoserPastilles(l.change, eq, f.id, f.lien) end
+			l.score:SetText(m.declare == 1 and "|cffffd100en tête|r" or m.declare and "|cff40ff40le veut|r" or "")
+			local ns, np = soir[m.nom] or 0, palier and (palier[m.nom] or 0)
+			l.soir:SetText(ns > 0 and Opus.Blanc(ns .. " reçu" .. (ns > 1 and "s" or "")) or Opus.Gris("rien"))
+			l.palier:SetText(not np and Opus.Gris("?") or np > 0 and Opus.Blanc(tostring(np)) or Opus.Gris("0"))
+			l:SetAlpha((m.peut == "non" or (m.peut and m.peut ~= "oui")) and not m.declare and 0.45 or 1)
+			local choisi = f.decider and f.choix and f.choix.voie == "wish" and f.choix.nom == m.nom
+			Teinte(l.fond, 1, 0.82, 0, choisi and 0.18 or (m.declare == 1 and 0.08 or 0))
+			l:Show()
+		end
+	else
+		for k = 1, n do lignes[k]:SetAlpha(1) end
+	end
 	local y = f.haut + n * HAUT_LIGNE + 4
 	local absents = r and r.absents or {}
 	local reste = #candidats - n
 	f.absents:SetText((#absents > 0 and ("absents en liste : " .. table.concat(absents, ", ")) or "")
 		.. (reste > 0 and ((#absents > 0 and " · " or "") .. reste .. " autre" .. (reste > 1 and "s" or "") .. " plus bas") or "")
-		.. ((n == 0 and #absents == 0) and "personne n'a cet objet en liste" or ""))
+		.. (horsListe and "personne n'a cet objet en liste : Suicide King entre les présents" or ""))
 	f.absents:ClearAllPoints() f.absents:SetPoint("TOPLEFT", 12, -y)
 	y = y + 18
 	f.legende:ClearAllPoints() f.legende:SetPoint("TOPLEFT", 12, -y)

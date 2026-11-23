@@ -315,7 +315,8 @@ function Raid.EtatAttribution (a)
 	if a.etat == "sk" then
 		local n = 0
 		for _ in pairs(a.interesses) do n = n + 1 end
-		return string.format("#%d Suicide King %s : %d intéressé%s", a.n, chrono, n, n > 1 and "s" or "")
+		local tete = Raid.ClassementSK and Raid.ClassementSK(a)[1]
+		return string.format("#%d Suicide King %s : %d intéressé%s%s", a.n, chrono, n, n > 1 and "s" or "", tete and (" · en tête : " .. tete) or "")
 	end
 	if a.etat == "de" then return "#" .. a.n .. " désenchantement" .. (a.attributaire and (" : " .. a.attributaire) or "") .. remise end
 	if a.etat == "banque" then return "#" .. a.n .. " pour la banque" end

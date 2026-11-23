@@ -15,6 +15,9 @@ Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://disc
 - Raids : l'objet attribué est donné tout seul depuis le corps, par le menu du maître du butin (comme Gargul) : tout de suite si la fenêtre de butin est ouverte, sinon quand on rouvre le corps. Un corps rouvert ne relance plus l'objet comme un nouveau butin. Si le jeu refuse (gagnant trop loin, pas éligible), un bouton « Donner » permet de réessayer ; l'échange reste possible. La remise est notée au rapport.
 - Raids : la fenêtre des annonces des joueurs se ferme (croix ou Échap) et ne revient qu'à l'annonce suivante ou à l'ouverture d'un vote.
 - Réglages : une vue « Butin » à côté de « Réglages » et « À propos ». Les durées des tours d'attribution s'y règlent (délai d'objection, de 1 à 5 min ; vote, de 1 à 3 min ; Suicide King, de 30 s à 2 min), avec la part de la guilde pour ouvrir une soirée, l'échange automatique et la comparaison du butin en donjon (déplacée de la vue de base). Les durées comptent chez le maître du butin.
+- Raids : les fenêtres du butin ont un cadre sombre à liseré doré, sans la bande grise sous le titre ni les bords qui dépassaient.
+- Raids : la fiche d'un objet hors liste montre les présents (les déclarés au Suicide King en tête, dans l'ordre de la liste, puis ceux qui peuvent le porter), avec leur place dans la liste et la comparaison d'équipement ; l'état du Suicide King dit qui est en tête.
+- Raids : « Passer » sur un Suicide King, dans la fenêtre des joueurs.
 - Raids : /opus raid essai, pour essayer une soirée en donjon à quelques-uns. Un instantané fabriqué en jeu (ton groupe et quatre figurants), des candidats pour chaque objet ramassé, la fenêtre du butin en groupe ; rien de cette soirée ne part au site.
 
 ## 0.32.0

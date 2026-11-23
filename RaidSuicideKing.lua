@@ -29,21 +29,33 @@ function Raid.LancerSK (a, debut)
 	Rafraichir()
 end
 
-function Raid.FinSK (a)
-	if a.etat ~= "sk" then return end
-	local s = Raid.Soiree()
+-- La liste Suicide King de la soirée (ou de l'instantané avant la première attribution), du haut vers le bas.
+function Raid.ListeSK ()
+	local s = Raid.db.soiree
+	return s and s.sk or (Raid.db.instantane and Raid.db.instantane.sk) or {}
+end
+
+-- Les intéressés présents, du mieux placé au moins bien placé : le premier gagnerait si le tour finissait maintenant.
+function Raid.ClassementSK (a, liste)
 	local presents = Raid.Presents()
-	local pos = Positions(s.sk)
+	local pos = Positions(liste or Raid.ListeSK())
 	local candidats = {}
-	for nom in pairs(a.interesses) do
+	for nom in pairs(a.interesses or {}) do
 		if not presents or presents[nom] then candidats[#candidats + 1] = nom end
 	end
-	if #candidats == 0 then Raid.Desenchanter(a, " (personne en Suicide King)") return end
 	table.sort(candidats, function (x, y)
 		local px, py = pos[x] or math.huge, pos[y] or math.huge
 		if px ~= py then return px < py end
 		return x < y
 	end)
+	return candidats, pos
+end
+
+function Raid.FinSK (a)
+	if a.etat ~= "sk" then return end
+	local s = Raid.Soiree()
+	local candidats, pos = Raid.ClassementSK(a, s.sk)
+	if #candidats == 0 then Raid.Desenchanter(a, " (personne en Suicide King)") return end
 	local gagnant = candidats[1]
 	local rang = pos[gagnant]
 	-- le gagnant passe en bas de la liste

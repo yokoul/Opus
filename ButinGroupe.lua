@@ -116,6 +116,8 @@ local function Peut (unite, id)
 	return "oui"
 end
 
+Opus.PeutPorter = Peut              -- la fiche de décision, pour les objets hors liste
+
 ------------------------------------------------------------------------
 -- la fenêtre
 ------------------------------------------------------------------------
@@ -123,10 +125,7 @@ end
 local f, blocs = nil, {}
 
 local function Construire ()
-	f = CreateFrame("Frame", "OpusButinGroupe", UIParent, "ButtonFrameTemplate")
-	ButtonFrameTemplate_HidePortrait(f)
-	ButtonFrameTemplate_HideButtonBar(f)
-	f.Inset:SetPoint("TOPLEFT", 4, -24)
+	f = Raid.Cadre("OpusButinGroupe")
 	f:SetWidth(LARGEUR) f:SetPoint("LEFT", UIParent, "CENTER", 140, 60) f:SetFrameStrata("DIALOG")
 	f:EnableMouse(true) f:SetMovable(true) f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)

@@ -63,6 +63,20 @@ function Raid.PrioriserObjets (ids)
 	end
 end
 
+-- tout le groupe, moi compris : { { unite, nom } … }
+function Raid.Unites ()
+	local liste = { { unite = "player", nom = Raid.MonNom() } }
+	if IsInRaid() then
+		for k = 1, GetNumGroupMembers() do
+			local u = "raid" .. k
+			if not UnitIsUnit(u, "player") then liste[#liste + 1] = { unite = u, nom = Raid.Court(GetUnitName(u, true)) } end
+		end
+	else
+		for k = 1, GetNumSubgroupMembers() do liste[#liste + 1] = { unite = "party" .. k, nom = Raid.Court(GetUnitName("party" .. k, true)) } end
+	end
+	return liste
+end
+
 local function Unites ()
 	local u = {}
 	if IsInRaid() then for k = 1, GetNumGroupMembers() do u[#u + 1] = "raid" .. k end

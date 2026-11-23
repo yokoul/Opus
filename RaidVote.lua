@@ -35,10 +35,7 @@ local function Texte (a)
 end
 
 local function Construire ()
-	f = CreateFrame("Frame", "OpusRaidVote", UIParent, "ButtonFrameTemplate")
-	ButtonFrameTemplate_HidePortrait(f)
-	ButtonFrameTemplate_HideButtonBar(f)
-	f.Inset:SetPoint("TOPLEFT", 4, -24)   -- sans portrait : pas de bande vide sous le titre
+	f = Raid.Cadre("OpusRaidVote")
 	f:SetSize(470, 100) f:SetPoint("TOP", 0, -120) f:SetFrameStrata("DIALOG")
 	f:EnableMouse(true) f:SetMovable(true) f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)
@@ -80,6 +77,13 @@ local function Ligne (k)
 	l.veux:SetScript("OnClick", function (self)
 		if not Raid.Repondre("W", self.annonce.n) then SendChatMessage("!sk " .. self.annonce.n, IsInRaid() and "RAID" or "PARTY") end
 		self.annonce.veut = true
+		Raid.RafraichirVote()
+	end)
+	-- « Passer » : pas intéressé par ce Suicide King, la ligne s'en va (rien n'est envoyé : ne pas se déclarer suffit)
+	l.passer = Bouton(l, "Passer", 70)
+	l.passer:SetPoint("RIGHT", l.veux, "LEFT", -6, 0)
+	l.passer:SetScript("OnClick", function (self)
+		self.annonce.finie = GetTime() - GARDER - 1
 		Raid.RafraichirVote()
 	end)
 	-- le vote : un bouton par candidat, sous la ligne (créés à la demande)
@@ -132,7 +136,8 @@ function Raid.RafraichirVote ()
 		l.objet.texte:SetText(a.lien)
 		Raid.PoserIcone(l.icone, a.id, a.lien)
 		l.etat:SetText(Texte(a))
-		l.objecter.annonce, l.veux.annonce = a, a
+		l.objecter.annonce, l.veux.annonce, l.passer.annonce = a, a, a
+		l.passer:SetShown(a.etat == "sk" and not a.veut)
 		l.veux:SetShown(a.etat == "sk")
 		l.veux:SetEnabled(not a.veut)
 		l.veux:SetText(a.veut and "Sur les rangs" or "Je le veux")
@@ -141,7 +146,7 @@ function Raid.RafraichirVote ()
 		l.objecter:SetText(a.objecte and "Objecté" or "Objecter")
 		local vote = a.etat == "vote" and not a.candidat and a.choix and #a.choix > 0
 		-- sans bouton à droite, l'état prend toute la ligne
-		l.etat:SetWidth((l.veux:IsShown() or l.objecter:IsShown()) and 256 or 390)
+		l.etat:SetWidth(l.passer:IsShown() and 180 or (l.veux:IsShown() or l.objecter:IsShown()) and 256 or 390)
 		for _, b in ipairs(l.choix) do b:Hide() end
 		local rangs = 0
 		if vote then

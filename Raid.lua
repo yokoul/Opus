@@ -45,6 +45,33 @@ end
 Raid.Court, Raid.Membres, Raid.MonNom, Raid.Identifier = Opus.Court, Opus.Membres, Opus.MonNom, Opus.Identifier
 Raid.Ecoute = Opus.Ecoute
 
+-- Les fenêtres du butin : un cadre sombre à liseré doré (comme les notifications d'Opus), un titre et une croix. Pas le
+-- modèle des fenêtres du jeu : sans portrait, il laisse une bande grise sous le titre et des bords qui dépassent.
+-- f.Inset reçoit le contenu (le même nom qu'avec le modèle) ; f:SetTitle(texte).
+function Raid.Cadre (nom)
+	local f = CreateFrame("Frame", nom, UIParent, "BackdropTemplate")
+	if f.SetBackdrop then
+		f:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+			tile = true, tileSize = 16, edgeSize = 14, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+		f:SetBackdropColor(0.05, 0.05, 0.08, 0.95)
+		f:SetBackdropBorderColor(0.83, 0.69, 0.22)
+	end
+	f.titre = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	f.titre:SetPoint("TOPLEFT", 12, -9) f.titre:SetPoint("TOPRIGHT", -30, -9) f.titre:SetJustifyH("LEFT")
+	f.SetTitle = function (self, texte) self.titre:SetText(texte) end
+	f.filet = f:CreateTexture(nil, "ARTWORK")
+	f.filet:SetHeight(1) f.filet:SetPoint("TOPLEFT", 8, -26) f.filet:SetPoint("TOPRIGHT", -8, -26)
+	f.filet:SetColorTexture(0.83, 0.69, 0.22, 0.35)
+	f.fermer = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+	f.fermer:SetSize(24, 24) f.fermer:SetPoint("TOPRIGHT", -3, -3)
+	f.Inset = CreateFrame("Frame", nil, f)
+	f.Inset:SetPoint("TOPLEFT", 4, -26) f.Inset:SetPoint("BOTTOMRIGHT", -4, 4)
+	f:SetFrameStrata("DIALOG") f:SetToplevel(true) f:SetClampedToScreen(true)
+	f:EnableMouse(true) f:SetMovable(true) f:RegisterForDrag("LeftButton")
+	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)
+	return f
+end
+
 -- L'infobulle d'un objet : par son lien, ou par son itemID quand le jeu ne l'a pas encore (elle le charge au passage).
 function Raid.Infobulle (proprio, lien, id)
 	GameTooltip:SetOwner(proprio, "ANCHOR_RIGHT")
