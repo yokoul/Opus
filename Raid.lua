@@ -72,9 +72,17 @@ function Raid.Cadre (nom)
 	return f
 end
 
+-- Où s'ouvrent les infobulles des fenêtres du butin : au-dessus de l'élément survolé, calées à sa gauche. À droite
+-- (« ANCHOR_RIGHT »), une ligne large les renvoyait au bout de la fenêtre, et les comparaisons du jeu plus loin encore.
+function Raid.Ancrer (proprio)
+	GameTooltip:SetOwner(proprio, "ANCHOR_NONE")
+	GameTooltip:ClearAllPoints()
+	GameTooltip:SetPoint("BOTTOMLEFT", proprio, "TOPLEFT", 0, 4)
+end
+
 -- L'infobulle d'un objet : par son lien, ou par son itemID quand le jeu ne l'a pas encore (elle le charge au passage).
 function Raid.Infobulle (proprio, lien, id)
-	GameTooltip:SetOwner(proprio, "ANCHOR_RIGHT")
+	Raid.Ancrer(proprio)
 	if lien and (lien:find("|H", 1, true) or lien:find("^item:")) then GameTooltip:SetHyperlink(lien)
 	elseif tonumber(id) and GameTooltip.SetItemByID then GameTooltip:SetItemByID(tonumber(id))
 	elseif tonumber(id) then GameTooltip:SetHyperlink("item:" .. tonumber(id))

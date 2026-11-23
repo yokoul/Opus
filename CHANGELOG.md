@@ -22,6 +22,8 @@ Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://disc
 - Raids : un objet pas encore annoncé qui quitte le corps (donné par le menu du maître du butin du jeu, ou ramassé) sort de la fenêtre du butin.
 - Raids : des annonces au raid courtes par défaut (« #12 [objet] » Basara Nore. Objection : « !objection 12 » (3 min). », « #12 [objet] » Basara Nore. »), les infos sont dans les fenêtres ; les annonces détaillées (scores, suivants, quorum, déroulé du vote) restent au choix dans Réglages, « Butin ». Une décision des officiers s'annonce toujours avec son motif. Moins de messages pour soi dans la discussion (remise, échange).
 - Donjons : la fenêtre du butin de groupe se ferme (croix ou Échap) et ne revient qu'au jet suivant ; quand tout est joué, elle ne se rouvre plus.
+- Raids et donjons : avec Pawn, le verdict de la comparaison est le gain de l'objet dans la meilleure spé de chacun (« +53 % », avec les échelles Classic de Pawn, par classe), face à la pièce qu'il remplacerait ; l'écart de niveau d'objet ne reste qu'en indice gris, car il ne dit pas la valeur d'une pièce. L'infobulle nomme la spé.
+- Raids et donjons : les infobulles s'ouvrent au-dessus de l'élément survolé, au lieu de partir au bout de la ligne.
 - Raids : /opus raid essai, pour essayer une soirée en donjon à quelques-uns. Un instantané fabriqué en jeu (ton groupe et quatre figurants), des candidats pour chaque objet ramassé, la fenêtre du butin en groupe ; rien de cette soirée ne part au site.
 
 ## 0.32.0

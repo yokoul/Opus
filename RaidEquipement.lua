@@ -217,9 +217,84 @@ function Raid.EcartStats (r, id, lien)
 	return liste
 end
 
+------------------------------------------------------------------------
+-- Pawn, s'il est là : ce que l'objet vaut vraiment pour la classe du joueur
+------------------------------------------------------------------------
+
+-- Le niveau d'objet ne dit pas la valeur d'une pièce (+5 aux sorts valent plus, pour un druide, que 5 d'Intelligence).
+-- Pawn a des échelles par classe et par spé (« "Classic":DRUID1 »… celles de HawsJon, faites pour Classic et Forever) et
+-- sait calculer n'importe laquelle, même si ce n'est pas la nôtre : pour chaque spé de la classe, l'objet face à la
+-- pièce qu'il remplacerait (la moins bonne des deux pour bagues, bijoux, armes), et on garde la meilleure spé.
+
+-- un vrai lien d'objet : le lien tel quel, une chaîne « item:… » (avec son suffixe) résolue, sinon par l'itemID
+local function LienComplet (lien, id)
+	if lien and lien:find("|H", 1, true) then return lien end
+	local _, l = Info((lien and lien:find("^item:")) and lien or id)
+	return l
+end
+
+local function ValeurPawn (lien, echelle)
+	local ok, objet = pcall(PawnGetItemData, lien)
+	if not ok or not objet then return nil end
+	local ok2, v = pcall(PawnGetSingleValueFromItem, objet, echelle)
+	return ok2 and tonumber(v) or nil
+end
+
+local echellesDe = {}
+local function Echelles (classe)
+	if echellesDe[classe] then return echellesDe[classe] end
+	local t = {}
+	for nom, e in pairs(PawnCommon.Scales) do
+		if nom:match('^"Classic":' .. classe .. "%d*$") then
+			t[#t + 1] = { nom = nom, spe = (e.LocalizedName or nom):match(":%s*(.+)$") or e.LocalizedName or nom }
+		end
+	end
+	if #t > 0 then echellesDe[classe] = t end
+	return t
+end
+
+-- r : la comparaison (Raid.Comparer) ; classe : « DRUID »… Rend { pct, spe, vide } pour la meilleure spé, ou nil (pas de
+-- Pawn, objet pas encore connu du jeu, ou sans valeur pour cette classe).
+function Raid.GainPawn (r, id, lien, classe)
+	if not classe or not r or r.inconnu or not r.cases then return nil end
+	if not PawnGetItemData or not PawnGetSingleValueFromItem or not PawnCommon or not PawnCommon.Scales then return nil end
+	local nouveau = LienComplet(lien, id)
+	if not nouveau then return nil end
+	local meilleur
+	for _, e in ipairs(Echelles(classe)) do
+		local vn = ValeurPawn(nouveau, e.nom)
+		if vn and vn > 0 then
+			local va, manque = nil, false
+			for _, c in ipairs(r.cases) do
+				local v = 0
+				if c.id then
+					local l = LienComplet(c.lien, c.id)
+					v = l and ValeurPawn(l, e.nom)
+				end
+				if v == nil then manque = true break end
+				va = va and math.min(va, v) or v
+			end
+			if not manque and va then
+				local g = va > 0 and { pct = (vn - va) / va * 100, spe = e.spe } or { pct = math.huge, spe = e.spe, vide = true }
+				if not meilleur or g.pct > meilleur.pct then meilleur = g end
+			end
+		end
+	end
+	return meilleur
+end
+
+-- « +53 % », « −12 % », « vide »
+local function TextePawn (g)
+	if g.vide then return "vide" end
+	local p = math.floor(math.abs(g.pct) + 0.5)
+	if p == 0 then return "=" end
+	return (g.pct > 0 and "+" or "−") .. p .. " %"
+end
+
 -- Les lignes d'infobulle : ce qu'il porte, niveau par niveau, face à l'objet, puis ce que ça change
-function Raid.InfobulleEquipement (nom, id, lien)
+function Raid.InfobulleEquipement (nom, id, lien, classe)
 	local r = Raid.Comparer(nom, id)
+	classe = classe or (Opus.db.classes and Opus.db.classes[nom])
 	if not r then return end
 	if r.inconnu then GameTooltip:AddLine("Équipement pas encore inspecté (hors de portée, ou en combat).", 0.6, 0.6, 0.6) return end
 	GameTooltip:AddLine(" ")
@@ -234,7 +309,12 @@ function Raid.InfobulleEquipement (nom, id, lien)
 				q and q.r or 1, q and q.g or 1, q and q.b or 1, 0.8, 0.8, 0.8)
 		end
 	end
-	if r.ecart then GameTooltip:AddLine("niveau d'objet : " .. Raid.TexteEcart(r), 1, 1, 1) end
+	local g = Raid.GainPawn(r, id, lien, classe)
+	if g then
+		local c = (g.vide or g.pct > 0.5) and VERT or g.pct < -0.5 and ROUGE or GRIS
+		GameTooltip:AddDoubleLine("Pawn, meilleure spé : " .. g.spe, TextePawn(g), 1, 0.82, 0, c[1], c[2], c[3])
+	end
+	if r.ecart then GameTooltip:AddLine("niveau d'objet : " .. Raid.TexteEcart(r), 0.6, 0.6, 0.6) end
 	local stats = Raid.EcartStats(r, id, lien)
 	if stats and #stats > 0 then
 		GameTooltip:AddLine(#r.cases > 1 and "En remplaçant la moins bonne des deux :" or "En le portant :", 1, 0.82, 0)
@@ -257,22 +337,28 @@ local VERT, ROUGE, GRIS = { 0.25, 1, 0.25 }, { 1, 0.35, 0.35 }, { 0.6, 0.6, 0.6 
 -- la case du verdict : l'écart de niveau d'objet sur fond teinté (+14 vert, −4 rouge, « vide », « = », « ? »)
 function Raid.Verdict (parent)
 	local v = CreateFrame("Frame", nil, parent)
-	v:SetSize(36, 16)
+	v:SetSize(44, 16)
 	v.fond = v:CreateTexture(nil, "BACKGROUND") v.fond:SetAllPoints()
 	v.texte = v:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	v.texte:SetAllPoints() v.texte:SetJustifyH("CENTER")
 	return v
 end
-function Raid.PoserVerdict (v, r)
+-- Avec Pawn (classe connue), le verdict est son gain dans la meilleure spé ; sinon l'écart de niveau d'objet, en gris :
+-- un indice, pas un jugement.
+function Raid.PoserVerdict (v, r, id, lien, classe)
 	if not r then v:Hide() return end
 	local texte, c, fond = "?", GRIS, 0.06
-	if not r.inconnu then
+	local g = id and Raid.GainPawn(r, id, lien, classe)
+	if g then
+		texte = TextePawn(g)
+		if g.vide or g.pct > 0.5 then c, fond = VERT, 0.14 elseif g.pct < -0.5 then c, fond = ROUGE, 0.14 end
+	elseif not r.inconnu then
 		local vide = true
 		for _, x in ipairs(r.cases) do if not x.vide then vide = false end end
 		if vide then texte, c, fond = "vide", VERT, 0.14
 		elseif not r.ecart then texte = "…"
-		elseif r.ecart > 0 then texte, c, fond = "+" .. r.ecart, VERT, 0.14
-		elseif r.ecart < 0 then texte, c, fond = "−" .. -r.ecart, ROUGE, 0.14
+		elseif r.ecart > 0 then texte = "+" .. r.ecart
+		elseif r.ecart < 0 then texte = "−" .. -r.ecart
 		else texte = "=" end
 	end
 	v.texte:SetText(texte) v.texte:SetTextColor(c[1], c[2], c[3])

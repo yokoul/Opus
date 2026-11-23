@@ -11,7 +11,7 @@ local LARGEUR = 560
 local HAUT_MEMBRE = 20
 local TETE = 52                     -- la hauteur de l'objet et des en-têtes, au-dessus des membres
 -- les colonnes
-local PEUT, PORTE, CHANGE, CHOIX_X, JET = 124, 180, 262, 396, 470
+local PEUT, PORTE, CHANGE, CHOIX_X, JET = 124, 180, 270, 400, 474
 
 local tirages = {}                  -- { rollID, id, lien, fin, choix = { [nom] = { quoi, jet } }, gagnant, finie }
 local essai = false                 -- /opus raid jet : la fenêtre, seul et hors groupe
@@ -151,10 +151,10 @@ local function Membre (b, k)
 	m:SetScript("OnEnter", function (self)
 		local t = self.tirage
 		if not t then return end
-		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		Raid.Ancrer(self)
 		GameTooltip:AddLine(self.nomMembre, 1, 1, 1)
 		if self.portable == "non" then GameTooltip:AddLine("Ne peut pas porter cet objet.", 0.6, 0.6, 0.6)
-		else Raid.InfobulleEquipement(self.nomMembre, t.id, t.lien) end
+		else Raid.InfobulleEquipement(self.nomMembre, t.id, t.lien, self.classeNom) end
 		GameTooltip:Show()
 	end)
 	m:SetScript("OnLeave", GameTooltip_Hide)
@@ -264,7 +264,8 @@ function Opus.RafraichirButinGroupe ()
 			end
 			m.verdict:ClearAllPoints()
 			m.verdict:SetPoint("LEFT", PORTE + (eq and eq.cases and #eq.cases or 0) * 18 + 2, 0)
-			Raid.PoserVerdict(m.verdict, eq)
+			Raid.PoserVerdict(m.verdict, eq, t.id, t.lien, classe)
+			m.classeNom = classe
 			Raid.PoserPastilles(m.change, eq, t.id, t.lien)
 			local c = t.choix[mb.nom]
 			m.choix:SetText(c and c.quoi and CHOIX[c.quoi] or Opus.Gris(t.finie and "—" or "…"))

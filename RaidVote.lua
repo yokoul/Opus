@@ -110,7 +110,7 @@ local function BoutonChoix (l, i)
 	end)
 	-- ce que le candidat porte à cet emplacement, face à l'objet
 	b:SetScript("OnEnter", function (self)
-		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		Raid.Ancrer(self)
 		GameTooltip:AddLine(self.nom, 1, 1, 1)
 		Raid.InfobulleEquipement(self.nom, self.annonce.id, self.annonce.lien)
 		GameTooltip:AddLine("Clic : voter pour lui.", 0.6, 0.6, 0.6)

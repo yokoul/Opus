@@ -121,17 +121,17 @@ local function Ligne (n)
 		local c = self.candidat
 		if not c and self.membre then
 			-- hors liste : le présent, ce qu'il porte et ce que l'objet lui changerait
-			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+			Raid.Ancrer(self)
 			GameTooltip:AddLine(self.membre, 1, 1, 1)
 			if self.portable == "non" then GameTooltip:AddLine("Ne peut pas porter cet objet.", 0.6, 0.6, 0.6)
-			else Raid.InfobulleEquipement(self.membre, f.id, f.lien) end
+			else Raid.InfobulleEquipement(self.membre, f.id, f.lien, self.classeNom) end
 			if f.decider then GameTooltip:AddLine("Clic : lui attribuer l'objet.", 0.6, 0.6, 0.6) end
 			GameTooltip:Show()
 			return
 		end
 		if not c then return end
 		local p = Raid.db.instantane.poids
-		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		Raid.Ancrer(self)
 		GameTooltip:AddLine(c.nom .. " — " .. Raid.Score(c.score), 1, 1, 1)
 		for _, t in ipairs(TERMES) do
 			local v = c.termes[t.cle]
@@ -300,7 +300,7 @@ function Raid.RafraichirFiche ()
 		end
 		l.verdict:ClearAllPoints()
 		l.verdict:SetPoint("LEFT", PORTE + (eq and eq.cases and #eq.cases or 0) * 23 + 2, 0)
-		Raid.PoserVerdict(l.verdict, eq)
+		Raid.PoserVerdict(l.verdict, eq, f.id, f.lien, classe)
 		Raid.PoserPastilles(l.change, eq, f.id, f.lien)
 		l.score:SetText(Raid.Score(c.score))
 		local ns, np = soir[c.nom] or 0, palier and (palier[c.nom] or 0)
@@ -361,7 +361,8 @@ function Raid.RafraichirFiche ()
 			l.verdict:ClearAllPoints()
 			l.verdict:SetPoint("LEFT", PORTE + (eq and eq.cases and #eq.cases or 0) * 23 + 2, 0)
 			if m.peut == "non" then l.verdict:Hide() Raid.PoserPastilles(l.change, nil)
-			else Raid.PoserVerdict(l.verdict, eq) Raid.PoserPastilles(l.change, eq, f.id, f.lien) end
+			else Raid.PoserVerdict(l.verdict, eq, f.id, f.lien, m.classe) Raid.PoserPastilles(l.change, eq, f.id, f.lien) end
+			l.classeNom = m.classe
 			l.score:SetText(m.declare == 1 and "|cffffd100en tête|r" or m.declare and "|cff40ff40le veut|r" or "")
 			local ns, np = soir[m.nom] or 0, palier and (palier[m.nom] or 0)
 			l.soir:SetText(ns > 0 and Opus.Blanc(ns .. " reçu" .. (ns > 1 and "s" or "")) or Opus.Gris("rien"))
