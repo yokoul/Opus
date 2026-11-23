@@ -125,7 +125,7 @@ local function Ligne (n)
 			local v = c.termes[t.cle]
 			GameTooltip:AddDoubleLine(string.format("%s (%.2f × %d)", t.nom, v, p[t.cle]), Raid.Score(v * p[t.cle]), t.r, t.g, t.b, 1, 1, 1)
 		end
-		Raid.InfobulleEquipement(c.nom, f.id)
+		Raid.InfobulleEquipement(c.nom, f.id, f.lien)
 		if f.decider then GameTooltip:AddLine("Clic : lui attribuer l'objet.", 0.6, 0.6, 0.6)
 		elseif f.electeur then GameTooltip:AddLine("Clic : voter pour lui.", 0.6, 0.6, 0.6) end
 		GameTooltip:Show()

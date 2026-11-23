@@ -144,14 +144,16 @@ function Raid.Comparer (nom, id)
 		local oid = tonumber(objet:match("^%d+"))
 		if not oid or oid == 0 then
 			r.cases[#r.cases + 1] = { vide = true }
-			plusBas = 0
+			plusBas, r.remplace = 0, #r.cases
 		else
 			local suffixe = objet:match(":(%-?%d+)$")
 			local n = Niveau(oid)
 			r.cases[#r.cases + 1] = { id = oid, lien = "item:" .. oid .. ":0:0:0:0:0:" .. (suffixe or 0), niveau = n }
+			if n and (not plusBas or n < plusBas) then r.remplace = #r.cases end
 			if n then plusBas = plusBas and math.min(plusBas, n) or n else manque = true end
 		end
 	end
+	r.remplace = r.remplace or 1
 	if r.niveau and plusBas and not manque then r.ecart = r.niveau - plusBas
 	elseif r.niveau and plusBas == 0 then r.ecart = r.niveau end
 	return r
@@ -170,8 +172,39 @@ function Raid.TexteEcart (r)
 	return Opus.Gris("=")
 end
 
--- Les lignes d'infobulle : ce qu'il porte, niveau par niveau, face à l'objet
-function Raid.InfobulleEquipement (nom, id)
+-- les caractéristiques d'un objet (suffixe compris) : { [clé du jeu] = valeur }
+local StatsDe = (C_Item and C_Item.GetItemStats) or GetItemStats
+local function Stats (lien)
+	if not StatsDe or not lien then return nil end
+	local ok, t = pcall(StatsDe, lien)
+	return ok and type(t) == "table" and t or nil
+end
+
+-- Ce que l'objet change, caractéristique par caractéristique, face à la pièce qu'il remplacerait (la moins bonne des
+-- deux pour bagues, bijoux, armes) : { { nom, ecart } … }, les plus grands écarts d'abord ; nil si le jeu ne dit rien
+function Raid.EcartStats (r, id, lien)
+	if not r or not r.cases then return nil end
+	local nouveau = Stats((lien and lien:find("|H", 1, true)) and lien or ("item:" .. id))
+	if not nouveau then return nil end
+	local c = r.cases[r.remplace]
+	local ancien = c and c.id and Stats(c.lien) or {}
+	local ecarts = {}
+	for cle in pairs(nouveau) do ecarts[cle] = true end
+	for cle in pairs(ancien) do ecarts[cle] = true end
+	local liste = {}
+	for cle in pairs(ecarts) do
+		local e = (nouveau[cle] or 0) - (ancien[cle] or 0)
+		if math.abs(e) >= 0.05 then liste[#liste + 1] = { nom = _G[cle] or cle, ecart = e } end
+	end
+	table.sort(liste, function (a, b)
+		if math.abs(a.ecart) ~= math.abs(b.ecart) then return math.abs(a.ecart) > math.abs(b.ecart) end
+		return a.nom < b.nom
+	end)
+	return liste
+end
+
+-- Les lignes d'infobulle : ce qu'il porte, niveau par niveau, face à l'objet, puis ce que ça change
+function Raid.InfobulleEquipement (nom, id, lien)
 	local r = Raid.Comparer(nom, id)
 	if not r then return end
 	if r.inconnu then GameTooltip:AddLine("Équipement pas encore inspecté (hors de portée, ou en combat).", 0.6, 0.6, 0.6) return end
@@ -187,7 +220,18 @@ function Raid.InfobulleEquipement (nom, id)
 				q and q.r or 1, q and q.g or 1, q and q.b or 1, 0.8, 0.8, 0.8)
 		end
 	end
-	if r.ecart then GameTooltip:AddLine("écart : " .. Raid.TexteEcart(r), 1, 1, 1) end
+	if r.ecart then GameTooltip:AddLine("niveau d'objet : " .. Raid.TexteEcart(r), 1, 1, 1) end
+	local stats = Raid.EcartStats(r, id, lien)
+	if stats and #stats > 0 then
+		GameTooltip:AddLine(#r.cases > 1 and "En remplaçant la moins bonne des deux :" or "En le portant :", 1, 0.82, 0)
+		for k, s in ipairs(stats) do
+			if k > 10 then break end
+			local v = math.abs(s.ecart)
+			v = (v == math.floor(v)) and tostring(v) or string.format("%.1f", v)
+			if s.ecart > 0 then GameTooltip:AddDoubleLine(s.nom, "+" .. v, 0.8, 0.8, 0.8, 0.25, 1, 0.25)
+			else GameTooltip:AddDoubleLine(s.nom, "−" .. v, 0.8, 0.8, 0.8, 1, 0.35, 0.35) end
+		end
+	elseif stats then GameTooltip:AddLine("mêmes caractéristiques", 0.6, 0.6, 0.6) end
 end
 
 -- les noms d'objets arrivés après coup

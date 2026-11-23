@@ -138,8 +138,20 @@ local CHOIX = {
 
 local function Membre (b, k)
 	if b.membres[k] then return b.membres[k] end
-	local m = CreateFrame("Frame", nil, b)
+	local m = CreateFrame("Button", nil, b)
 	m:SetSize(LARGEUR - 40, HAUT_MEMBRE)
+	m.survol = m:CreateTexture(nil, "HIGHLIGHT") m.survol:SetAllPoints() m.survol:SetColorTexture(1, 1, 1, 0.05)
+	-- au survol : ce qu'il porte, et ce que l'objet lui changerait, caractéristique par caractéristique
+	m:SetScript("OnEnter", function (self)
+		local t = self.tirage
+		if not t then return end
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:AddLine(self.nomMembre, 1, 1, 1)
+		if self.portable == "non" then GameTooltip:AddLine("Ne peut pas porter cet objet.", 0.6, 0.6, 0.6)
+		else Raid.InfobulleEquipement(self.nomMembre, t.id, t.lien) end
+		GameTooltip:Show()
+	end)
+	m:SetScript("OnLeave", GameTooltip_Hide)
 	m:SetPoint("TOPLEFT", 0, -42 - (k - 1) * HAUT_MEMBRE)
 	m.nom = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	m.nom:SetPoint("LEFT", 4, 0) m.nom:SetWidth(118) m.nom:SetJustifyH("LEFT") m.nom:SetWordWrap(false)
@@ -216,6 +228,7 @@ function Opus.RafraichirButinGroupe ()
 			local _, classe = UnitClass(mb.unite)
 			m.nom:SetText((mb.nom == t.gagnant and "|cffffd100» |r" or "") .. Opus.Couleur(classe) .. mb.nom .. "|r")
 			local peut = Peut(mb.unite, t.id)
+			m.tirage, m.nomMembre, m.portable = t, mb.nom, peut
 			m.peut:SetText(peut == "oui" and "|cff40ff40peut|r" or peut == "non" and Opus.Gris("non") or peut and ("|cffff8040" .. peut .. "|r") or Opus.Gris("—"))
 			local eq = peut and peut ~= "non" and Raid.Comparer(mb.nom, t.id) or nil
 			for j, icone in ipairs(m.portes) do
