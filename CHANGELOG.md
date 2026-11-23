@@ -3,6 +3,9 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## À venir
+- Envies : à la connexion, les envies en cours arrivent en 10 à 20 secondes au lieu d'une minute (le rattrapage part dès que la liste de guilde est chargée, en tête de file).
+
 ## 0.30.0
 - Raids : l'addon Opus Raid rejoint Opus. Le butin des raids de guilde suit les règles publiées sur opus-guild.eu (page Raids) : listes de souhaits validées sur le site, proposition calculée quand un objet tombe, 3 minutes pour faire objection, vote des non-candidats, décision motivée des officiers, Suicide King pour ce que personne n'a en liste, puis désenchantement ou banque, remise par échange. Si Opus Raid est encore installé, désactive-le : Opus reprend ses données à la première connexion.
 - Raids : nouvel onglet « Raids ». La soirée de guilde (l'ouvrir, la fermer, son état), l'instantané du site (importer, détail), les annonces du soir, ta liste de souhaits et ta place au Suicide King, et le rapport à rendre au site. Les fenêtres du butin, des attributions et de la décision des officiers restent à part, elles s'ouvrent en pleine soirée.

@@ -584,9 +584,16 @@ local connecte = false
 Opus.Ecoute("PLAYER_ENTERING_WORLD", function ()
 	if connecte then return end
 	connecte = true
-	C_Timer.After(55, function ()
-		if IsInGuild() then Opus.Envoyer(table.concat({ "e", Opus.NouvelId() }, FS)) end
-	end)
+	-- le rattrapage des envies passe en tête de file dès que la liste de guilde est là (sans elle, les envies reçues
+	-- seraient écartées : leur auteur serait inconnu) ; au plus tard 55 s après la connexion
+	local function Rattraper (attendu)
+		if attendu < 55 and (GetNumGuildMembers() or 0) == 0 then
+			C_Timer.After(2, function () Rattraper(attendu + 2) end)
+		elseif IsInGuild() then
+			Opus.EnvoyerVite(table.concat({ "e", Opus.NouvelId() }, FS))
+		end
+	end
+	C_Timer.After(5, function () Rattraper(5) end)
 	-- « maintenant » expire, les membres se connectent : on revérifie de temps en temps
 	C_Timer.NewTicker(120, function () if Opus.VerifierGroupes then Opus.VerifierGroupes() end end)
 end)
