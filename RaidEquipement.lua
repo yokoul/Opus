@@ -186,6 +186,20 @@ function Raid.TexteEcart (r)
 	return Opus.Gris("=")
 end
 
+-- Le nom d'une caractéristique : celui du jeu ; à défaut (Forever ne traduit pas tout, les résistances par exemple),
+-- le nôtre ; sinon la clé rendue lisible (« ITEM_MOD_FIRE_RESISTANCE_SHORT » » « fire resistance »).
+local NOMS = {
+	ITEM_MOD_FIRE_RESISTANCE_SHORT = "Résistance au feu", ITEM_MOD_FROST_RESISTANCE_SHORT = "Résistance au givre",
+	ITEM_MOD_NATURE_RESISTANCE_SHORT = "Résistance à la nature", ITEM_MOD_SHADOW_RESISTANCE_SHORT = "Résistance à l'ombre",
+	ITEM_MOD_ARCANE_RESISTANCE_SHORT = "Résistance aux arcanes", ITEM_MOD_HOLY_RESISTANCE_SHORT = "Résistance au sacré",
+}
+function Raid.NomStat (cle)
+	local n = _G[cle]
+	if type(n) == "string" and n ~= "" then return n end
+	if NOMS[cle] then return NOMS[cle] end
+	return (cle:gsub("^ITEM_MOD_", ""):gsub("_SHORT$", ""):gsub("_", " "):lower())
+end
+
 -- les caractéristiques d'un objet (suffixe compris) : { [clé du jeu] = valeur }
 local StatsDe = (C_Item and C_Item.GetItemStats) or GetItemStats
 local function Stats (lien)
@@ -208,7 +222,7 @@ function Raid.EcartStats (r, id, lien)
 	local liste = {}
 	for cle in pairs(ecarts) do
 		local e = (nouveau[cle] or 0) - (ancien[cle] or 0)
-		if math.abs(e) >= 0.05 then liste[#liste + 1] = { cle = cle, nom = _G[cle] or cle, ecart = e } end
+		if math.abs(e) >= 0.05 then liste[#liste + 1] = { cle = cle, nom = Raid.NomStat(cle), ecart = e } end
 	end
 	table.sort(liste, function (a, b)
 		if math.abs(a.ecart) ~= math.abs(b.ecart) then return math.abs(a.ecart) > math.abs(b.ecart) end
@@ -379,6 +393,9 @@ local ABREGE = {
 	ITEM_MOD_HEALTH_REGENERATION_SHORT = "Vie/5",
 	RESISTANCE1_NAME = "Rés sacré", RESISTANCE2_NAME = "Rés feu", RESISTANCE3_NAME = "Rés nature",
 	RESISTANCE4_NAME = "Rés givre", RESISTANCE5_NAME = "Rés ombre", RESISTANCE6_NAME = "Rés arcanes",
+	ITEM_MOD_HOLY_RESISTANCE_SHORT = "Rés sacré", ITEM_MOD_FIRE_RESISTANCE_SHORT = "Rés feu",
+	ITEM_MOD_NATURE_RESISTANCE_SHORT = "Rés nature", ITEM_MOD_FROST_RESISTANCE_SHORT = "Rés givre",
+	ITEM_MOD_SHADOW_RESISTANCE_SHORT = "Rés ombre", ITEM_MOD_ARCANE_RESISTANCE_SHORT = "Rés arcanes",
 }
 local CACHEES = { RESISTANCE0_NAME = true }    -- l'armure : elle suit le niveau d'objet, elle prendrait la place
 

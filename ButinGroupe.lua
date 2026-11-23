@@ -257,7 +257,8 @@ end
 
 local function BandeDe (cadre)
 	if bandes[cadre] then return bandes[cadre] end
-	local b = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+	-- enfant du cadre du jeu : même étage d'affichage que lui (un sac ouvert passe devant les deux), et partie avec lui
+	local b = CreateFrame("Frame", nil, cadre, "BackdropTemplate")
 	if b.SetBackdrop then
 		b:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
 			tile = true, tileSize = 16, edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
@@ -315,7 +316,6 @@ local function PoserBande (t, cadre, membres)
 		m:Show()
 	end
 	b:SetHeight(12 + #lignes * HAUT_MEMBRE)
-	b:SetFrameStrata(cadre:GetFrameStrata())
 	b:Show()
 end
 
