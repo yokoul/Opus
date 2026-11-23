@@ -90,7 +90,9 @@ local function Attribuer (a, nom, voie, comment)
 	Raid.DiffuserAttribution(a)
 	a.evenementA = Raid.Noter("A", { tombe = a.evenementT, attributaire = nom, voie = voie })
 	if Raid.ApresAttribution then Raid.ApresAttribution(a) end
-	Raid.Annoncer(string.format("#%d %s attribué à %s%s.", a.n, a.lien, nom, comment or ""))
+	-- courte : le gagnant ; le comment (vote, Suicide King…) en détaillé, ou toujours pour une décision des officiers
+	if Raid.Detaillees() or a.decision then Raid.Annoncer(string.format("#%d %s attribué à %s%s.", a.n, a.lien, nom, comment or ""))
+	else Raid.Annoncer(string.format("#%d %s » %s.", a.n, a.lien, nom)) end
 	Rafraichir()
 end
 
@@ -198,7 +200,8 @@ function Raid.Lancer (o)
 		scores = (function () local t = {} for _, c in ipairs(r.candidats) do t[#t + 1] = string.format("%s:%.1f", c.nom, c.score) end return t end)() })
 	local delai = Raid.Duree("objection")
 	a.etat, a.fin = "delai", GetTime() + delai
-	local texte = Raid.TexteAnnonce(o.lien, r, string.format(" Objection : « !objection %d » (%s).", a.n, Raid.TexteDuree(delai)))
+	local texte = Raid.Detaillees() and Raid.TexteAnnonce(o.lien, r, string.format(" Objection : « !objection %d » (%s).", a.n, Raid.TexteDuree(delai)))
+		or string.format("%s » %s%s. Objection : « !objection %d » (%s).", o.lien, c1.nom, r.egalite and " (ex aequo)" or "", a.n, Raid.TexteDuree(delai))
 	Raid.Annoncer("#" .. a.n .. " " .. texte)
 	local candidats = {}
 	for nom in pairs(a.candidats) do candidats[#candidats + 1] = nom end
@@ -232,8 +235,14 @@ local function Objecter (a, nom, motif)
 	Diffuser("V", a.n, vote, a.quorum, a.nElecteurs, nom, table.concat(a.choix, ","), a.motif or "")
 	local numeros = {}
 	for k, c in ipairs(a.choix) do numeros[k] = k .. " " .. c end
-	Raid.Annoncer(string.format("#%d objection de %s%s. Vote %s entre les candidats, « !vote %d <numéro> » : %s. Votent les non-candidats, quorum %d sur %d.",
-		a.n, nom, a.motif and (" (« " .. a.motif .. " »)") or "", Raid.TexteDuree(vote), a.n, table.concat(numeros, ", "), a.quorum, a.nElecteurs))
+	local motifTexte = a.motif and (" (« " .. a.motif .. " »)") or ""
+	if Raid.Detaillees() then
+		Raid.Annoncer(string.format("#%d objection de %s%s. Vote %s entre les candidats, « !vote %d <numéro> » : %s. Votent les non-candidats, quorum %d sur %d.",
+			a.n, nom, motifTexte, Raid.TexteDuree(vote), a.n, table.concat(numeros, ", "), a.quorum, a.nElecteurs))
+	else
+		Raid.Annoncer(string.format("#%d objection de %s%s. Vote (%s) : « !vote %d <numéro> », %s.",
+			a.n, nom, motifTexte, Raid.TexteDuree(vote), a.n, table.concat(numeros, ", ")))
+	end
 	C_Timer.After(vote, function () FinVote(a) end)
 	Rafraichir()
 	-- chez celui qui a annoncé : la fiche s'ouvre sur l'objection, pour suivre le vote (et y voter)
@@ -315,10 +324,11 @@ function Raid.Decider (a, nom, voie, motif)
 	motif = strtrim(motif or "")
 	if motif == "" then Msg("une décision demande un motif.") return false end
 	Raid.Noter("D", { proposition = a.evenementO, attributaire = nom or "", officier = Raid.MonNom(), motif = motif })
+	a.decision = true               -- une décision s'annonce toujours avec son motif
 	if voie == "wish" then
 		Attribuer(a, nom, "wish", " sur décision des officiers : " .. motif)
 	elseif voie == "sk" then
-		Raid.LancerSK(a, a.lien .. " : décision des officiers (" .. motif .. "), Suicide King.")
+		Raid.LancerSK(a, a.lien .. " : décision des officiers (" .. motif .. "), Suicide King.", true)
 	else
 		Raid.Desenchanter(a, " sur décision des officiers : " .. motif)
 	end

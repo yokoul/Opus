@@ -266,7 +266,6 @@ function Raid.Donner (o)
 		if c and Raid.Court(c) == dest then
 			attente[slot] = { a = a, dest = dest }
 			GiveMasterLoot(slot, i)
-			Msg(o.lien .. " donné à " .. dest .. ".")
 			return
 		end
 	end

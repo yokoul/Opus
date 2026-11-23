@@ -20,11 +20,16 @@ local function Positions (liste)
 	return pos
 end
 
-function Raid.LancerSK (a, debut)
+-- debut : le début de l'annonce détaillée ; garder : l'annoncer même en annonces courtes (une décision des officiers)
+function Raid.LancerSK (a, debut, garder)
 	local duree = Raid.Duree("sk")
 	a.etat, a.fin, a.interesses = "sk", GetTime() + duree, {}
-	Raid.Annoncer(string.format("#%d %s. Intéressés : « !sk %d », sinon « !passe %d » (%s), le plus haut dans la liste Suicide King gagne.",
-		a.n, (debut or a.lien):gsub("%.$", ""), a.n, a.n, Raid.TexteDuree(duree)))
+	if Raid.Detaillees() or garder then
+		Raid.Annoncer(string.format("#%d %s. Intéressés : « !sk %d », sinon « !passe %d » (%s), le plus haut dans la liste Suicide King gagne.",
+			a.n, (debut or a.lien):gsub("%.$", ""), a.n, a.n, Raid.TexteDuree(duree)))
+	else
+		Raid.Annoncer(string.format("#%d %s : Suicide King (%s), « !sk %d » ou « !passe %d ».", a.n, a.lien, Raid.TexteDuree(duree), a.n, a.n))
+	end
 	if Raid.Diffuser then Raid.Diffuser("S", a.n, a.id, duree) end
 	C_Timer.After(duree, function () Raid.FinSK(a) end)
 	Rafraichir()
@@ -99,8 +104,12 @@ function Raid.Desenchanter (a, comment)
 	a.evenementA = Raid.Noter("A", { tombe = a.evenementT, attributaire = qui or "", voie = a.etat })
 	if qui and Raid.ApresAttribution then Raid.ApresAttribution(a) end
 	if Raid.DiffuserAttribution then Raid.DiffuserAttribution(a) end
-	Raid.Annoncer(string.format("#%d %s%s : %s.", a.n, a.lien, comment or "",
-		qui and ("désenchantement par " .. qui) or "aucun désenchanteur présent, pour la banque"))
+	if Raid.Detaillees() or a.decision then
+		Raid.Annoncer(string.format("#%d %s%s : %s.", a.n, a.lien, comment or "",
+			qui and ("désenchantement par " .. qui) or "aucun désenchanteur présent, pour la banque"))
+	else
+		Raid.Annoncer(string.format("#%d %s » %s.", a.n, a.lien, qui and ("désenchantement (" .. qui .. ")") or "banque"))
+	end
 	Rafraichir()
 end
 

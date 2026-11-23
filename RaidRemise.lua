@@ -98,7 +98,6 @@ Raid.Ecoute("TRADE_SHOW", function ()
 					ClearCursor()
 					Prendre(ou[1], ou[2])
 					ClickTradeButton(case)
-					Msg(a.lien .. " posé dans l'échange pour " .. dest .. " (#" .. a.n .. ").")
 					case = case + 1
 				elseif not ou then
 					Msg(a.lien .. " pour " .. dest .. " n'est pas dans tes sacs.")

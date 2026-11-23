@@ -14,6 +14,7 @@ end
 local OBJECTION = Choix({ 60, 90, 120, 180, 240, 300 })
 local VOTE = Choix({ 60, 90, 120, 180 })
 local SK = Choix({ 30, 45, 60, 90, 120 })
+local ANNONCES = { { "courtes", "Courtes" }, { "detaillees", "Détaillées" } }
 local SEUILS = { { 0.5, "50 %" }, { 0.6, "60 %" }, { 0.7, "70 %" }, { 0.8, "80 %" }, { 0.9, "90 %" }, { 1, "100 %" } }
 
 local function Construire (cadre)
@@ -62,6 +63,13 @@ local function Construire (cadre)
 	cadre.sk = Duree("sk", SK)
 	Ligne(40)
 
+	Libelle("Annonces au raid", "Courtes : l'objet, le proposé ou le gagnant, la commande. Détaillées : scores, suivants, quorum.")
+	cadre.annonces = Opus.Menu(cadre, 160, ANNONCES,
+		function () return Raid.db.reglages.annonces or "courtes" end,
+		function (v) Raid.db.reglages.annonces = v end)
+	cadre.annonces:SetPoint("TOPLEFT", X_CONTROLE, y)
+	Ligne(40)
+
 	Section("Raids : la soirée")
 	Libelle("Part de la guilde dans le raid", "Pour ouvrir une soirée de guilde (chef et officiers).")
 	cadre.seuil = Opus.Menu(cadre, 160, SEUILS,
@@ -83,7 +91,7 @@ local function Construire (cadre)
 end
 
 local function Rafraichir (cadre)
-	for _, m in ipairs({ cadre.objection, cadre.vote, cadre.sk, cadre.seuil }) do m:GenerateMenu() end
+	for _, m in ipairs({ cadre.objection, cadre.vote, cadre.sk, cadre.annonces, cadre.seuil }) do m:GenerateMenu() end
 	for _, c in ipairs({ cadre.echange, cadre.butinGroupe }) do c:SetChecked(c.lire()) end
 	return cadre.hauteur
 end

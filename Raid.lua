@@ -249,16 +249,16 @@ end
 Opus.Ecoute("GROUP_ROSTER_UPDATE", Verifier)
 
 -- L'ancien addon OpusRaid, s'il est encore activé : il mène le butin à sa façon (ses fenêtres, « [Opus Raid] », ses
--- durées) en même temps qu'Opus, et les deux se répondent. On le dit, en rouge, à chaque connexion.
+-- durées) en même temps qu'Opus, et les deux se répondent. Dit à la connexion (plus bas) et au diagnostic.
 function Raid.AncienActif ()
 	local charge = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
 	return charge and charge("OpusRaid") and true or false
 end
-local AVERTI = "|cffff5555l'ancien addon OpusRaid est encore activé sur ce personnage : il mène le butin à la place d'Opus (fenêtre « Opus Raid : butin », annonces « [Opus Raid] », durées fixes). Désactive-le dans la liste des addons, ou supprime son dossier AddOns/OpusRaid, puis relance le jeu.|r"
-Raid.AVERTI_ANCIEN = AVERTI
-Opus.Ecoute("PLAYER_LOGIN", function ()
-	C_Timer.After(5, function () if Raid.AncienActif() then Raid.Msg(AVERTI) end end)
-end)
+Raid.AVERTI_ANCIEN = "|cffff5555l'ancien addon OpusRaid est encore activé sur ce personnage : il mène le butin à la place d'Opus (fenêtre « Opus Raid : butin », annonces « [Opus Raid] », durées fixes). Désactive-le dans la liste des addons, ou supprime son dossier AddOns/OpusRaid, puis relance le jeu.|r"
+
+-- Les annonces au raid : courtes par défaut (l'objet, le proposé ou le gagnant, la commande à taper), les infos sont
+-- dans les fenêtres ; détaillées sur demande (scores, candidats suivants, quorum, déroulé du vote). Réglages, « Butin ».
+function Raid.Detaillees () return Raid.db and Raid.db.reglages.annonces == "detaillees" or false end
 
 ------------------------------------------------------------------------
 -- données
@@ -287,7 +287,7 @@ Opus.Ecoute("PLAYER_LOGIN", function ()
 		end
 		Raid.Msg("données d'Opus Raid reprises (instantané, soirée, droits).")
 	end
-	Raid.Msg("|cffff5555l'addon Opus Raid est encore activé|r : il fait maintenant partie d'Opus. Désactive-le (liste des addons) et fais /reload.")
+	Raid.Msg(Raid.AVERTI_ANCIEN)
 end)
 
 ------------------------------------------------------------------------
