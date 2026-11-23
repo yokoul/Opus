@@ -36,6 +36,7 @@ local function Construire ()
 	f = CreateFrame("Frame", "OpusRaidVote", UIParent, "ButtonFrameTemplate")
 	ButtonFrameTemplate_HidePortrait(f)
 	ButtonFrameTemplate_HideButtonBar(f)
+	f.Inset:SetPoint("TOPLEFT", 4, -24)   -- sans portrait : pas de bande vide sous le titre
 	f:SetSize(470, 100) f:SetPoint("TOP", 0, -120) f:SetFrameStrata("DIALOG")
 	f:EnableMouse(true) f:SetMovable(true) f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)
@@ -121,7 +122,7 @@ function Raid.RafraichirVote ()
 		l.pour:SetEnabled(a.monVote ~= "pour") l.contre:SetEnabled(a.monVote ~= "contre")
 		l:Show()
 	end
-	f:SetHeight(64 + #Raid.annonces * 44)
+	f:SetHeight(28 + #Raid.annonces * 44)
 	f:Show()
 end
 

@@ -66,6 +66,7 @@ local function Construire ()
 	f = CreateFrame("Frame", "OpusRaidButin", UIParent, "ButtonFrameTemplate")
 	ButtonFrameTemplate_HidePortrait(f)
 	ButtonFrameTemplate_HideButtonBar(f)
+	f.Inset:SetPoint("TOPLEFT", 4, -24)   -- sans portrait : pas de bande vide sous le titre
 	f:SetSize(520, 120) f:SetPoint("TOPLEFT", 260, -140) f:SetFrameStrata("DIALOG") f:SetToplevel(true)
 	f:EnableMouse(true) f:SetMovable(true) f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)
@@ -157,7 +158,7 @@ function Raid.MontrerButin ()
 	if not f then Construire() end
 	for _, l in ipairs(lignes) do l:Hide() end
 	if #objets == 0 then Msg("aucun objet relevé : ouvre le corps du boss en maître du butin.") f:Hide() return end
-	f:SetHeight(70 + #objets * 44)
+	f:SetHeight(34 + #objets * 44)
 	f:Show()
 	Raid.RafraichirButin()
 end
@@ -211,7 +212,27 @@ local function Garder (nouveaux)
 	objets = garde
 end
 
+-- /opus raid diag : pourquoi la fenêtre du butin s'ouvre (ou pas) sur un corps
+local dernierCorps
+Raid.Commande("diag", "diag", "pourquoi la fenêtre du butin s'ouvre ou non sur un corps", function ()
+	local lire = (C_PartyInfo and C_PartyInfo.GetLootMethod) or GetLootMethod
+	local ok, m, p, r = false, nil, nil, nil
+	if lire then ok, m, p, r = pcall(lire) end
+	local actif, raison = Raid.Actif()
+	local function OuiNon (v) return v and "|cff40ff40oui|r" or "|cffff5555non|r" end
+	Msg("diagnostic du butin :")
+	DEFAULT_CHAT_FRAME:AddMessage(string.format("  mode de butin : %s (groupe %s, raid %s)%s", tostring(m), tostring(p), tostring(r),
+		lire and (ok and "" or " — lecture impossible") or " — aucune fonction pour le lire"))
+	DEFAULT_CHAT_FRAME:AddMessage("  en groupe : " .. OuiNon(IsInGroup()) .. ", en raid : " .. OuiNon(IsInRaid())
+		.. ", maître du butin : " .. OuiNon(Raid.EstMaitreButin()) .. ", droit de gérer : " .. OuiNon(Raid.PeutGerer()))
+	DEFAULT_CHAT_FRAME:AddMessage("  soirée active : " .. OuiNon(actif) .. (raison and (" (" .. raison .. ")") or "")
+		.. ", seuil de butin : " .. tostring(GetLootThreshold and GetLootThreshold()))
+	DEFAULT_CHAT_FRAME:AddMessage("  instantané : " .. (Raid.db.instantane and Raid.db.instantane.id or "aucun")
+		.. ", dernier corps ouvert : " .. (dernierCorps or "aucun depuis le chargement"))
+end)
+
 Raid.Ecoute("LOOT_OPENED", function ()
+	dernierCorps = string.format("%s, %d objet(s), %d retenu(s)", date("%H:%M:%S"), GetNumLootItems() or 0, #Relever())
 	-- seulement dans une soirée de guilde ouverte (Raid.lua) : jamais dans le raid d'une autre guilde ; en groupe,
 	-- pour l'essai en donjon (/opus raid essai)
 	if not IsInGroup() or not Raid.EstMaitreButin() or not Raid.PeutGerer() or not Raid.Actif() then return end

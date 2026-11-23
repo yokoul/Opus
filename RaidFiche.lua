@@ -120,6 +120,7 @@ local function Construire ()
 	f = CreateFrame("Frame", "OpusRaidFiche", UIParent, "ButtonFrameTemplate")
 	ButtonFrameTemplate_HidePortrait(f)
 	ButtonFrameTemplate_HideButtonBar(f)
+	f.Inset:SetPoint("TOPLEFT", 4, -24)   -- sans portrait : pas de bande vide sous le titre
 	f:SetWidth(LARGEUR) f:SetPoint("TOPLEFT", 260, -280) f:SetFrameStrata("DIALOG") f:SetToplevel(true)
 	f:EnableMouse(true) f:SetMovable(true) f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)
@@ -279,7 +280,7 @@ function Raid.RafraichirFiche ()
 		f.annoncer:ClearAllPoints() f.annoncer:SetPoint("TOPRIGHT", -12, -y)
 		y = y + 30
 	end
-	f:SetHeight(y + 40)
+	f:SetHeight(y + 38)
 end
 
 -- La fiche d'un objet : o = { lien, id, attribution? } (une ligne de la fenêtre du butin), ou une attribution.
