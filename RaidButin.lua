@@ -338,6 +338,7 @@ end
 
 -- /opus raid diag : pourquoi la fenêtre du butin s'ouvre (ou pas) sur un corps
 local dernierCorps
+local dernierAvis                   -- le dernier corps pour lequel on a dit « pas de soirée »
 Raid.Commande("diag", "diag", "pourquoi la fenêtre du butin s'ouvre ou non sur un corps", function ()
 	local lire = (C_PartyInfo and C_PartyInfo.GetLootMethod) or GetLootMethod
 	local ok, m, p, r = false, nil, nil, nil
@@ -366,7 +367,16 @@ Raid.Ecoute("LOOT_OPENED", function ()
 	dernierCorps = string.format("%s, %d objet(s), %d retenu(s)", date("%H:%M:%S"), GetNumLootItems() or 0, #Relever())
 	-- seulement dans une soirée de guilde ouverte (Raid.lua) : jamais dans le raid d'une autre guilde ; en groupe,
 	-- pour l'essai en donjon (/opus raid essai)
-	if not IsInGroup() or not Raid.EstMaitreButin() or not Raid.PeutGerer() or not Raid.Actif() then return end
+	if not IsInGroup() or not Raid.EstMaitreButin() or not Raid.PeutGerer() then return end
+	local actif, raison = Raid.Actif()
+	if not actif then
+		-- maître du butin d'un groupe sans soirée de guilde : on le dit (une fois par corps), au lieu de ne rien montrer
+		if #Relever() > 0 and dernierAvis ~= dernierCorps then
+			dernierAvis = dernierCorps
+			Msg(raison .. " : la fenêtre du butin d'Opus ne s'ouvre pas.")
+		end
+		return
+	end
 	corpsOuvert = true
 	wipe(attente)
 	for _, o in ipairs(objets) do o.slot = nil end
