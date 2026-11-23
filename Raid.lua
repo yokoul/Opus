@@ -45,6 +45,28 @@ end
 Raid.Court, Raid.Membres, Raid.MonNom, Raid.Identifier = Opus.Court, Opus.Membres, Opus.MonNom, Opus.Identifier
 Raid.Ecoute = Opus.Ecoute
 
+-- L'icône d'un objet, qui se survole comme son lien : un bouton carré ; b.lien et b.id posés par Raid.PoserIcone.
+local IconeDe = (C_Item and C_Item.GetItemIconByID) or GetItemIcon
+function Raid.Icone (parent, taille)
+	local b = CreateFrame("Button", nil, parent)
+	b:SetSize(taille, taille)
+	b.image = b:CreateTexture(nil, "ARTWORK") b.image:SetAllPoints()
+	b.image:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+	b:SetScript("OnEnter", function (self)
+		if not self.lien or not self.lien:find("|H", 1, true) then return end
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT") GameTooltip:SetHyperlink(self.lien) GameTooltip:Show()
+	end)
+	b:SetScript("OnLeave", GameTooltip_Hide)
+	-- Maj+clic : le lien dans la discussion, comme ailleurs dans le jeu
+	b:SetScript("OnClick", function (self) if IsModifiedClick("CHATLINK") and self.lien then ChatEdit_InsertLink(self.lien) end end)
+	return b
+end
+function Raid.PoserIcone (b, id, lien)
+	id = tonumber(id)
+	b.id, b.lien = id, lien
+	b.image:SetTexture((id and IconeDe and IconeDe(id)) or "Interface\\Icons\\INV_Misc_QuestionMark")
+end
+
 -- le chef et les grades « officier » en jeu
 function Raid.EstOfficier () return Opus.PeutConfigurer() end
 

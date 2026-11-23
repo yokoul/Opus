@@ -80,8 +80,10 @@ local function Ligne (n)
 	local z = f.Inset
 	local l = CreateFrame("Frame", nil, z)
 	l:SetSize(490, 40) l:SetPoint("TOPLEFT", 10, -8 - (n - 1) * 44)
+	l.icone = Raid.Icone(l, 36)
+	l.icone:SetPoint("LEFT", 0, 0)
 	l.objet = CreateFrame("Button", nil, l)
-	l.objet:SetSize(330, 18) l.objet:SetPoint("TOPLEFT")
+	l.objet:SetSize(290, 18) l.objet:SetPoint("TOPLEFT", 44, 0)
 	l.objet.texte = l.objet:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	l.objet.texte:SetAllPoints() l.objet.texte:SetJustifyH("LEFT")
 	l.objet:SetScript("OnEnter", function (self)
@@ -90,7 +92,7 @@ local function Ligne (n)
 	end)
 	l.objet:SetScript("OnLeave", GameTooltip_Hide)
 	l.proposition = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	l.proposition:SetPoint("TOPLEFT", 0, -20) l.proposition:SetWidth(310) l.proposition:SetJustifyH("LEFT") l.proposition:SetWordWrap(false)
+	l.proposition:SetPoint("TOPLEFT", 44, -20) l.proposition:SetWidth(266) l.proposition:SetJustifyH("LEFT") l.proposition:SetWordWrap(false)
 	l.annoncer = CreateFrame("Button", nil, l, "SharedButtonSmallTemplate")
 	l.annoncer:SetSize(100, 24) l.annoncer:SetPoint("RIGHT", 0, 0) l.annoncer:SetText("Annoncer")
 	l.annoncer:SetScript("OnClick", function (self)
@@ -127,6 +129,7 @@ function Raid.RafraichirButin ()
 		local a = o.attribution
 		l.objet.lien, l.annoncer.lien, l.annoncer.id, l.annoncer.objet, l.annoncer.attribution = o.lien, o.lien, o.id, o, a
 		l.fiche.objet = o
+		Raid.PoserIcone(l.icone, o.id, o.lien)
 		l.objet.texte:SetText(o.lien)
 		if a then
 			l.proposition:SetText(Raid.EtatAttribution(a))
