@@ -32,6 +32,7 @@ RaidContrat.lua
 RaidInstantane.lua
 RaidScore.lua
 RaidButin.lua
+RaidFiche.lua
 RaidAttribution.lua
 RaidSuicideKing.lua
 RaidComm.lua

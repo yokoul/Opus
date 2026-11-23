@@ -89,16 +89,18 @@ local function Ligne (n)
 	end)
 	l.objet:SetScript("OnLeave", GameTooltip_Hide)
 	l.proposition = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	l.proposition:SetPoint("TOPLEFT", 0, -20) l.proposition:SetWidth(380) l.proposition:SetJustifyH("LEFT") l.proposition:SetWordWrap(false)
+	l.proposition:SetPoint("TOPLEFT", 0, -20) l.proposition:SetWidth(310) l.proposition:SetJustifyH("LEFT") l.proposition:SetWordWrap(false)
 	l.annoncer = CreateFrame("Button", nil, l, "SharedButtonSmallTemplate")
 	l.annoncer:SetSize(100, 24) l.annoncer:SetPoint("RIGHT", 0, 0) l.annoncer:SetText("Annoncer")
 	l.annoncer:SetScript("OnClick", function (self)
 		if self.attribution and self.attribution.etat == "trancher" then Raid.OuvrirDecision(self.attribution) return end
 		if self.attribution then return end
-		local a = Raid.Lancer(self.objet)
-		if a then self.objet.attribution = a end
-		Raid.RafraichirButin()
+		Raid.AnnoncerObjet(self.objet)
 	end)
+	-- la fiche de décision de l'objet (RaidFiche.lua) : les candidats, leurs scores, ce qu'ils ont déjà reçu
+	l.fiche = Opus.Bouton(l, "Fiche", 60, function (self) Raid.OuvrirFiche(self.objet) end)
+	l.fiche:SetPoint("RIGHT", l.annoncer, "LEFT", -6, 0)
+	Opus.Bulle(l.fiche, "Fiche de décision", "Les candidats présents, leur score décomposé et ce qu'ils ont déjà reçu ce soir et sur le palier.")
 	l.annoncer:SetScript("OnEnter", function (self)
 		if self.attribution then return end
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -114,12 +116,16 @@ end
 
 -- Met les lignes à jour : avant l'annonce, la proposition ; après, l'état de l'attribution (délai, vote…).
 function Raid.RafraichirButin ()
-	if not f or not f:IsShown() then return end
+	if not f or not f:IsShown() then
+		if Raid.RafraichirFiche then Raid.RafraichirFiche() end
+		return
+	end
 	local presents = Raid.Presents()
 	for n, o in ipairs(objets) do
 		local l = Ligne(n)
 		local a = o.attribution
 		l.objet.lien, l.annoncer.lien, l.annoncer.id, l.annoncer.objet, l.annoncer.attribution = o.lien, o.lien, o.id, o, a
+		l.fiche.objet = o
 		l.objet.texte:SetText(o.lien)
 		if a then
 			l.proposition:SetText(Raid.EtatAttribution(a))
@@ -136,6 +142,15 @@ function Raid.RafraichirButin ()
 		end
 		l:Show()
 	end
+	if Raid.RafraichirFiche then Raid.RafraichirFiche() end
+end
+
+-- Annonce l'objet d'une ligne de la fenêtre (ou de sa fiche) et lance le délai d'objection.
+function Raid.AnnoncerObjet (o)
+	if o.attribution then return end
+	local a = Raid.Lancer(o)
+	if a then o.attribution = a end
+	Raid.RafraichirButin()
 end
 
 function Raid.MontrerButin ()
@@ -204,67 +219,6 @@ Raid.Ecoute("LOOT_OPENED", function ()
 	Garder(releves)
 	Raid.MontrerButin()
 end)
-
-------------------------------------------------------------------------
--- la décision des officiers, quand un vote renverse la proposition
-------------------------------------------------------------------------
-
-local d
-
-local function ConstruireDecision ()
-	d = CreateFrame("Frame", "OpusRaidDecision", UIParent, "ButtonFrameTemplate")
-	ButtonFrameTemplate_HidePortrait(d)
-	ButtonFrameTemplate_HideButtonBar(d)
-	d:SetSize(400, 210) d:SetPoint("CENTER") d:SetFrameStrata("DIALOG") d:SetToplevel(true)
-	d:EnableMouse(true) d:SetMovable(true) d:RegisterForDrag("LeftButton")
-	d:SetScript("OnDragStart", d.StartMoving) d:SetScript("OnDragStop", d.StopMovingOrSizing)
-	tinsert(UISpecialFrames, "OpusRaidDecision")
-	local z = d.Inset
-	d.objet = z:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	d.objet:SetPoint("TOPLEFT", 12, -12) d.objet:SetPoint("TOPRIGHT", -12, -12) d.objet:SetJustifyH("LEFT")
-	local l1 = z:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	l1:SetPoint("TOPLEFT", 12, -40) l1:SetText("Attribuer à")
-	d.menu = CreateFrame("DropdownButton", nil, z, "WowStyle1DropdownTemplate")
-	d.menu:SetWidth(240) d.menu:SetPoint("TOPLEFT", 110, -34)
-	local l2 = z:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	l2:SetPoint("TOPLEFT", 12, -76) l2:SetText("Motif (annoncé au raid)")
-	d.motif = CreateFrame("EditBox", nil, z, "InputBoxTemplate")
-	d.motif:SetSize(350, 20) d.motif:SetPoint("TOPLEFT", 18, -94) d.motif:SetAutoFocus(false) d.motif:SetMaxLetters(120)
-	d.motif:SetScript("OnEscapePressed", function () d:Hide() end)
-	local ok = CreateFrame("Button", nil, z, "SharedButtonSmallTemplate")
-	ok:SetSize(120, 24) ok:SetPoint("BOTTOMRIGHT", -12, 12) ok:SetText("Décider")
-	ok:SetScript("OnClick", function ()
-		local c = d.choix
-		if not c then Msg("choisis à qui va l'objet.") return end
-		if Raid.Decider(d.attribution, c.nom, c.voie, d.motif:GetText()) then d:Hide() end
-	end)
-	d.motif:SetScript("OnEnterPressed", function () ok:Click() end)
-	d:Hide()
-end
-
-function Raid.OuvrirDecision (a)
-	if not Raid.PeutGerer() then Msg("décision " .. Raid.QuiPeut() .. ".") return end
-	if not d then ConstruireDecision() end
-	d.attribution, d.choix = a, nil
-	d:SetTitle("Trancher #" .. a.n)
-	d.objet:SetText(a.lien .. " — proposé : " .. a.propose)
-	-- les candidats présents, dans l'ordre de la proposition, puis Suicide King et désenchantement
-	local choix = {}
-	local r = Raid.Proposer(a.id, Raid.Presents())
-	for _, c in ipairs(r and r.candidats or {}) do
-		choix[#choix + 1] = { nom = c.nom, voie = "wish", libelle = c.nom .. " (" .. Raid.Score(c.score) .. ")" }
-	end
-	choix[#choix + 1] = { voie = "sk", libelle = "Suicide King" }
-	choix[#choix + 1] = { voie = "de", libelle = "Désenchantement" }
-	d.menu:SetupMenu(function (_, racine)
-		for _, c in ipairs(choix) do
-			racine:CreateRadio(c.libelle, function () return d.choix == c end, function () d.choix = c end)
-		end
-	end)
-	d.motif:SetText("")
-	d:Show()
-	d.motif:SetFocus()
-end
 
 ------------------------------------------------------------------------
 -- commandes

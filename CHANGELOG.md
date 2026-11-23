@@ -3,6 +3,9 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## À paraître
+- Raids : la fiche de décision. Pour chaque objet (bouton « Fiche » de la fenêtre du butin), les candidats présents d'un coup d'œil : couleur de classe, rang et rôle, score en barre décomposée (rang, prios perdues, dernier loot, gain), ce que chacun a déjà reçu ce soir et sur le palier (par le bridge) ; le détail du calcul au survol. On peut annoncer depuis la fiche. Quand un vote renverse la proposition, elle remplace la fenêtre « Trancher » : un clic sur un nom (ou Suicide King, Désenchantement), un motif en un clic (Rang 1, Moins servi, Rôle) à compléter, Entrée décide.
+
 ## 0.32.0
 - Raids : avec le bridge, le rapport de la soirée part tout seul au site à la déconnexion (ou au /reload), sans copier-coller. Il est déposé à la fermeture de la soirée de guilde (ou en quittant le raid), et complété s'il change encore ; les essais hors groupe ne partent pas. L'export à coller reste possible sans bridge.
 
