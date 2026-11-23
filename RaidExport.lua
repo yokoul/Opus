@@ -75,7 +75,8 @@ end
 -- à la déconnexion ou au /reload. Seulement une soirée de guilde, et seulement si elle a changé depuis le dernier dépôt.
 function Raid.Deposer (sansEcarts)
 	local s = Raid.db.soiree
-	if not s or not s.guilde then return end
+	-- une soirée d'essai (instantané « essai-… ») reste en jeu
+	if not s or not s.guilde or tostring(s.instantane or ""):match("^essai") then return end
 	local d = Raid.db.rapport
 	if d and d.id == s.ml .. "/" .. s.debut and d.n == #s.evenements and (sansEcarts or d.complet) then return end
 	local chaine = Raid.Rapport(sansEcarts)

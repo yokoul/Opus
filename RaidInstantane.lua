@@ -230,6 +230,62 @@ function Raid.OuvrirImport ()
 	f:Show()
 end
 
+------------------------------------------------------------------------
+-- l'essai en donjon : un instantané fabriqué en jeu, pour essayer la soirée à quelques-uns
+------------------------------------------------------------------------
+
+-- des candidats imaginaires, comptés présents, pour que la fiche de décision ait de quoi montrer
+local FIGURANTS = { { "Essai Rempart", "tank" }, { "Essai Lumière", "heal" }, { "Essai Lame", "dps" }, { "Essai Arcane", "dps" } }
+
+-- un nombre entre 0 et 1, toujours le même pour un même texte
+local function Hasard (texte)
+	local h = 0
+	for k = 1, #texte do h = (h * 31 + texte:byte(k)) % 1000003 end
+	return (h % 1000) / 999
+end
+
+-- L'instantané d'essai : le groupe et les figurants, des compteurs variés ; chaque objet ramassé a des candidats
+-- (RaidScore.lua), tout le monde sauf toi, pour que tu puisses objecter et voter. Son rapport ne part jamais au site.
+local function Essai ()
+	if not Raid.PeutGerer() then Msg("l'essai " .. Raid.QuiPeut() .. ".") return end
+	local moi = Raid.MonNom()
+	local i = { id = "essai-donjon-" .. time(), code = "ESSAI", taille = 5, poids = { perso = 50, perdues = 25, dernier = 15, gain = 10 },
+		joueurs = {}, souhaits = {}, sk = {}, de = {}, nJoueurs = 0, nObjets = 0, essai = true, importe = time(), par = moi }
+	local function Joueur (nom, role)
+		if i.joueurs[nom] then return end
+		i.joueurs[nom] = { role = role, perdues = Hasard(nom .. "p"), dernier = Hasard(nom .. "d"), gain = Hasard(nom .. "g"), perso = "main" }
+		i.nJoueurs = i.nJoueurs + 1
+		i.sk[#i.sk + 1] = nom
+	end
+	for _, m in ipairs(Raid.MembresDuRaid()) do Joueur(m.nom, "dps") end
+	Joueur(moi, "dps")
+	for _, fig in ipairs(FIGURANTS) do Joueur(fig[1], fig[2]) end
+	i.de[1] = moi
+	Raid.db.instantane = i
+	Msg(string.format("instantané d'essai : %d joueurs (ton groupe et %d figurants). Chaque objet ramassé a des candidats ; "
+		.. "rien de cette soirée ne part au site. Mets le seuil de butin du groupe à « Inhabituel », passe maître du butin, "
+		.. "puis /opus raid ouvrir. Il remplace l'instantané du site : réimporte-le après (« Du bridge » ou /opus raid import).", i.nJoueurs, #FIGURANTS))
+end
+
+-- les candidats d'un objet de l'essai, tirés une fois pour toutes : tout le monde sauf toi, un rang de 1 à 5
+function Raid.CandidatsEssai (i, itemID)
+	if i.souhaits[itemID] then return i.souhaits[itemID] end
+	local moi, liste = Raid.MonNom(), {}
+	for nom in pairs(i.joueurs) do
+		if nom ~= moi then liste[#liste + 1] = { nom = nom, rang = 1 + math.floor(Hasard(nom .. itemID) * 4.99) } end
+	end
+	table.sort(liste, function (a, b) return a.nom < b.nom end)
+	i.souhaits[itemID], i.nObjets = liste, i.nObjets + 1
+	return liste
+end
+
+-- les figurants de l'essai comptent comme présents
+function Raid.Figurant (nom)
+	local i = Raid.db.instantane
+	return i and i.essai and nom:sub(1, 6) == "Essai " or false
+end
+
+Raid.Commande("essai", "essai", "un instantané d'essai fabriqué en jeu, pour essayer une soirée en donjon à quelques-uns", Essai)
 Raid.Commande("import", "import", "coller l'instantané du site (selon /opus raid droits)", function () Raid.OuvrirImport() end)
 Raid.Commande("etat", "etat", "l'instantané importé : joueurs, objets, poids, noms inconnus de la guilde, absents du raid", Etat)
 Raid.Commande("objet", "objet <itemID>", "les candidats d'un objet dans l'instantané", Objet)

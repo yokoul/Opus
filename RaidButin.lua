@@ -212,8 +212,9 @@ local function Garder (nouveaux)
 end
 
 Raid.Ecoute("LOOT_OPENED", function ()
-	-- seulement dans une soirée de guilde ouverte (Raid.lua) : jamais dans le raid d'une autre guilde
-	if not IsInRaid() or not Raid.EstMaitreButin() or not Raid.PeutGerer() or not Raid.Actif() then return end
+	-- seulement dans une soirée de guilde ouverte (Raid.lua) : jamais dans le raid d'une autre guilde ; en groupe,
+	-- pour l'essai en donjon (/opus raid essai)
+	if not IsInGroup() or not Raid.EstMaitreButin() or not Raid.PeutGerer() or not Raid.Actif() then return end
 	local releves = Relever()
 	if #releves == 0 then return end
 	Garder(releves)

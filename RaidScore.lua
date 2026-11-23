@@ -36,9 +36,10 @@ function Raid.Proposer (itemID, presents)
 	if not i then return nil end
 	local p, taille = i.poids, Taille(i)
 	local r = { candidats = {}, absents = {} }
-	for _, c in ipairs(i.souhaits[itemID] or {}) do
+	local souhaits = i.essai and Raid.CandidatsEssai(i, itemID) or i.souhaits[itemID] or {}
+	for _, c in ipairs(souhaits) do
 		local j = i.joueurs[c.nom]
-		if presents and not presents[c.nom] then
+		if presents and not presents[c.nom] and not Raid.Figurant(c.nom) then
 			r.absents[#r.absents + 1] = c.nom
 		elseif j then
 			local t = {
