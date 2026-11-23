@@ -53,17 +53,14 @@ end
 local function Ligne (k)
 	if lignes[k] then return lignes[k] end
 	local l = CreateFrame("Frame", nil, f.Inset)
-	l:SetSize(440, 40) l:SetPoint("TOPLEFT", 10, -8 - (k - 1) * 44)
+	l:SetSize(440, 40) l:SetPoint("TOPLEFT", 10, -10 - (k - 1) * 44)
 	l.icone = Raid.Icone(l, 36)
 	l.icone:SetPoint("LEFT", 0, 0)
 	l.objet = CreateFrame("Button", nil, l)
 	l.objet:SetSize(240, 18) l.objet:SetPoint("TOPLEFT", 44, 0)
 	l.objet.texte = l.objet:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	l.objet.texte:SetAllPoints() l.objet.texte:SetJustifyH("LEFT")
-	l.objet:SetScript("OnEnter", function (self)
-		if not self.lien or not self.lien:find("|H", 1, true) then return end
-		GameTooltip:SetOwner(self, "ANCHOR_RIGHT") GameTooltip:SetHyperlink(self.lien) GameTooltip:Show()
-	end)
+	l.objet:SetScript("OnEnter", function (self) Raid.Infobulle(self, self.lien, self.id) end)
 	l.objet:SetScript("OnLeave", GameTooltip_Hide)
 	l.etat = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	l.etat:SetPoint("TOPLEFT", 44, -20) l.etat:SetWidth(256) l.etat:SetJustifyH("LEFT") l.etat:SetWordWrap(false)
@@ -109,7 +106,8 @@ function Raid.RafraichirVote ()
 	for _, l in ipairs(lignes) do l:Hide() end
 	for k, a in ipairs(Raid.annonces) do
 		local l = Ligne(k)
-		l.objet.lien = a.lien
+		a.lien = Raid.LienAJour(a.lien, a.id)
+		l.objet.lien, l.objet.id = a.lien, a.id
 		l.objet.texte:SetText(a.lien)
 		Raid.PoserIcone(l.icone, a.id, a.lien)
 		l.etat:SetText(Texte(a))
@@ -127,7 +125,7 @@ function Raid.RafraichirVote ()
 		l.pour:SetEnabled(a.monVote ~= "pour") l.contre:SetEnabled(a.monVote ~= "contre")
 		l:Show()
 	end
-	f:SetHeight(28 + #Raid.annonces * 44)
+	f:SetHeight(34 + #Raid.annonces * 44)
 	f:Show()
 end
 

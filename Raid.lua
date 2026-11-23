@@ -45,6 +45,22 @@ end
 Raid.Court, Raid.Membres, Raid.MonNom, Raid.Identifier = Opus.Court, Opus.Membres, Opus.MonNom, Opus.Identifier
 Raid.Ecoute = Opus.Ecoute
 
+-- L'infobulle d'un objet : par son lien, ou par son itemID quand le jeu ne l'a pas encore (elle le charge au passage).
+function Raid.Infobulle (proprio, lien, id)
+	GameTooltip:SetOwner(proprio, "ANCHOR_RIGHT")
+	if lien and lien:find("|H", 1, true) then GameTooltip:SetHyperlink(lien)
+	elseif tonumber(id) and GameTooltip.SetItemByID then GameTooltip:SetItemByID(tonumber(id))
+	elseif tonumber(id) then GameTooltip:SetHyperlink("item:" .. tonumber(id))
+	else GameTooltip:Hide() return end
+	GameTooltip:Show()
+end
+
+-- Un lien encore provisoire (« objet 19876 ») : le vrai, si le jeu l'a reçu entre-temps.
+function Raid.LienAJour (lien, id)
+	if (lien and lien:find("|H", 1, true)) or not Raid.LienDe or not tonumber(id) then return lien end
+	return Raid.LienDe(tonumber(id))
+end
+
 -- L'icône d'un objet, qui se survole comme son lien : un bouton carré ; b.lien et b.id posés par Raid.PoserIcone.
 local IconeDe = (C_Item and C_Item.GetItemIconByID) or GetItemIcon
 function Raid.Icone (parent, taille)
@@ -52,10 +68,7 @@ function Raid.Icone (parent, taille)
 	b:SetSize(taille, taille)
 	b.image = b:CreateTexture(nil, "ARTWORK") b.image:SetAllPoints()
 	b.image:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	b:SetScript("OnEnter", function (self)
-		if not self.lien or not self.lien:find("|H", 1, true) then return end
-		GameTooltip:SetOwner(self, "ANCHOR_RIGHT") GameTooltip:SetHyperlink(self.lien) GameTooltip:Show()
-	end)
+	b:SetScript("OnEnter", function (self) Raid.Infobulle(self, self.lien, self.id) end)
 	b:SetScript("OnLeave", GameTooltip_Hide)
 	-- Maj+clic : le lien dans la discussion, comme ailleurs dans le jeu
 	b:SetScript("OnClick", function (self) if IsModifiedClick("CHATLINK") and self.lien then ChatEdit_InsertLink(self.lien) end end)

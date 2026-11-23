@@ -60,6 +60,7 @@ end
 ------------------------------------------------------------------------
 
 local f, lignes = nil, {}
+local relance = false               -- un rafraîchissement déjà prévu (noms d'objets attendus)
 local objets = {}                   -- { lien, id } du dernier corps ouvert
 
 local function Construire ()
@@ -79,17 +80,14 @@ local function Ligne (n)
 	if lignes[n] then return lignes[n] end
 	local z = f.Inset
 	local l = CreateFrame("Frame", nil, z)
-	l:SetSize(490, 40) l:SetPoint("TOPLEFT", 10, -8 - (n - 1) * 44)
+	l:SetSize(490, 40) l:SetPoint("TOPLEFT", 10, -10 - (n - 1) * 44)
 	l.icone = Raid.Icone(l, 36)
 	l.icone:SetPoint("LEFT", 0, 0)
 	l.objet = CreateFrame("Button", nil, l)
 	l.objet:SetSize(290, 18) l.objet:SetPoint("TOPLEFT", 44, 0)
 	l.objet.texte = l.objet:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	l.objet.texte:SetAllPoints() l.objet.texte:SetJustifyH("LEFT")
-	l.objet:SetScript("OnEnter", function (self)
-		if not self.lien or not self.lien:find("|H", 1, true) then return end
-		GameTooltip:SetOwner(self, "ANCHOR_RIGHT") GameTooltip:SetHyperlink(self.lien) GameTooltip:Show()
-	end)
+	l.objet:SetScript("OnEnter", function (self) Raid.Infobulle(self, self.lien, self.id) end)
 	l.objet:SetScript("OnLeave", GameTooltip_Hide)
 	l.proposition = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	l.proposition:SetPoint("TOPLEFT", 44, -20) l.proposition:SetWidth(266) l.proposition:SetJustifyH("LEFT") l.proposition:SetWordWrap(false)
@@ -124,9 +122,13 @@ function Raid.RafraichirButin ()
 		return
 	end
 	local presents = Raid.Presents()
+	local attendre = false
 	for n, o in ipairs(objets) do
 		local l = Ligne(n)
 		local a = o.attribution
+		o.lien = Raid.LienAJour(o.lien, o.id)
+		if not o.lien:find("|H", 1, true) then attendre = true end
+		l.objet.id = o.id
 		l.objet.lien, l.annoncer.lien, l.annoncer.id, l.annoncer.objet, l.annoncer.attribution = o.lien, o.lien, o.id, o, a
 		l.fiche.objet = o
 		Raid.PoserIcone(l.icone, o.id, o.lien)
@@ -147,6 +149,11 @@ function Raid.RafraichirButin ()
 		l:Show()
 	end
 	if Raid.RafraichirFiche then Raid.RafraichirFiche() end
+	-- un nom pas encore reçu du serveur : on repasse dans un instant
+	if attendre and not relance then
+		relance = true
+		C_Timer.After(1, function () relance = false Raid.RafraichirButin() end)
+	end
 end
 
 -- Annonce l'objet d'une ligne de la fenêtre (ou de sa fiche) et lance le délai d'objection.
@@ -161,7 +168,7 @@ function Raid.MontrerButin ()
 	if not f then Construire() end
 	for _, l in ipairs(lignes) do l:Hide() end
 	if #objets == 0 then Msg("aucun objet relevé : ouvre le corps du boss en maître du butin.") f:Hide() return end
-	f:SetHeight(34 + #objets * 44)
+	f:SetHeight(40 + #objets * 44)
 	f:Show()
 	Raid.RafraichirButin()
 end
@@ -268,6 +275,8 @@ Raid.Ecoute("GET_ITEM_INFO_RECEIVED", function (id)
 		end
 	end
 	if change and f and f:IsShown() then Raid.MontrerButin() end
+	if Raid.RafraichirVote then Raid.RafraichirVote() end
+	if Raid.RafraichirFiche then Raid.RafraichirFiche() end
 end)
 
 local function LireObjet (texte)
