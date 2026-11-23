@@ -18,6 +18,8 @@ Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://disc
 - Raids : les fenêtres du butin ont un cadre sombre à liseré doré, sans la bande grise sous le titre ni les bords qui dépassaient.
 - Raids : la fiche d'un objet hors liste montre les présents (les déclarés au Suicide King en tête, dans l'ordre de la liste, puis ceux qui peuvent le porter), avec leur place dans la liste et la comparaison d'équipement ; l'état du Suicide King dit qui est en tête.
 - Raids : « Passer » sur un Suicide King, dans la fenêtre des joueurs (ou « !passe n » dans le canal raid). Quand tous les présents ont dit « Je le veux » ou « Passer », le tour finit sans attendre la fin du temps.
+- Raids : « DE » dans la fenêtre du butin : un objet que personne de présent n'a en liste part droit au désenchanteur, sans annonce ni Suicide King, et il est noté au rapport. Le désenchanteur se choisit en bas de la fenêtre, parmi les présents (« Auto » : la liste de l'instantané) ; il sert aussi quand un Suicide King n'a pas de preneur.
+- Raids : un objet pas encore annoncé qui quitte le corps (donné par le menu du maître du butin du jeu, ou ramassé) sort de la fenêtre du butin.
 - Raids : /opus raid essai, pour essayer une soirée en donjon à quelques-uns. Un instantané fabriqué en jeu (ton groupe et quatre figurants), des candidats pour chaque objet ramassé, la fenêtre du butin en groupe ; rien de cette soirée ne part au site.
 
 ## 0.32.0

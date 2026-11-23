@@ -83,6 +83,14 @@ local function Construire ()
 	f:EnableMouse(true) f:SetMovable(true) f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)
 	f:SetTitle("Opus : butin")
+	-- en bas : le désenchanteur de la soirée, parmi les présents (sinon la liste de l'instantané)
+	f.deTexte = f.Inset:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	f.deTexte:SetPoint("BOTTOMLEFT", 12, 14) f.deTexte:SetText("Désenchanteur :")
+	f.deChoix = {}
+	f.deMenu = Opus.Menu(f.Inset, 200, f.deChoix,
+		function () return Raid.db.reglages.desenchanteur or "" end,
+		function (v) Raid.db.reglages.desenchanteur = v ~= "" and v or nil Raid.RafraichirButin() end)
+	f.deMenu:SetPoint("LEFT", f.deTexte, "RIGHT", 8, 0)
 	tinsert(UISpecialFrames, "OpusRaidButin")
 	f:Hide()
 end
@@ -95,13 +103,13 @@ local function Ligne (n)
 	l.icone = Raid.Icone(l, 36)
 	l.icone:SetPoint("LEFT", 0, 0)
 	l.objet = CreateFrame("Button", nil, l)
-	l.objet:SetSize(290, 18) l.objet:SetPoint("TOPLEFT", 44, 0)
+	l.objet:SetSize(226, 18) l.objet:SetPoint("TOPLEFT", 44, 0)
 	l.objet.texte = l.objet:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	l.objet.texte:SetAllPoints() l.objet.texte:SetJustifyH("LEFT")
 	l.objet:SetScript("OnEnter", function (self) Raid.Infobulle(self, self.lien, self.id) end)
 	l.objet:SetScript("OnLeave", GameTooltip_Hide)
 	l.proposition = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	l.proposition:SetPoint("TOPLEFT", 44, -20) l.proposition:SetWidth(266) l.proposition:SetJustifyH("LEFT") l.proposition:SetWordWrap(false)
+	l.proposition:SetPoint("TOPLEFT", 44, -20) l.proposition:SetWidth(222) l.proposition:SetJustifyH("LEFT") l.proposition:SetWordWrap(false)
 	l.annoncer = CreateFrame("Button", nil, l, "SharedButtonSmallTemplate")
 	l.annoncer:SetSize(100, 24) l.annoncer:SetPoint("RIGHT", 0, 0) l.annoncer:SetText("Annoncer")
 	l.annoncer:SetScript("OnClick", function (self)
@@ -114,6 +122,24 @@ local function Ligne (n)
 	l.fiche = Opus.Bouton(l, "Fiche", 60, function (self) Raid.OuvrirFiche(self.objet) end)
 	l.fiche:SetPoint("RIGHT", l.annoncer, "LEFT", -6, 0)
 	Opus.Bulle(l.fiche, "Fiche de décision", "Les candidats présents, leur score décomposé et ce qu'ils ont déjà reçu ce soir et sur le palier.")
+	-- « DE » : hors liste, droit au désenchanteur, sans annonce
+	l.de = Opus.Bouton(l, "DE", 44, function (self)
+		local o = self.objet
+		if not o or o.attribution then return end
+		local a = Raid.DesenchanterObjet(o)
+		if a then o.attribution = a end
+		Raid.RafraichirButin()
+	end)
+	l.de:SetPoint("RIGHT", l.fiche, "LEFT", -6, 0)
+	l.de:SetScript("OnEnter", function (self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:AddLine("Désenchanter", 1, 1, 1)
+		local qui = Raid.Desenchanteur()
+		GameTooltip:AddLine(qui and ("Donné à " .. qui .. ", sans annonce ni Suicide King. Noté au rapport.")
+			or "Aucun désenchanteur présent : l'objet ira à la banque (à toi). Choisis-en un en bas de la fenêtre.", nil, nil, nil, true)
+		GameTooltip:Show()
+	end)
+	l.de:SetScript("OnLeave", GameTooltip_Hide)
 	l.annoncer:SetScript("OnEnter", function (self)
 		if ADonner(self.objet) then
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -142,6 +168,17 @@ function Raid.RafraichirButin ()
 	end
 	local presents = Raid.Presents()
 	local attendre = false
+	-- les choix du désenchanteur : « Auto » (la liste de l'instantané) et les présents
+	wipe(f.deChoix)
+	local i = Raid.db.instantane
+	local auto
+	for _, nom in ipairs(i and i.de or {}) do if not presents or presents[nom] then auto = nom break end end
+	f.deChoix[1] = { "", "Auto" .. (auto and (" (" .. auto .. ")") or " (personne : banque)") }
+	local noms = {}
+	for nom in pairs(presents or { [Raid.MonNom()] = true }) do noms[#noms + 1] = nom end
+	table.sort(noms)
+	for _, nom in ipairs(noms) do f.deChoix[#f.deChoix + 1] = { nom, nom } end
+	f.deMenu:GenerateMenu()
 	-- attribué et sur le corps ouvert : on le donne, une fois (un refus laisse le bouton « Donner »)
 	for _, o in ipairs(objets) do
 		if ADonner(o) and not o.tente then o.tente = true Raid.Donner(o) end
@@ -153,7 +190,8 @@ function Raid.RafraichirButin ()
 		if not o.lien:find("|H", 1, true) then attendre = true end
 		l.objet.id = o.id
 		l.objet.lien, l.annoncer.lien, l.annoncer.id, l.annoncer.objet, l.annoncer.attribution = o.lien, o.lien, o.id, o, a
-		l.fiche.objet = o
+		l.fiche.objet, l.de.objet = o, o
+		l.de:SetShown(not a)
 		Raid.PoserIcone(l.icone, o.id, o.lien)
 		l.objet.texte:SetText(o.lien)
 		if a and ADonner(o) then
@@ -172,6 +210,8 @@ function Raid.RafraichirButin ()
 				or "aucun candidat présent » Suicide King")
 			l.annoncer:SetText("Annoncer")
 			l.annoncer:SetEnabled(r ~= nil)
+			-- « DE » : seulement si personne de présent ne l'a en liste
+			l.de:SetEnabled(r == nil or #r.candidats == 0)
 		end
 		l:Show()
 	end
@@ -195,7 +235,7 @@ function Raid.MontrerButin ()
 	if not f then Construire() end
 	for _, l in ipairs(lignes) do l:Hide() end
 	if #objets == 0 then Msg("aucun objet relevé : ouvre le corps du boss en maître du butin.") f:Hide() return end
-	f:SetHeight(40 + #objets * 44)
+	f:SetHeight(76 + #objets * 44)
 	f:Show()
 	Raid.RafraichirButin()
 end
@@ -347,7 +387,13 @@ Raid.Ecoute("LOOT_SLOT_CLEARED", function (slot)
 				if d and not a.remis and Raid.Remettre then Raid.Remettre(a, d.dest, "maitre") end
 			end
 			o.slot = nil
+			-- pas encore annoncé : donné par le menu du jeu, ou ramassé ; il n'a plus rien à faire dans la liste
+			if not o.attribution then o.parti = true end
 		end
+	end
+	for k = #objets, 1, -1 do if objets[k].parti then table.remove(objets, k) end end
+	if f and f:IsShown() then
+		if #objets == 0 then f:Hide() else Raid.MontrerButin() end
 	end
 	Raid.RafraichirButin()
 end)

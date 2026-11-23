@@ -80,14 +80,21 @@ function Raid.FinSK (a)
 		rang and ("rang " .. rang) or "hors liste", #candidats, #candidats > 1 and "s" or ""))
 end
 
--- Au désenchantement : le premier désenchanteur présent ; sinon, la banque. comment : ajouté à l'annonce.
-function Raid.Desenchanter (a, comment)
-	local i = Raid.db.instantane
+-- Le désenchanteur : celui que le maître du butin a choisi (fenêtre du butin), s'il est là ; sinon le premier présent
+-- de la liste de l'instantané (« Z ») ; nil : personne, l'objet part à la banque.
+function Raid.Desenchanteur ()
 	local presents = Raid.Presents()
-	local qui
+	local choisi = Raid.db.reglages.desenchanteur
+	if choisi and choisi ~= "" and (not presents or presents[choisi]) then return choisi end
+	local i = Raid.db.instantane
 	for _, nom in ipairs(i and i.de or {}) do
-		if not presents or presents[nom] then qui = nom break end
+		if not presents or presents[nom] then return nom end
 	end
+end
+
+-- Au désenchantement : le désenchanteur, sinon la banque. comment : ajouté à l'annonce.
+function Raid.Desenchanter (a, comment)
+	local qui = Raid.Desenchanteur()
 	a.etat, a.attributaire = qui and "de" or "banque", qui
 	a.evenementA = Raid.Noter("A", { tombe = a.evenementT, attributaire = qui or "", voie = a.etat })
 	if qui and Raid.ApresAttribution then Raid.ApresAttribution(a) end

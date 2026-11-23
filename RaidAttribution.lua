@@ -150,6 +150,26 @@ local function FinVote (a)
 	end
 end
 
+-- Un objet que personne de présent n'a en liste, envoyé droit au désenchantement par le maître du butin : ni annonce,
+-- ni délai, ni Suicide King. Il est noté au rapport comme les autres (T puis A « de »). Rend l'attribution.
+function Raid.DesenchanterObjet (o)
+	local actif, raison = Raid.Actif()
+	if not actif then Msg(raison .. ".") return nil end
+	if not Raid.PeutGerer() then Msg("désenchantement " .. Raid.QuiPeut() .. ".") return nil end
+	local presents = Raid.Presents()
+	local r = Raid.Proposer(o.id, presents)
+	if r and #r.candidats > 0 then Msg(o.lien .. " est en liste chez " .. r.candidats[1].nom .. " : annonce-le.") return nil end
+	Soiree()
+	local a = { n = #Raid.attributions + 1, lien = o.lien, id = o.id, source = o.source, votes = {}, objecteurs = {}, candidats = {} }
+	Raid.attributions[a.n] = a
+	local noms = {}
+	for nom in pairs(presents or {}) do noms[#noms + 1] = nom end
+	table.sort(noms)
+	a.evenementT = Raid.Noter("T", { boss = Raid.dernierBoss or "", item = o.id, presents = noms })
+	Raid.Desenchanter(a, " (hors liste)")
+	return a
+end
+
 -- Annonce un objet et lance le délai. o = { lien, id } ; rend l'attribution.
 function Raid.Lancer (o)
 	local actif, raison = Raid.Actif()
