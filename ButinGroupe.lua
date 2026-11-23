@@ -15,6 +15,7 @@ local PEUT, PORTE, CHANGE, CHOIX_X, JET = 124, 180, 262, 396, 470
 
 local tirages = {}                  -- { rollID, id, lien, fin, choix = { [nom] = { quoi, jet } }, gagnant, finie }
 local essai = false                 -- /opus raid jet : la fenêtre, seul et hors groupe
+local masquee = false               -- fermée par le joueur : elle ne revient qu'au prochain jet
 
 function Opus.ButinGroupeActif ()
 	return Opus.db and Opus.db.butinGroupe == true and IsInGroup() and not IsInRaid()
@@ -130,6 +131,9 @@ local function Construire ()
 	f:EnableMouse(true) f:SetMovable(true) f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving) f:SetScript("OnDragStop", f.StopMovingOrSizing)
 	f:SetTitle("Opus : butin du groupe")
+	-- fermée (croix, Échap) : elle attend le prochain jet au lieu de revenir à chaque seconde
+	tinsert(UISpecialFrames, "OpusButinGroupe")
+	f:SetScript("OnHide", function () masquee = #tirages > 0 end)
 	f:Hide()
 end
 
@@ -209,12 +213,17 @@ function Opus.RafraichirButinGroupe ()
 		if not t.finie or GetTime() - t.finie < GARDER then garde[#garde + 1] = t end
 	end
 	tirages = garde
-	if #tirages == 0 then essai = false end
+	if #tirages == 0 then essai, masquee = false, false end
 	if #tirages == 0 or not (Opus.ButinGroupeActif() or essai) then
 		if f then f:Hide() end
 		return
 	end
 	if not f then Construire() end
+	if masquee then return end
+	-- tout est joué : la fenêtre s'efface d'elle-même (le résultat reste lisible quelques secondes)
+	local enCours = false
+	for _, t in ipairs(tirages) do if not t.finie then enCours = true end end
+	if not enCours and not f:IsShown() then return end
 	for _, b in ipairs(blocs) do b:Hide() end
 	local membres = Membres()
 	local y = 10
@@ -281,6 +290,7 @@ Raid.Ecoute("START_LOOT_ROLL", function (rollID, duree)
 	local id = lien and tonumber(lien:match("item:(%d+)"))
 	if not id then return end
 	tirages[#tirages + 1] = { rollID = rollID, id = id, lien = lien, fin = GetTime() + (duree or 60000) / 1000, choix = {} }
+	masquee = false
 	-- tout le groupe passe devant à l'inspection
 	local noms = {}
 	for _, m in ipairs(Membres()) do noms[#noms + 1] = m.nom end
@@ -320,7 +330,7 @@ C_Timer.NewTicker(1, function () if #tirages > 0 then Opus.RafraichirButinGroupe
 Raid.Commande("jet", "jet <itemID>", "essayer la fenêtre du butin de groupe (donjon) sur un objet", function (texte)
 	local id = tonumber((texte or ""):match("%d+"))
 	if not id then Raid.Msg("/opus raid jet <itemID> (le numéro de l'objet, par exemple sur wowhead).") return end
-	essai = true
+	essai, masquee = true, false
 	tirages[#tirages + 1] = { rollID = -1, id = id, lien = Raid.LienDe(id), fin = GetTime() + 60, choix = {} }
 	Raid.Prioriser((function () local n = {} for _, m in ipairs(Membres()) do n[#n + 1] = m.nom end return n end)())
 	Opus.RafraichirButinGroupe()

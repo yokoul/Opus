@@ -21,6 +21,7 @@ Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://disc
 - Raids : « DE » dans la fenêtre du butin : un objet que personne de présent n'a en liste part droit au désenchanteur, sans annonce ni Suicide King, et il est noté au rapport. Le désenchanteur se choisit en bas de la fenêtre, parmi les présents (« Auto » : la liste de l'instantané) ; il sert aussi quand un Suicide King n'a pas de preneur.
 - Raids : un objet pas encore annoncé qui quitte le corps (donné par le menu du maître du butin du jeu, ou ramassé) sort de la fenêtre du butin.
 - Raids : des annonces au raid courtes par défaut (« #12 [objet] » Basara Nore. Objection : « !objection 12 » (3 min). », « #12 [objet] » Basara Nore. »), les infos sont dans les fenêtres ; les annonces détaillées (scores, suivants, quorum, déroulé du vote) restent au choix dans Réglages, « Butin ». Une décision des officiers s'annonce toujours avec son motif. Moins de messages pour soi dans la discussion (remise, échange).
+- Donjons : la fenêtre du butin de groupe se ferme (croix ou Échap) et ne revient qu'au jet suivant ; quand tout est joué, elle ne se rouvre plus.
 - Raids : /opus raid essai, pour essayer une soirée en donjon à quelques-uns. Un instantané fabriqué en jeu (ton groupe et quatre figurants), des candidats pour chaque objet ramassé, la fenêtre du butin en groupe ; rien de cette soirée ne part au site.
 
 ## 0.32.0
