@@ -344,7 +344,11 @@ Raid.Commande("diag", "diag", "pourquoi la fenêtre du butin s'ouvre ou non sur 
 	if lire then ok, m, p, r = pcall(lire) end
 	local actif, raison = Raid.Actif()
 	local function OuiNon (v) return v and "|cff40ff40oui|r" or "|cffff5555non|r" end
-	Msg("diagnostic du butin :")
+	Msg("diagnostic du butin (Opus " .. Opus.version .. (Opus.build and (", " .. Opus.build) or "") .. ") :")
+	-- les fichiers ajoutés depuis la dernière sortie : absents, le jeu n'a pas été relancé depuis la mise à jour
+	if not Raid.Comparer or not Opus.ReglagesButin or not Opus.ButinGroupeActif then
+		DEFAULT_CHAT_FRAME:AddMessage("  |cffff5555des fichiers de l'addon ne sont pas chargés : quitte le jeu et relance-le (un /reload ne suffit pas après une mise à jour qui ajoute des fichiers).|r")
+	end
 	DEFAULT_CHAT_FRAME:AddMessage(string.format("  mode de butin : %s (groupe %s, raid %s)%s", tostring(m), tostring(p), tostring(r),
 		lire and (ok and "" or " — lecture impossible") or " — aucune fonction pour le lire"))
 	DEFAULT_CHAT_FRAME:AddMessage("  en groupe : " .. OuiNon(IsInGroup()) .. ", en raid : " .. OuiNon(IsInRaid())
