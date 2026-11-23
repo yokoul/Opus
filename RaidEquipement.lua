@@ -1,5 +1,5 @@
 -- RaidEquipement.lua : ce que chaque candidat porte à l'emplacement de l'objet, pour comparer avant de décider
--- Chaque client inspecte lui-même les membres du groupe, un à la fois, hors combat et à portée d'inspection, et garde
+-- Sert aussi au butin de groupe en donjon (ButinGroupe.lua). Chaque client inspecte lui-même les membres du groupe, un à la fois, hors combat et à portée d'inspection, et garde
 -- leur équipement quelques minutes : la fiche des officiers et les boutons de vote le comparent à l'objet. Les
 -- candidats de l'objet en cours passent devant, et sont relus s'ils datent un peu.
 local _, Opus = ...
@@ -97,8 +97,9 @@ C_Timer.NewTicker(1.5, function ()
 	if enCours and GetTime() - enCours.depuis < ATTENTE then return end
 	enCours = nil
 	if not IsInGroup() or InCombatLockdown() or not Libre() then return end
-	-- seulement en raid, ou en groupe pendant une soirée (l'essai en donjon)
-	if not IsInRaid() and not (Raid.db and Raid.db.ouverte) and #(Raid.annonces or {}) == 0 then return end
+	-- seulement en raid, ou en groupe pendant une soirée (l'essai en donjon) ou avec la comparaison du butin de groupe
+	if not IsInRaid() and not (Raid.db and Raid.db.ouverte) and #(Raid.annonces or {}) == 0
+		and not (Opus.ButinGroupeActif and Opus.ButinGroupeActif()) then return end
 	local unite = Suivant()
 	if not unite then return end
 	enCours = { guid = UnitGUID(unite), unite = unite, nom = Raid.Court(GetUnitName(unite, true)), depuis = GetTime() }

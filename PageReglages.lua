@@ -30,6 +30,7 @@ local function RafraichirReglages (cadre)
 	cadre.roleAide:SetText(auto and (deSpe and ("Selon ta spé (" .. NOMS_ROLES[deSpe] .. ") : coche aussi ce que tu sais jouer.")
 		or "Ta spé ne dit pas ton rôle : coche ce que tu joues.") or "Ce que tu sais jouer en donjon.")
 	cadre.minimap:SetChecked(not Opus.db.minimap.cache)
+	cadre.butinGroupe:SetChecked(Opus.db.butinGroupe == true)
 
 	-- la durée des essais : réglage de la guilde, modifiable par le chef seulement
 	local chef = IsGuildLeader()
@@ -132,6 +133,11 @@ local function ConstruireReglages (cadre)
 		if self:GetChecked() == (Opus.db.minimap.cache == true) then Commande("minimap") end
 	end)
 	Ligne(30)
+	Libelle("Comparer le butin en donjon", "À chaque jet de groupe : qui peut le porter, ce qu'il y gagne, qui jette quoi.")
+	cadre.butinGroupe = CreateFrame("CheckButton", nil, cadre, "UICheckButtonTemplate")
+	cadre.butinGroupe:SetSize(24, 24) cadre.butinGroupe:SetPoint("TOPLEFT", X_CONTROLE - 4, y)
+	cadre.butinGroupe:SetScript("OnClick", function (self) Opus.db.butinGroupe = self:GetChecked() and true or false end)
+	Ligne(40)
 
 	-- le partage
 	Section("Données partagées")

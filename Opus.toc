@@ -40,6 +40,7 @@ RaidComm.lua
 RaidVote.lua
 RaidRemise.lua
 RaidExport.lua
+ButinGroupe.lua
 Fenetre.lua
 EnviesVue.lua
 Calendrier.lua

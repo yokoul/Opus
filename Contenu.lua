@@ -261,6 +261,9 @@ local function Portable (classe, niveau, classID, sousClasse, emplacement)
 	return false
 end
 
+-- portable par une classe à son niveau (ButinGroupe.lua : les autres membres du groupe)
+Opus.Portable = Portable
+
 -- { rang (3 amélioration, 2 peut-être mieux, 1 bientôt), texte } ou nil si l'objet ne lui sert pas
 function Opus.UtilePourMoi (id)
 	if not GetItemInfo then return nil end
