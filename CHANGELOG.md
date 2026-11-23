@@ -3,6 +3,9 @@
 Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, Europe).
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
+## 0.31.1
+- Raids : « Ma liste » et « Historique » restaient vides en jeu (le texte n'était pas affiché, et la barre de défilement débordait de la fenêtre).
+
 ## 0.31.0
 - Raids : l'onglet a trois vues. « Ce soir » (la soirée de guilde, l'instantané, les annonces du soir, le rapport), « Ma liste » (tes listes de souhaits avec leurs rangs et les objets déjà reçus, tes soirées, tes prios perdues, ton dernier loot et ta place au Suicide King) et « Historique » (les soirées validées des paliers en cours : qui était là, chaque objet et comment il est parti ; l'infobulle de l'objet au survol). Ma liste et l'historique viennent du site par le client opus-bridge, mis à jour à chaque connexion.
 - Raids : avec le bridge, le maître du butin ou un officier importe l'instantané d'un clic (« Du bridge »), sans copier-coller.
