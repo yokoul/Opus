@@ -1,5 +1,5 @@
 -- ButinGroupe.lua : en donjon, à chaque jet de butin de groupe, qui peut équiper l'objet, ce qu'il y gagne, et qui jette quoi
--- Activé dans les réglages (« Comparer le butin en donjon »). En groupe (pas en raid), chaque objet mis en jeu ouvre
+-- Activé dans les réglages, vue « Butin » (« Comparer le butin en donjon »). En groupe (pas en raid), chaque objet mis en jeu ouvre
 -- une ligne : pour chaque membre, s'il peut le porter (classe, niveau), ce qu'il porte à cet emplacement et l'écart de
 -- niveau d'objet (l'inspection de RaidEquipement.lua), puis son choix (besoin, cupidité, passe) et son jet, lus dans
 -- le journal du butin : rien n'est demandé aux autres, un membre sans Opus apparaît comme les autres.

@@ -30,7 +30,6 @@ local function RafraichirReglages (cadre)
 	cadre.roleAide:SetText(auto and (deSpe and ("Selon ta spé (" .. NOMS_ROLES[deSpe] .. ") : coche aussi ce que tu sais jouer.")
 		or "Ta spé ne dit pas ton rôle : coche ce que tu joues.") or "Ce que tu sais jouer en donjon.")
 	cadre.minimap:SetChecked(not Opus.db.minimap.cache)
-	cadre.butinGroupe:SetChecked(Opus.db.butinGroupe == true)
 
 	-- la durée des essais : réglage de la guilde, modifiable par le chef seulement
 	local chef = IsGuildLeader()
@@ -133,11 +132,6 @@ local function ConstruireReglages (cadre)
 		if self:GetChecked() == (Opus.db.minimap.cache == true) then Commande("minimap") end
 	end)
 	Ligne(30)
-	Libelle("Comparer le butin en donjon", "À chaque jet de groupe : qui peut le porter, ce qu'il y gagne, qui jette quoi.")
-	cadre.butinGroupe = CreateFrame("CheckButton", nil, cadre, "UICheckButtonTemplate")
-	cadre.butinGroupe:SetSize(24, 24) cadre.butinGroupe:SetPoint("TOPLEFT", X_CONTROLE - 4, y)
-	cadre.butinGroupe:SetScript("OnClick", function (self) Opus.db.butinGroupe = self:GetChecked() and true or false end)
-	Ligne(40)
 
 	-- le partage
 	Section("Données partagées")
@@ -212,25 +206,29 @@ local function ConstruireReglages (cadre)
 	cadre.hauteur = -y + 8
 end
 
--- deux vues dans le bandeau : les réglages, et « À propos » (PageAPropos.lua), qui n'est plus un onglet à part
+-- trois vues dans le bandeau : les réglages, ceux du butin (ReglagesButin.lua : raids et donjons, pour ne pas charger
+-- la vue de base), et « À propos » (PageAPropos.lua), qui n'est plus un onglet à part
 local vue = "reglages"
-local VUES = { { "reglages", "Réglages" }, { "apropos", "À propos" } }
+local VUES = { { "reglages", "Réglages" }, { "butin", "Butin" }, { "apropos", "À propos" } }
 
 local function Rafraichir (cadre)
 	cadre.vues:Maj()
 	cadre.reglages:SetShown(vue == "reglages")
+	cadre.butin:SetShown(vue == "butin")
 	cadre.apropos:SetShown(vue == "apropos")
 	if vue == "apropos" then return Opus.APropos.rafraichir(cadre.apropos) end
+	if vue == "butin" then return Opus.ReglagesButin.rafraichir(cadre.butin) end
 	return RafraichirReglages(cadre.reglages)
 end
 
 local function Construire (cadre, barre)
 	cadre.vues = Opus.Onglets(barre, VUES, function () return vue end, function (v) vue = v Opus.Rafraichir() end)
-	for _, k in ipairs({ "reglages", "apropos" }) do
+	for _, k in ipairs({ "reglages", "butin", "apropos" }) do
 		cadre[k] = CreateFrame("Frame", nil, cadre)
 		cadre[k]:SetPoint("TOPLEFT") cadre[k]:SetPoint("TOPRIGHT") cadre[k]:SetHeight(1)
 	end
 	ConstruireReglages(cadre.reglages)
+	Opus.ReglagesButin.construire(cadre.butin)
 	Opus.APropos.construire(cadre.apropos)
 end
 

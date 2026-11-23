@@ -8,8 +8,7 @@ local _, Opus = ...
 local Raid = Opus.Raid
 local Msg = Raid.Msg
 
-local SK_DELAI = 60                 -- secondes pour se déclarer
-Raid.SK_DELAI = SK_DELAI
+-- le temps pour se déclarer : Raid.Duree("sk") (réglable)
 
 local function Rafraichir () if Raid.RafraichirButin then Raid.RafraichirButin() end end
 
@@ -21,11 +20,12 @@ local function Positions (liste)
 end
 
 function Raid.LancerSK (a, debut)
-	a.etat, a.fin, a.interesses = "sk", GetTime() + SK_DELAI, {}
-	Raid.Annoncer(string.format("#%d %s. Intéressés : « !sk %d » (%d s), le plus haut dans la liste Suicide King gagne.",
-		a.n, (debut or a.lien):gsub("%.$", ""), a.n, SK_DELAI))
-	if Raid.Diffuser then Raid.Diffuser("S", a.n, a.id, SK_DELAI) end
-	C_Timer.After(SK_DELAI, function () Raid.FinSK(a) end)
+	local duree = Raid.Duree("sk")
+	a.etat, a.fin, a.interesses = "sk", GetTime() + duree, {}
+	Raid.Annoncer(string.format("#%d %s. Intéressés : « !sk %d » (%s), le plus haut dans la liste Suicide King gagne.",
+		a.n, (debut or a.lien):gsub("%.$", ""), a.n, Raid.TexteDuree(duree)))
+	if Raid.Diffuser then Raid.Diffuser("S", a.n, a.id, duree) end
+	C_Timer.After(duree, function () Raid.FinSK(a) end)
 	Rafraichir()
 end
 

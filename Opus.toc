@@ -56,5 +56,6 @@ Editeur.lua
 Reglages.lua
 PageEssais.lua
 PageAPropos.lua
+ReglagesButin.lua
 PageReglages.lua
 Minimap.lua

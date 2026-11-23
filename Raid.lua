@@ -14,7 +14,7 @@ Raid.version = Opus.version
 
 local DEFAUTS = {
 	instantane = nil,           -- le dernier instantané importé du site (RaidInstantane.lua)
-	reglages = {                -- echangeAuto (RaidRemise.lua)
+	reglages = {                -- echangeAuto (RaidRemise.lua) ; duree_objection, duree_vote, duree_sk (Raid.Duree)
 		seuilGuilde = 0.8,      -- part du raid qui doit être de la guilde pour ouvrir une soirée
 	},
 	ouverte = nil,              -- la soirée de guilde ouverte : { debut, par }
@@ -142,6 +142,20 @@ end
 
 local function Seuil () return Raid.db and Raid.db.reglages.seuilGuilde or 0.8 end
 Raid.Seuil = Seuil
+
+-- Les durées des tours, en secondes : réglables (Réglages, vue « Butin »), elles comptent chez le maître du butin.
+local DUREES = { objection = 180, vote = 120, sk = 60 }
+function Raid.Duree (quoi)
+	local r = Raid.db and Raid.db.reglages
+	return (r and tonumber(r["duree_" .. quoi])) or DUREES[quoi]
+end
+-- « 3 min », « 1 min 30 », « 45 s »
+function Raid.TexteDuree (s)
+	s = math.floor(s or 0)
+	if s < 60 then return s .. " s" end
+	local m, r = math.floor(s / 60), s % 60
+	return r == 0 and (m .. " min") or string.format("%d min %02d", m, r)
+end
 
 -- Hors groupe : essai, rien ne part. En raid (ou en groupe, pour essayer à quelques-uns) : seulement dans la soirée de
 -- guilde ouverte, et tant que le raid est assez de la guilde. Rend vrai, ou faux et la raison.

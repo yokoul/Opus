@@ -11,11 +11,8 @@ local _, Opus = ...
 local Raid = Opus.Raid
 local Msg = Raid.Msg
 
-local DELAI = 180                   -- secondes pour objecter
-local VOTE = 120                    -- secondes pour voter
 local QUORUM = 0.5                  -- part des électeurs qui doivent voter
-
-Raid.DELAI, Raid.VOTE = DELAI, VOTE
+-- le délai d'objection et la durée du vote : Raid.Duree("objection"), Raid.Duree("vote") (réglables)
 Raid.attributions = {}              -- de la soirée, dans l'ordre des annonces : { n, lien, id, etat, … }
 
 -- un texte que le jeu masque aux addons (valeur secrète) ne se lit pas : on l'ignore
@@ -179,13 +176,14 @@ function Raid.Lancer (o)
 	a.propose, a.score = c1.nom, c1.score
 	a.evenementO = Raid.Noter("O", { tombe = a.evenementT, candidat = c1.nom,
 		scores = (function () local t = {} for _, c in ipairs(r.candidats) do t[#t + 1] = string.format("%s:%.1f", c.nom, c.score) end return t end)() })
-	a.etat, a.fin = "delai", GetTime() + DELAI
-	local texte = Raid.TexteAnnonce(o.lien, r, string.format(" Objection : « !objection %d » (%d min).", a.n, DELAI / 60))
+	local delai = Raid.Duree("objection")
+	a.etat, a.fin = "delai", GetTime() + delai
+	local texte = Raid.TexteAnnonce(o.lien, r, string.format(" Objection : « !objection %d » (%s).", a.n, Raid.TexteDuree(delai)))
 	Raid.Annoncer("#" .. a.n .. " " .. texte)
 	local candidats = {}
 	for nom in pairs(a.candidats) do candidats[#candidats + 1] = nom end
-	Diffuser("A", a.n, a.id, a.propose, DELAI, table.concat(candidats, ","))
-	C_Timer.After(DELAI, function () FinDelai(a) end)
+	Diffuser("A", a.n, a.id, a.propose, delai, table.concat(candidats, ","))
+	C_Timer.After(delai, function () FinDelai(a) end)
 	Rafraichir()
 	return a
 end
@@ -209,13 +207,14 @@ local function Objecter (a, nom, motif)
 	a.choix = {}
 	local r = Raid.Proposer(a.id, presents)
 	for _, c in ipairs(r and r.candidats or {}) do a.choix[#a.choix + 1] = c.nom end
-	a.etat, a.fin, a.votes = "vote", GetTime() + VOTE, {}
-	Diffuser("V", a.n, VOTE, a.quorum, a.nElecteurs, nom, table.concat(a.choix, ","), a.motif or "")
+	local vote = Raid.Duree("vote")
+	a.etat, a.fin, a.votes = "vote", GetTime() + vote, {}
+	Diffuser("V", a.n, vote, a.quorum, a.nElecteurs, nom, table.concat(a.choix, ","), a.motif or "")
 	local numeros = {}
 	for k, c in ipairs(a.choix) do numeros[k] = k .. " " .. c end
-	Raid.Annoncer(string.format("#%d objection de %s%s. Vote %d min entre les candidats, « !vote %d <numéro> » : %s. Votent les non-candidats, quorum %d sur %d.",
-		a.n, nom, a.motif and (" (« " .. a.motif .. " »)") or "", VOTE / 60, a.n, table.concat(numeros, ", "), a.quorum, a.nElecteurs))
-	C_Timer.After(VOTE, function () FinVote(a) end)
+	Raid.Annoncer(string.format("#%d objection de %s%s. Vote %s entre les candidats, « !vote %d <numéro> » : %s. Votent les non-candidats, quorum %d sur %d.",
+		a.n, nom, a.motif and (" (« " .. a.motif .. " »)") or "", Raid.TexteDuree(vote), a.n, table.concat(numeros, ", "), a.quorum, a.nElecteurs))
+	C_Timer.After(vote, function () FinVote(a) end)
 	Rafraichir()
 	-- chez celui qui a annoncé : la fiche s'ouvre sur l'objection, pour suivre le vote (et y voter)
 	if Raid.OuvrirFiche then Raid.OuvrirFiche(a) end

@@ -22,7 +22,7 @@ function Raid.TexteAnnonce (lien, r, fin)
 	local c1 = r.candidats[1]
 	local texte = lien .. " » " .. c1.nom .. " (" .. Raid.Score(c1.score) .. ", rang " .. c1.rang .. ")"
 	if r.egalite then texte = texte .. " ex aequo, le maître du butin tranche" end
-	fin = "." .. (fin or string.format(" Objection possible %d min.", Raid.DELAI / 60))
+	fin = "." .. (fin or string.format(" Objection possible %s.", Raid.TexteDuree(Raid.Duree("objection"))))
 	local suite = {}
 	for n = 2, #r.candidats do
 		local c = r.candidats[n]
@@ -129,7 +129,7 @@ local function Ligne (n)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		GameTooltip:AddLine("Annoncer au raid", 1, 1, 1)
 		GameTooltip:AddLine(Raid.TexteAnnonce(self.lien, Raid.Proposer(self.id, Raid.Presents())) or "", nil, nil, nil, true)
-		GameTooltip:AddLine("Puis 3 min pour objecter (« !objection »), et un vote s'il y a objection.", nil, nil, nil, true)
+		GameTooltip:AddLine("Puis " .. Raid.TexteDuree(Raid.Duree("objection")) .. " pour objecter (« !objection »), et un vote s'il y a objection.", nil, nil, nil, true)
 		GameTooltip:Show()
 	end)
 	l.annoncer:SetScript("OnLeave", GameTooltip_Hide)
