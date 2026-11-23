@@ -248,6 +248,18 @@ end
 
 Opus.Ecoute("GROUP_ROSTER_UPDATE", Verifier)
 
+-- L'ancien addon OpusRaid, s'il est encore activé : il mène le butin à sa façon (ses fenêtres, « [Opus Raid] », ses
+-- durées) en même temps qu'Opus, et les deux se répondent. On le dit, en rouge, à chaque connexion.
+function Raid.AncienActif ()
+	local charge = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+	return charge and charge("OpusRaid") and true or false
+end
+local AVERTI = "|cffff5555l'ancien addon OpusRaid est encore activé sur ce personnage : il mène le butin à la place d'Opus (fenêtre « Opus Raid : butin », annonces « [Opus Raid] », durées fixes). Désactive-le dans la liste des addons, ou supprime son dossier AddOns/OpusRaid, puis relance le jeu.|r"
+Raid.AVERTI_ANCIEN = AVERTI
+Opus.Ecoute("PLAYER_LOGIN", function ()
+	C_Timer.After(5, function () if Raid.AncienActif() then Raid.Msg(AVERTI) end end)
+end)
+
 ------------------------------------------------------------------------
 -- données
 ------------------------------------------------------------------------
