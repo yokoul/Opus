@@ -2,7 +2,7 @@
 ## Title: |cffd4af37Opus|r
 ## Notes: Outils de guilde pour WoW Forever : tableau de la guilde (persos, niveaux, notes, liens Discord), groupes et envies de donjon, banque partagée (contenu, journal, prêts, sorties d'objets), essais et promotions, grille des grades, butin des raids de guilde (listes de souhaits du site, proposition calculée, objections et votes, Suicide King, remise par échange).
 ## Author: Yan
-## Version: 0.30.0
+## Version: 0.31.0
 ## IconTexture: Interface\AddOns\Opus\Media\Icone
 ## SavedVariables: OpusDB, OpusBridgeFeed
 ## AddonCompartmentFunc: Opus_Compartiment
