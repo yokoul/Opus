@@ -182,9 +182,12 @@ local function Classe (nom, classe)
 end
 -- les objets : ce client range ces fonctions dans C_Item (comme ButinGroupe.lua)
 local InfoObjet = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+local InfoInstant = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
 local IconeObjet = (C_Item and C_Item.GetItemIconByID) or GetItemIcon
+local Demander = C_Item and C_Item.RequestLoadItemDataByID
 local function Icone (id, chemin)
-	local icone = id and IconeObjet and IconeObjet(id)
+	-- l'icône se lit sans attendre le serveur (GetItemInfoInstant), le nom non
+	local icone = id and ((InfoInstant and select(5, InfoInstant(id))) or (IconeObjet and IconeObjet(id)))
 	return icone or chemin or "Interface\\Icons\\INV_Misc_QuestionMark"
 end
 local function Qualite (n)
@@ -827,6 +830,8 @@ local function Contient (liste, nom) for _, n in ipairs(liste or {}) do if n == 
 
 local function ObjetDe (a)
 	local nom, _, qualite = InfoObjet(a.id)
+	-- pas encore connu de ce client : on le demande au serveur, le nom arrive au rafraîchissement suivant
+	if not nom and Demander then pcall(Demander, a.id) end
 	return { nom = nom or (a.lien and a.lien:match("%[(.-)%]")) or ("objet " .. a.id), icone = Icone(a.id), qualite = qualite or 4 }
 end
 
@@ -938,7 +943,8 @@ local function Decrire (a)
 			local _, classe = UnitClass("player")
 			local ok, g = pcall(function () return Raid.GainPawn(Raid.Comparer(moi, a.id), a.id, a.lien, classe) end)
 			if not ok then g = nil end
-			if g and g.pct then table.insert(d.explication, string.format("Pour toi : %+d %% selon Pawn (%s).", math.floor(g.pct + 0.5), g.spe or "")) end
+			if g and g.vide then table.insert(d.explication, "Pour toi : l'emplacement est vide (" .. (g.spe or "") .. ").")
+			elseif g and g.pct then table.insert(d.explication, string.format("Pour toi : %+d %% selon Pawn (%s).", math.floor(g.pct + 0.5), g.spe or "")) end
 		end
 		local tete = a.declares and #a.declares > 0 and ("En tête : " .. Noms(a.declares, 3)) or "Personne de déclaré"
 		if a.passe then
@@ -948,7 +954,7 @@ local function Decrire (a)
 			Appel("info", { sous = Signe("Sablier") .. "|cffcfd4dcDéclaré|r · résultat à la fin", detail = tete, explication = d.explication })
 		else
 			d.sous, d.etiquette = "Suicide King · " .. place, { "À TOI", "toi" }
-			Appel("decision", { sous = "Suicide King · " .. place, detail = a.declares and #a.declares > 0 and tete or nil, explication = d.explication,
+			Appel("decision", { sous = "Suicide King · " .. place, detail = a.declares and #a.declares > 0 and ("Déjà déclaré : " .. Noms(a.declares, 3)) or nil, explication = d.explication,
 				boutons = { { texte = "JE LE VEUX", principal = true, clic = function () a.veut = true Envoyer(a, "W", "!sk " .. a.n) end },
 				            { texte = "PASSER", clic = function () a.passe = true Envoyer(a, "X", "!passe " .. a.n) end } },
 				sansReponse = "Sans réponse : tu passes." })
