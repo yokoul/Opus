@@ -278,7 +278,7 @@ moteur:SetScript("OnUpdate", function ()
 	-- un appel arrivé au bout de son temps tombe de lui-même, montré ou non
 	for id, a in pairs(appels) do
 		if a.fin and not a.clos and now >= a.fin then
-			if a.genre == "resultat" then Volet.Retirer(id)
+			if a.genre ~= "decision" then Volet.Retirer(id)
 			else
 				if a.auSansReponse then a.auSansReponse() end
 				Volet.Clore(id, a.sansReponse or "Temps écoulé.")
@@ -550,6 +550,15 @@ local function CreerBanderole ()
 	objet.nom = Texte(objet, "Nom") objet.nom:SetPoint("TOPLEFT", 46, -1) objet.nom:SetPoint("TOPRIGHT", 0, -1)
 	objet.sous = Texte(objet, "Texte", C.pale) objet.sous:SetPoint("BOTTOMLEFT", 46, 1) objet.sous:SetPoint("BOTTOMRIGHT", 0, 1)
 	objet:SetScript("OnClick", function () Volet.Ouvrir(true) end)
+	objet:SetScript("OnEnter", function (self)
+		local a = b.appel
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:AddLine(a and a.objet.nom or "")
+		for _, l in ipairs(a and a.explication or {}) do GameTooltip:AddLine(l, 1, 1, 1, true) end
+		GameTooltip:AddLine("Clic : ouvrir le volet.", 0.6, 0.6, 0.6)
+		GameTooltip:Show()
+	end)
+	objet:SetScript("OnLeave", GameTooltip_Hide)
 	b.objet = objet
 	b.detail = Texte(b, "Texte", C.parchemin) b.detail:SetWordWrap(true)
 	b.prim = BoutonPrincipal(b, "", nil)
@@ -733,7 +742,7 @@ local function CreerVolet ()
 		a.lisere:SetShown(not reponse)
 		a.etiquette:SetShown(not reponse) a.declare:SetShown(reponse == "pris") a.passe:SetShown(reponse == "passe")
 		z.oui:SetShown(not reponse) z.non:SetShown(not reponse) z.note:SetShown(not reponse)
-		z.temps:SetShown(not reponse)
+		z.temps:Show()
 		-- après la réponse, la zone se calme : sablier d'acier si tu es déclaré (on attend la fin du tour),
 		-- cendre si tu passes ; le vert reste pour ce qui est tranché
 		if reponse == "pris" then
@@ -806,50 +815,104 @@ end)
 -- la démonstration : un Suicide King, un vote, un objet proposé qui rencontre une objection
 ------------------------------------------------------------------------
 
-local function Objet (n) return n == 1 and DEMO.appel or DEMO.lignes[n - 1] end
+-- Règle d'écriture des banderoles : un coup d'œil suffit. Une ligne d'état (un signe, trois ou quatre mots, le
+-- temps), au plus une ligne de noms ; l'explication complète se lit au survol de l'objet, ou dans le volet.
+local function Signe (nom) return "|T" .. MEDIA .. nom .. ":14:14|t " end
+local TOI = "|cffff8a5ctoi|r"
 
--- le Suicide King de l'Anneau d'obsidienne (la ligne dépliée du volet en suit la réponse)
+local function Objet (n) return n == 1 and DEMO.appel or DEMO.lignes[n - 1] end
+local function Plus (g, t, f) C_Timer.After(t, function () if Demo.generation == g then f() end end) end
+
+-- Suicide King : après « Je le veux », la banderole reste et suit le tour (le temps, qui s'est déclaré, qui
+-- est en tête) jusqu'au résultat ; « Passer » la referme.
 function Demo.Repondre (r)
+	local a = appels.sk
+	if not a or a.clos then return end
 	reponse = r
-	Volet.Clore("sk", r == "pris" and "|cffcfd4dcTu es déclaré.|r Résultat à la fin du tour." or "Tu passes.")
+	if r == "passe" then Volet.Clore("sk", "Tu passes.") return end
+	local g = Demo.generation
+	local function Suivi (declares)
+		Volet.Appeler({ id = "sk", genre = "info", objet = a.objet, fin = a.fin, duree = a.duree,
+			sous = Signe("Sablier") .. "|cffcfd4dcDéclaré|r · résultat à la fin",
+			detail = "En tête : " .. declares,
+			explication = { "Suicide King : parmi les déclarés, le mieux placé dans la liste l'emporte, puis descend en bas de la liste.",
+			                "Tu es 2e de la liste. La liste complète est dans le volet." } })
+	end
+	Suivi(Classe("Vorthas", "WARLOCK") .. " (1) · " .. TOI .. " (2)")
+	Plus(g, 4, function () if appels.sk and appels.sk.genre == "info" then Suivi(Classe("Vorthas", "WARLOCK") .. " (1) · " .. TOI .. " (2) · " .. Classe("Brannok", "WARRIOR") .. " (5)") end end)
+	-- à la fin du tour : le résultat
+	Plus(g, a.fin - GetTime(), function ()
+		Volet.Retirer("sk")
+		Volet.Appeler({ id = "ressk", genre = "resultat", objet = a.objet,
+			sous = Signe("Coche") .. "À " .. Classe("Vorthas", "WARLOCK") .. " · 1er de la liste", fin = GetTime() + 6 })
+	end)
 end
 function Demo.SK (duree)
 	reponse = nil
-	local o = Objet(1)
-	Volet.Appeler({ id = "sk", genre = "decision", objet = o, sous = DEMO.appel.resume,
-		fin = GetTime() + duree, duree = duree,
+	Volet.Appeler({ id = "sk", genre = "decision", objet = Objet(1), fin = GetTime() + duree, duree = duree,
+		sous = "Suicide King · |cff9fd67f+6 %|r pour toi",
 		boutons = { { texte = "JE LE VEUX", principal = true, clic = function () Demo.Repondre("pris") end },
 		            { texte = "PASSER", clic = function () Demo.Repondre("passe") end } },
+		explication = { "Personne ne l'a en liste : il se joue au Suicide King.", "Tu es 2e de la liste ; déclare-toi si tu le veux." },
 		sansReponse = "Sans réponse : tu passes.", auSansReponse = function () reponse = "passe" end })
 end
 
--- le vote : les noms des candidats, directement
+-- le vote : les noms, directement ; après ta voix, la banderole suit le décompte
 function Demo.Vote (duree)
-	local o = Objet(2)
-	local function Voter (nom) Volet.Clore("vote", "Ta voix va à " .. nom .. ".") end
-	Volet.Appeler({ id = "vote", genre = "decision", objet = o, sous = "Objection : vote entre les candidats",
-		fin = GetTime() + duree, duree = duree,
+	local g, o = Demo.generation, Objet(2)
+	local fin = GetTime() + duree
+	local function Voter (nom)
+		Volet.Appeler({ id = "vote", genre = "info", objet = o, fin = fin, duree = duree,
+			sous = Signe("Sablier") .. "Ta voix : " .. nom .. " · 6 sur 9" })
+		Plus(g, fin - GetTime(), function ()
+			Volet.Retirer("vote")
+			Volet.Appeler({ id = "resvote", genre = "resultat", objet = o,
+				sous = Signe("Coche") .. "À " .. Classe("Seliane", "DRUID") .. " · 6 voix contre 3", fin = GetTime() + 6 })
+		end)
+	end
+	Volet.Appeler({ id = "vote", genre = "decision", objet = o, fin = fin, duree = duree,
+		sous = "Vote · à qui la donner ?",
 		candidats = { { nom = "Seliane", classe = "DRUID", clic = function () Voter(Classe("Seliane", "DRUID")) end },
 		              { nom = "Vorthas", classe = "WARLOCK", clic = function () Voter(Classe("Vorthas", "WARLOCK")) end } },
+		explication = { "Vorthas a objecté à la proposition faite à Seliane.", "Votent les présents qui n'ont pas l'objet en liste ; un clic sur un nom." },
 		sansReponse = "Sans ta voix, le vote continue." })
 end
 
--- l'objet proposé : toujours lisible, l'objection et ce qui va se passer dits en clair
-function Demo.Proposition (g)
-	local o = Objet(3)
-	local function Encore (f, t) C_Timer.After(t, function () if Demo.generation == g then f() end end) end
-	Volet.Appeler({ id = "prop", genre = "info", objet = o, sous = "|cffff8a5cProposé à toi|r · liste 1 sur 2",
-		detail = "S'il n'y a pas d'objection avant la fin du délai, il est à toi.", fin = GetTime() + 20, duree = 20 })
-	Encore(function ()
-		Volet.Appeler({ id = "prop", genre = "info", objet = o, sous = "|cffff8a5cProposé à toi|r · objection en cours",
-			detail = Classe("Vorthas", "WARLOCK") .. " objecte : « elle a déjà reçu la Ceinture ce soir ». Sans retrait, les présents votent entre toi et lui à la fin du délai.",
-			fin = GetTime() + 25, duree = 25 })
-	end, 8)
-	Encore(function ()
+-- l'objet proposé : toujours lisible, et on peut le laisser à un autre à tout moment
+function Demo.Proposition ()
+	local g, o = Demo.generation, Objet(3)
+	local laisse, enChoix
+	local function Laisser (nom)
+		laisse = true
 		Volet.Retirer("prop")
-		Volet.Appeler({ id = "resprop", genre = "resultat", objet = o, sous = "|cff9fd67fÀ toi|r · la proposition tient",
-			detail = "Vote : 5 voix pour toi, 3 pour " .. Classe("Vorthas", "WARLOCK") .. ". Le maître du butin te le remet.", fin = GetTime() + 8 })
-	end, 33)
+		Volet.Appeler({ id = "resprop", genre = "resultat", objet = o, sous = Signe("Coche") .. "Laissé à " .. nom, fin = GetTime() + 5 })
+	end
+	local function Choix ()
+		enChoix = true
+		Volet.Appeler({ id = "prop", genre = "decision", objet = o, fin = GetTime() + 20, duree = 20,
+			sous = "Le laisser à qui ?",
+			candidats = { { nom = "Vorthas", classe = "WARLOCK", clic = function () Laisser(Classe("Vorthas", "WARLOCK")) end },
+			              { nom = "Brannok", classe = "WARRIOR", clic = function () Laisser(Classe("Brannok", "WARRIOR")) end } },
+			explication = { "Tu renonces à l'objet ; il va à qui tu choisis parmi ceux qui le veulent." },
+			sansReponse = "Tu le gardes." })
+	end
+	local function Proposee (sous, detail, duree, explication)
+		Volet.Appeler({ id = "prop", genre = "info", objet = o, sous = sous, detail = detail, fin = GetTime() + duree, duree = duree,
+			boutons = { { texte = "LE LAISSER", clic = Choix } }, explication = explication })
+	end
+	Proposee("|cffff8a5cProposé à toi|r · liste 1 sur 2", nil, 20,
+		{ "Tu l'as en liste, au rang 1 : il t'est proposé.", "Sans objection avant la fin du délai, il est à toi." })
+	Plus(g, 8, function ()
+		if laisse or enChoix then return end
+		Proposee(Signe("Sablier") .. "|cffff8a5cÀ toi|r · objection de " .. Classe("Vorthas", "WARLOCK"), "Vote à la fin du délai", 25,
+			{ "Vorthas objecte : « elle a déjà reçu la Ceinture ce soir ».", "Sans retrait, les présents votent entre toi et lui.", "Tu peux aussi le lui laisser." })
+	end)
+	Plus(g, 33, function ()
+		if laisse then return end
+		Volet.Retirer("prop")
+		Volet.Appeler({ id = "resprop", genre = "resultat", objet = o, sous = Signe("Coche") .. "|cffff8a5cÀ toi|r · 5 voix contre 3", fin = GetTime() + 8,
+			explication = { "Le vote a confirmé la proposition. Le maître du butin te le remet." } })
+	end)
 end
 
 function Demo.Tout ()
@@ -857,8 +920,8 @@ function Demo.Tout ()
 	local g = Demo.generation
 	wipe(appels) montre = nil
 	Demo.SK(25)
-	C_Timer.After(3, function () if Demo.generation == g then Demo.Vote(40) end end)
-	C_Timer.After(5, function () if Demo.generation == g then Demo.Proposition(g) end end)
+	Plus(g, 3, function () Demo.Vote(40) end)
+	Plus(g, 5, Demo.Proposition)
 end
 
 ------------------------------------------------------------------------
@@ -883,9 +946,9 @@ Opus.Commande("volet", "volet [aide]", "le volet latéral du butin, en démonstr
 		Opus.Msg(languette:IsShown() and "la languette du volet est au bord gauche (/opus volet aide)." or "volet caché.")
 	elseif mot == "demo" then
 		Montrer(true) etatForce = nil Demo.Tout()
-		Opus.Msg("démonstration : trois appels arrivent, une banderole à la fois.")
+		Opus.Msg("démonstration : trois appels arrivent, une banderole à la fois (survole l'objet pour l'explication).")
 	elseif mot == "appel" then
-		Montrer(true) etatForce = nil Demo.SK(25)
+		Montrer(true) etatForce = nil Demo.generation = (Demo.generation or 0) + 1 Demo.SK(25)
 	elseif mot == "etat" and (reste == "repos" or reste == "cours" or reste == "toi" or reste == "auto") then
 		Montrer(true) etatForce = reste ~= "auto" and reste or nil PoserLanguette()
 	elseif mot == "echelle" and tonumber(reste) then
