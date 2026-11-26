@@ -198,7 +198,7 @@ local DEMO = {
 	titre = "Butin", lieu = "Cœur du Magma · Garr",
 	appel = {
 		nom = "Anneau d'obsidienne", icone = Icone(19147), qualite = 4,
-		resume = "Hors liste · |cff9fd67f+6 %|r pour toi · tu passerais en tête",
+		resume = "Suicide King · tu es 2e de la liste",
 		duree = 30,
 	},
 	lignes = {
@@ -631,7 +631,7 @@ local function LigneAppel (parent, haut)
 	f.phrase:SetText("Si tu te déclares, tu passes en tête : " .. Classe("Vorthas", "WARLOCK") .. " et " .. Classe("Brannok", "WARRIOR") .. " sont derrière toi.")
 
 	-- trois faits, séparés par des filets
-	local faits = { { "POUR TOI", "+6 %", C.mousse }, { "REMPLACE", "|cff0070ddBague de l'aube|r" }, { "TON RANG SK", "2 sur 9" } }
+	local faits = { { "GAIN (PAWN)", "+6 %", C.mousse }, { "REMPLACE", "|cff0070ddBague de l'aube|r" }, { "TON RANG SK", "2 sur 9" } }
 	local l3 = (INTERIEUR - 16) / 3
 	local haut3 = Aplat(f, C["or"], 0.22) haut3:SetHeight(1) haut3:SetPoint("TOPLEFT", 8, -92) haut3:SetPoint("TOPRIGHT", -8, -92)
 	local bas3 = Aplat(f, C["or"], 0.22) bas3:SetHeight(1) bas3:SetPoint("TOPLEFT", 8, -134) bas3:SetPoint("TOPRIGHT", -8, -134)
@@ -850,10 +850,10 @@ end
 function Demo.SK (duree)
 	reponse = nil
 	Volet.Appeler({ id = "sk", genre = "decision", objet = Objet(1), fin = GetTime() + duree, duree = duree,
-		sous = "Suicide King · |cff9fd67f+6 %|r pour toi",
+		sous = "Suicide King · tu es 2e de la liste",
 		boutons = { { texte = "JE LE VEUX", principal = true, clic = function () Demo.Repondre("pris") end },
 		            { texte = "PASSER", clic = function () Demo.Repondre("passe") end } },
-		explication = { "Personne ne l'a en liste : il se joue au Suicide King.", "Tu es 2e de la liste ; déclare-toi si tu le veux." },
+		explication = { "Personne ne l'a en liste : il se joue au Suicide King.", "Tu es 2e de la liste ; déclare-toi si tu le veux.", "Pour toi, c'est un gain de 6 % selon Pawn, face à la Bague de l'aube." },
 		sansReponse = "Sans réponse : tu passes.", auSansReponse = function () reponse = "passe" end })
 end
 
