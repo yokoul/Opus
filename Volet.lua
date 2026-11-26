@@ -518,7 +518,7 @@ local function CreerVolet ()
 			z:SetBackdropColor(0, 0, 0, 0.25) z:SetBackdropBorderColor(C.cendre[1], C.cendre[2], C.cendre[3])
 			z.signe:Hide()
 			z.titre:SetText("TU PASSES") z.titre:SetTextColor(C.poussiere[1], C.poussiere[2], C.poussiere[3])
-			z.rendu:SetText("L'objet ira aux suivants.") z.rendu:SetTextColor(C.poussiere[1], C.poussiere[2], C.poussiere[3])
+			z.rendu:SetText("")
 		else
 			z:SetBackdropColor(C.braise[1], C.braise[2], C.braise[3], 0.08) z:SetBackdropBorderColor(C.braiseBord[1], C.braiseBord[2], C.braiseBord[3])
 			z.signe:SetTexture(MEDIA .. "Rubis.tga") z.signe:Show()
