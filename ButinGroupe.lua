@@ -342,6 +342,8 @@ function Opus.RafraichirButinGroupe ()
 		if cadre then t.aEuCadre = true PoserBande(t, cadre, membres)
 		elseif not t.aEuCadre and GetTime() - (t.debut or 0) > 1 then enFenetre[#enFenetre + 1] = t end
 	end
+	-- avec le volet (Volet.lua), les jets s'y suivent : plus de fenêtre de secours
+	if Opus.db and not (Opus.db.volet and Opus.db.volet.ancien) then enFenetre = {} end
 	if #enFenetre == 0 then
 		if f then f:Hide() end
 		return
@@ -412,8 +414,12 @@ end
 -- les événements
 ------------------------------------------------------------------------
 
+-- Les jets se suivent en groupe (pas en raid), même sans la comparaison : le volet les montre. La bande accrochée au
+-- cadre de jet du jeu, elle, reste réservée au réglage « Comparer le butin en donjon ».
+local function Suivre () return Opus.ButinGroupeActif() or (IsInGroup() and not IsInRaid()) end
+
 Raid.Ecoute("START_LOOT_ROLL", function (rollID, duree)
-	if not Opus.ButinGroupeActif() then return end
+	if not Suivre() then return end
 	local lien = GetLootRollItemLink and GetLootRollItemLink(rollID)
 	local id = lien and tonumber(lien:match("item:(%d+)"))
 	if not id then return end
@@ -466,3 +472,12 @@ Raid.Commande("jet", "jet <itemID>", "essayer la fenêtre du butin de groupe (do
 	Opus.RafraichirButinGroupe()
 end)
 Opus.ButinGroupeLire = Lire
+
+-- pour le volet (Volet.lua) : les jets en cours et récents, les membres, et un jet d'essai
+Opus.ButinGroupeTirages = function () return tirages end
+Opus.ButinGroupeMembres = Membres
+function Opus.ButinGroupeEssai (id, duree)
+	local t = { rollID = -1, id = id, lien = Raid.LienDe(id), fin = GetTime() + duree, choix = {}, debut = GetTime() }
+	tirages[#tirages + 1] = t
+	return t
+end

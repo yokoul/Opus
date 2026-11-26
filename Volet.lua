@@ -983,15 +983,89 @@ local function Decrire (a)
 	return d
 end
 
+------------------------------------------------------------------------
+-- les jets de groupe, en donjon (ButinGroupe.lua lit le journal du butin) : chaque jet entre dans le volet dès qu'il
+-- commence et y reste pour le donjon ; pas de banderole pendant le jet (on décide sur le cadre du jeu), une courte
+-- banderole de résultat quand un jet auquel tu as pris part se finit
+------------------------------------------------------------------------
+
+local jets = {}                         -- les jets de ce groupe, gardés pour le volet (les plus anciens s'en vont)
+local finJets                           -- quand le dernier jet s'est fini
+local CHOIX = {
+	besoin = "|cfff3d58aBesoin|r", ["cupidité"] = "|cffcfd4dcCupidité|r", ["désenchanter"] = "|cffc080ffDésenchanter|r", passe = "|cff8a8070Passe|r",
+}
+
+local function CleJet (t) return "j" .. tostring(t.rollID) .. "#" .. t.id .. "#" .. math.floor(t.debut or 0) end
+
+-- les nouveaux jets de ButinGroupe.lua rejoignent ceux du volet
+local function Jets ()
+	local liste = Opus.ButinGroupeTirages and Opus.ButinGroupeTirages() or {}
+	for _, t in ipairs(liste) do
+		if not t.dansVolet then t.dansVolet = true jets[#jets + 1] = t end
+	end
+	while #jets > 30 do table.remove(jets, 1) end
+	-- un jet sans gagnant lu se termine avec son temps
+	for _, t in ipairs(jets) do if not t.finie and GetTime() > (t.fin or 0) + 5 then t.finie = GetTime() end end
+	return jets
+end
+
+local function DecrireJet (t)
+	local moi = Moi()
+	local d = { objet = ObjetDe(t) }
+	local mien = t.choix[moi]
+	-- qui a choisi quoi : les membres du groupe, et ceux que le journal a nommés
+	local noms, vus = {}, {}
+	for _, m in ipairs(Opus.ButinGroupeMembres and Opus.ButinGroupeMembres() or {}) do
+		if not vus[m.nom] then vus[m.nom] = true noms[#noms + 1] = { nom = m.nom, unite = m.unite } end
+	end
+	for nom in pairs(t.choix) do if not vus[nom] then vus[nom] = true noms[#noms + 1] = { nom = nom } end end
+	local choisis = 0
+	for _, n in ipairs(noms) do local c = t.choix[n.nom] if c and c.quoi then choisis = choisis + 1 end end
+	-- le détail, du meilleur jet au moins bon ; ceux qui ne peuvent pas le porter le disent
+	table.sort(noms, function (x, y)
+		local cx, cy = t.choix[x.nom], t.choix[y.nom]
+		local jx, jy = cx and cx.jet or -1, cy and cy.jet or -1
+		if jx ~= jy then return jx > jy end
+		return x.nom < y.nom
+	end)
+	d.explication = {}
+	for _, n in ipairs(noms) do
+		local c = t.choix[n.nom]
+		local peut = n.unite and Opus.PeutPorter and Opus.PeutPorter(n.unite, t.id)
+		local ligne = Nom(n.nom) .. " : " .. (c and c.quoi and CHOIX[c.quoi] or "|cff8a8070…|r") .. (c and c.jet and (" " .. c.jet) or "")
+		if peut == "non" then ligne = ligne .. " |cff8a8070(ne peut pas le porter)|r" end
+		if n.nom == t.gagnant then ligne = Signe("Coche") .. ligne end
+		d.explication[#d.explication + 1] = ligne
+	end
+	if not t.finie then
+		d.sous = "Jets · " .. choisis .. " sur " .. #noms .. " ont choisi" .. (mien and mien.quoi and (" · toi : " .. CHOIX[mien.quoi]) or "")
+		d.etiquette = { "JETS " .. Temps(math.max(0, (t.fin or 0) - GetTime())), "attente" }
+		return d
+	end
+	local g = t.gagnant and t.choix[t.gagnant]
+	if t.gagnant then
+		d.sous = Signe("Coche") .. "À " .. Nom(t.gagnant) .. (g and g.quoi and (" · " .. CHOIX[g.quoi] .. (g.jet and (" " .. g.jet) or "")) or "")
+		d.etiquette = { t.gagnant == moi and "À TOI" or "GAGNÉ", "rendu" }
+	else
+		d.sous, d.etiquette = "Tout le monde a passé", { "PASSÉ", "cendre" }
+	end
+	-- la banderole de résultat : seulement si tu as jeté les dés (besoin, cupidité, désenchantement)
+	if mien and mien.quoi and mien.quoi ~= "passe" and GetTime() - t.finie < 6 then
+		d.appel = { genre = "resultat", objet = d.objet, fin = t.finie + 6, explication = d.explication,
+			sous = d.sous .. (t.gagnant ~= moi and mien.jet and (" · toi " .. mien.jet) or "") }
+	end
+	return d
+end
+
 -- l'ordre des lignes : ce qui t'attend, ce qui te concerne, ce qui court, puis le tranché (le plus récent d'abord)
-local function Poids (a, d)
+local function Poids (enCours, d)
 	if d.appel and d.appel.genre == "decision" then return 0 end
-	if d.appel then return 1 end
-	if a.etat == "delai" or a.etat == "vote" or a.etat == "sk" or a.etat == "trancher" then return 2 end
+	if d.appel and d.appel.genre ~= "resultat" then return 1 end
+	if enCours then return 2 end
 	return 3
 end
 
-local descriptions = {}                 -- [clé] = d, refaites à chaque rafraîchissement
+local entrees = {}                      -- les lignes du volet : { cle, d, p, ordre }, refaites à chaque rafraîchissement
 
 -- Les annonces → les appels. Un appel qui disparaît en laissant une réponse (« Tu passes ») la montre deux secondes.
 function Volet.Synchroniser ()
@@ -1002,22 +1076,33 @@ function Volet.Synchroniser ()
 		local a = Raid.annonces[k]
 		if a.finie and maintenant - a.finie > TRAINE then table.remove(Raid.annonces, k) end
 	end
-	if #Raid.annonces > 0 then Volet.Creer() end
+	if #Raid.annonces > 0 or #Jets() > 0 then Volet.Creer() end
 	local enCours = false
 	for _, a in ipairs(Raid.annonces) do if not a.finie then enCours = true end end
 	if enCours then finAnnonces = nil elseif #Raid.annonces > 0 and not finAnnonces then finAnnonces = maintenant end
 	-- une vraie annonce met fin à la démonstration
-	if #Raid.annonces > 0 and Demo.actif then
+	if (#Raid.annonces > 0 or #jets > 0) and Demo.actif then
 		Demo.actif = nil Demo.generation = (Demo.generation or 0) + 1
-		for id in pairs(appels) do if id:sub(1, 1) ~= "r" then appels[id] = nil end end
+		for id in pairs(appels) do if id:sub(1, 1) ~= "r" and id:sub(1, 1) ~= "j" then appels[id] = nil end end
 		montre = nil
 	end
 	local vus = {}
-	wipe(descriptions)
+	wipe(entrees)
+	local sources = {}
 	for _, a in ipairs(Raid.annonces) do
-		local cle = Cle(a)
-		local d = Decrire(a)
-		descriptions[cle] = d
+		local en = a.etat == "delai" or a.etat == "vote" or a.etat == "sk" or a.etat == "trancher"
+		sources[#sources + 1] = { cle = Cle(a), d = Decrire(a), enCours = en, ordre = a.n }
+	end
+	-- les jets de groupe
+	local jetEnCours = false
+	for _, t in ipairs(Jets()) do
+		if not t.finie then jetEnCours = true end
+		sources[#sources + 1] = { cle = CleJet(t), d = DecrireJet(t), enCours = not t.finie, ordre = t.debut or 0 }
+	end
+	if jetEnCours then finJets = nil elseif #jets > 0 and not finJets then finJets = maintenant end
+	for _, e in ipairs(sources) do
+		local cle, d = e.cle, e.d
+		entrees[#entrees + 1] = { cle = cle, d = d, p = Poids(e.enCours, d), ordre = e.ordre }
 		local ancien = appels[cle]
 		if d.appel then
 			vus[cle] = true
@@ -1032,10 +1117,12 @@ function Volet.Synchroniser ()
 		end
 	end
 	for id, ap in pairs(appels) do
-		if id:sub(1, 1) == "r" and not vus[id] and not ap.clos then Volet.Retirer(id) end
+		local source = id:sub(1, 1)
+		if (source == "r" or source == "j") and not vus[id] and not ap.clos then Volet.Retirer(id) end
 	end
-	-- la languette : là tant qu'il y a du butin, et dix minutes après
-	local voulue = Reglages().demo or #Raid.annonces > 0
+	-- la languette : là tant qu'il y a du butin, et dix minutes après le dernier jet
+	local jetsRecents = #jets > 0 and (jetEnCours or (finJets and maintenant - finJets < TRAINE))
+	local voulue = Reglages().demo or #Raid.annonces > 0 or jetsRecents
 	if voulue then
 		Volet.Creer()
 		if not languette:IsShown() then languette:Show() end
@@ -1082,23 +1169,20 @@ end
 
 function Volet.RemplirDirect (r)
 	local liste = {}
-	for _, a in ipairs(Raid.annonces) do
-		local d = descriptions[Cle(a)] or Decrire(a)
-		liste[#liste + 1] = { a = a, d = d, p = Poids(a, d) }
-	end
-	table.sort(liste, function (x, y) if x.p ~= y.p then return x.p < y.p end return x.a.n > y.a.n end)
+	for _, e in ipairs(entrees) do liste[#liste + 1] = e end
+	table.sort(liste, function (x, y) if x.p ~= y.p then return x.p < y.p end return x.ordre > y.ordre end)
 	-- sans choix du joueur, la première ligne qui t'attend est dépliée
 	local cles = {}
-	for _, e in ipairs(liste) do cles[Cle(e.a)] = true end
+	for _, e in ipairs(liste) do cles[e.cle] = true end
 	if deplie and not cles[deplie] then deplie = nil end
-	if not deplie and liste[1] and liste[1].p == 0 then deplie = Cle(liste[1].a) end
+	if not deplie and liste[1] and liste[1].p == 0 then deplie = liste[1].cle end
 	for _, f in ipairs(r.lignes) do f:Hide() end
 	r.vide:SetShown(#liste == 0)
 	local y, place, caches = 0, r:GetHeight() - 16, 0
 	for k, e in ipairs(liste) do
-		local a, d = e.a, e.d
+		local d = e.d
 		local f = LigneDirecte(r, k)
-		f.cle = Cle(a)
+		f.cle = e.cle
 		f.cadre.icone:SetTexture(d.objet.icone)
 		f.nom:SetText(d.objet.nom) f.nom:SetTextColor(Qualite(d.objet.qualite))
 		f.sous:SetText(d.sous or "")
@@ -1157,8 +1241,22 @@ Raid.RafraichirVote = function ()
 	end
 end
 
+local AncienButinGroupe = Opus.RafraichirButinGroupe
+Opus.RafraichirButinGroupe = function ()
+	if AncienButinGroupe then AncienButinGroupe() end
+	if OpusDB and OpusDB.volet and OpusDB.volet.ancien then return end
+	local ok, err = xpcall(Volet.Synchroniser, function (e) return tostring(e) .. "\n" .. (debugstack and debugstack(2, 3, 0) or "") end)
+	if not ok and GetTime() - dernierAvis > 60 then
+		dernierAvis = GetTime()
+		Opus.Msg("|cffff5a5aerreur du volet|r : " .. tostring(err):gsub("Interface\\AddOns\\Opus\\", ""))
+	end
+end
+-- un nouveau groupe, un nouveau donjon : les jets d'avant s'en vont
+Opus.Ecoute("GROUP_LEFT", function () wipe(jets) finJets = nil end)
+
 -- la traîne : sans annonce depuis dix minutes, la languette s'en va (sauf si on l'a montrée à la main)
 C_Timer.NewTicker(5, function ()
+	if finJets and GetTime() - finJets > TRAINE and languette and languette:IsShown() then Volet.Synchroniser() end
 	if finAnnonces and GetTime() - finAnnonces > TRAINE and #Raid.annonces > 0 then
 		for k = #Raid.annonces, 1, -1 do if Raid.annonces[k].finie then table.remove(Raid.annonces, k) end end
 		finAnnonces = nil
@@ -1330,6 +1428,7 @@ local AIDE = {
 	"|cffffd100/opus volet echelle 0.8 à 1.4|r — la taille du volet, de la languette et de la banderole",
 	"|cffffd100/opus volet son|r — le son d'une décision qui arrive, oui ou non",
 	"|cffffd100/opus volet essai|r — de fausses annonces d'un maître du butin, par le vrai circuit (seul, hors groupe)",
+	"|cffffd100/opus volet essai donjon|r — deux jets de groupe joués d'avance, comme en donjon",
 	"|cffffd100/opus volet ancien|r — revenir à la fenêtre des annonces d'avant, ou au volet",
 }
 
@@ -1352,6 +1451,26 @@ local function Essai ()
 	Dire(41, { "R", "3", "attribue", "Seliane" })
 end
 
+-- L'essai en donjon : deux jets de groupe joués d'avance (le journal du butin imité), sans groupe.
+local function EssaiDonjon ()
+	if not Opus.ButinGroupeEssai then return end
+	local moi = Raid.MonNom()
+	local g = (Demo.generation or 0) + 1
+	Demo.generation, Demo.actif = g, nil
+	local t1 = Opus.ButinGroupeEssai(19143, 20)
+	local t2
+	local function Plus (t, f) C_Timer.After(t, function () if Demo.generation == g then f() Opus.RafraichirButinGroupe() end end) end
+	local function Choix (t, nom, quoi, jet) local c = t.choix[nom] or {} c.quoi, c.jet = quoi, jet or c.jet t.choix[nom] = c end
+	Plus(0, function () end)
+	Plus(2, function () Choix(t1, "Seliane", "besoin") end)
+	Plus(3, function () t2 = Opus.ButinGroupeEssai(19137, 20) Choix(t1, "Vorthas", "cupidité") end)
+	Plus(5, function () Choix(t1, moi, "besoin") Choix(t2, "Brannok", "besoin") end)
+	Plus(7, function () Choix(t1, "Brannok", "passe") Choix(t2, moi, "passe") Choix(t2, "Seliane", "cupidité") end)
+	Plus(9, function () Choix(t1, "Seliane", "besoin", 87) Choix(t1, moi, "besoin", 42) Choix(t1, "Vorthas", "cupidité", 66)
+		t1.gagnant, t1.finie = "Seliane", GetTime() end)
+	Plus(14, function () Choix(t2, "Brannok", "besoin", 23) Choix(t2, "Seliane", "cupidité", 91) t2.gagnant, t2.finie = "Brannok", GetTime() end)
+end
+
 Opus.Commande("volet", "volet [aide]", "le volet latéral du butin, en démonstration", function (texte)
 	local mot, reste = (texte or ""):match("^%s*(%S*)%s*(.-)%s*$")
 	mot = (mot or ""):lower()
@@ -1371,6 +1490,9 @@ Opus.Commande("volet", "volet [aide]", "le volet latéral du butin, en démonstr
 		Reglages().echelle = e
 		Creer() languette:SetScale(e) banderole:SetScale(e) volet:SetScale(e) Placer()
 		Opus.Msg("échelle du volet : " .. e)
+	elseif mot == "essai" and reste == "donjon" then
+		EssaiDonjon()
+		Opus.Msg("essai en donjon : deux jets de groupe, joués d'avance.")
 	elseif mot == "essai" then
 		Essai()
 		Opus.Msg("essai : trois annonces arrivent d'un maître du butin imaginaire.")
