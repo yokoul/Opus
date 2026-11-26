@@ -933,7 +933,8 @@ local function Decrire (a)
 			"Parmi les déclarés, le mieux placé dans la liste l'emporte, puis passe en bas." }
 		if Raid.GainPawn and Raid.Comparer then
 			local _, classe = UnitClass("player")
-			local g = Raid.GainPawn(Raid.Comparer(moi, a.id), a.id, a.lien, classe)
+			local ok, g = pcall(function () return Raid.GainPawn(Raid.Comparer(moi, a.id), a.id, a.lien, classe) end)
+			if not ok then g = nil end
 			if g and g.pct then table.insert(d.explication, string.format("Pour toi : %+d %% selon Pawn (%s).", math.floor(g.pct + 0.5), g.spe or "")) end
 		end
 		local tete = a.declares and #a.declares > 0 and ("En tête : " .. Noms(a.declares, 3)) or "Personne de déclaré"
@@ -1136,9 +1137,15 @@ end
 
 -- La fenêtre des annonces d'avant (RaidVote.lua) laisse la place au volet ; /opus volet ancien la rend.
 local AncienRafraichir = Raid.RafraichirVote
+local dernierAvis = 0
 Raid.RafraichirVote = function ()
-	if Reglages and OpusDB and OpusDB.volet and OpusDB.volet.ancien then return AncienRafraichir() end
-	Volet.Synchroniser()
+	if OpusDB and OpusDB.volet and OpusDB.volet.ancien then return AncienRafraichir() end
+	-- pendant les essais : une erreur du volet se dit dans le chat (une fois par minute), avec sa ligne
+	local ok, err = xpcall(Volet.Synchroniser, function (e) return tostring(e) .. "\n" .. (debugstack and debugstack(2, 3, 0) or "") end)
+	if not ok and GetTime() - dernierAvis > 60 then
+		dernierAvis = GetTime()
+		Opus.Msg("|cffff5a5aerreur du volet|r : " .. tostring(err):gsub("Interface\\AddOns\\Opus\\", ""))
+	end
 end
 
 -- la traîne : sans annonce depuis dix minutes, la languette s'en va (sauf si on l'a montrée à la main)
