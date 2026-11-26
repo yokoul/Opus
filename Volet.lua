@@ -672,7 +672,7 @@ local function CreerVolet ()
 	local emb = c:CreateTexture(nil, "ARTWORK") emb:SetTexture("Interface\\AddOns\\Opus\\Media\\Embleme")
 	emb:SetSize(40, 40) emb:SetPoint("TOPLEFT", 2, 0)
 	local titre = Texte(c, "Titre", C.orVif) titre:SetPoint("TOPLEFT", 52, -2) titre:SetText(string.upper(DEMO.titre))
-	local lieu = Texte(c, "Texte", C.pale) lieu:SetPoint("TOPLEFT", 52, -22) lieu:SetText(DEMO.lieu)
+	v.lieu = Texte(c, "Texte", C.pale) v.lieu:SetPoint("TOPLEFT", 52, -22) v.lieu:SetText(DEMO.lieu)
 	-- l'épingle : le volet reste ouvert (même en combat) tant qu'elle est mise
 	local ep = CreateFrame("Button", nil, c)
 	ep:SetSize(20, 20) ep:SetPoint("TOPRIGHT", -2, -2)
@@ -717,14 +717,22 @@ local function CreerVolet ()
 	local y = -216
 	for _, d in ipairs(DEMO.lignes) do Ligne(r, d, y) y = y - 50 end
 	v.registre = r
+	-- le registre en direct : les annonces du maître du butin (plus bas, « le butin en direct »)
+	v.direct = CreateFrame("Frame", nil, c)
+	v.direct:SetPoint("TOPLEFT", 0, -96) v.direct:SetPoint("BOTTOMRIGHT", 0, 0)
+	v.direct.lignes = {}
+	v.direct.vide = Texte(v.direct, "Texte", C.poussiere) v.direct.vide:SetPoint("TOPLEFT", 8, -14)
+	v.direct.vide:SetText("Rien en cours. Les annonces du maître du butin arrivent ici.")
+	v.direct.plus = Texte(v.direct, "Petit", C.poussiere) v.direct.plus:SetPoint("BOTTOMLEFT", 8, 2)
 	v.ailleurs = Texte(c, "Texte", C.poussiere) v.ailleurs:SetPoint("TOPLEFT", 8, -110)
 	v.ailleurs:SetText("Démonstration : seul l'onglet Objets est rempli.")
 
 	-- en pied : ce qui reste à tomber sur ta liste
-	local pied = Aplat(c, C["or"], 0.22) pied:SetHeight(1) pied:SetPoint("BOTTOMLEFT", 0, 56) pied:SetPoint("BOTTOMRIGHT", 0, 56)
-	local lib = Texte(c, "Etiquette", C.poussiere) lib:SetPoint("BOTTOMLEFT", 6, 40) lib:SetText("SUR TA LISTE, ENCORE À TOMBER")
+	v.pied = CreateFrame("Frame", nil, c) v.pied:SetAllPoints()
+	local pied = Aplat(v.pied, C["or"], 0.22) pied:SetHeight(1) pied:SetPoint("BOTTOMLEFT", 0, 56) pied:SetPoint("BOTTOMRIGHT", 0, 56)
+	local lib = Texte(v.pied, "Etiquette", C.poussiere) lib:SetPoint("BOTTOMLEFT", 6, 40) lib:SetText("SUR TA LISTE, ENCORE À TOMBER")
 	for i, t in ipairs(DEMO.liste) do
-		local s = Texte(c, "Texte", C.pale) s:SetPoint("BOTTOMLEFT", 6, 40 - i * 18) s:SetText(t)
+		local s = Texte(v.pied, "Texte", C.pale) s:SetPoint("BOTTOMLEFT", 6, 40 - i * 18) s:SetText(t)
 	end
 
 	v.onglet = 1
@@ -734,7 +742,19 @@ local function CreerVolet ()
 			if i == self.onglet then o.texte:SetTextColor(C.encreTexte[1], C.encreTexte[2], C.encreTexte[3])
 			else o.texte:SetTextColor(C.pale[1], C.pale[2], C.pale[3]) end
 		end
-		self.registre:SetShown(self.onglet == 1) self.ailleurs:SetShown(self.onglet ~= 1)
+		-- la démonstration montre son registre figé ; sinon, le butin en direct
+		local demo = Demo.actif
+		self.registre:SetShown(demo and self.onglet == 1) self.pied:SetShown(demo)
+		self.direct:SetShown(not demo and self.onglet == 1)
+		self.ailleurs:SetShown(self.onglet ~= 1)
+		self.ailleurs:SetText(demo and "Démonstration : seul l'onglet Objets est rempli." or "Bientôt : ta liste et la soirée, ici.")
+		self.lieu:SetText(demo and DEMO.lieu or (GetRealZoneText and GetRealZoneText() or ""))
+		if not demo then
+			local n = PourToi()
+			self.attend:SetText(n > 0 and (n .. " pour toi") or "")
+			if Volet.RemplirDirect then Volet.RemplirDirect(self.direct) end
+			return
+		end
 		local z = self.appel.zone
 		local n = PourToi()
 		self.attend:SetText(n > 0 and (n .. " pour toi") or "")
@@ -774,6 +794,363 @@ local function CreerVolet ()
 end
 
 ------------------------------------------------------------------------
+-- le butin en direct : les annonces du maître du butin (RaidVote.lua) deviennent des lignes du volet et, quand elles
+-- te concernent, des banderoles
+------------------------------------------------------------------------
+
+local Raid = Opus.Raid
+local TRAINE = 600                      -- la languette reste dix minutes après la dernière annonce
+local finAnnonces                       -- quand la dernière annonce s'est finie
+local deplie                            -- la ligne dépliée du volet
+local TOI_ = "|cffff8a5ctoi|r"
+
+local function Signe (nom) return "|T" .. MEDIA .. nom .. ":14:14|t " end
+local function Cle (a) return "r" .. a.ml .. "#" .. a.n end
+local function Moi () return Raid.MonNom() end
+local function Chrono (a) return a.fin and Temps(math.max(0, a.fin - GetTime())) or "" end
+local function Nom (nom)
+	if not nom or nom == "" then return "?" end
+	if nom == Moi() then return TOI_ end
+	local _, classe = UnitClass(nom)
+	return classe and Classe(nom, classe) or nom
+end
+local function Noms (liste, max)
+	local t = {}
+	for k, n in ipairs(liste or {}) do if k <= (max or 4) then t[#t + 1] = Nom(n) end end
+	if #(liste or {}) > (max or 4) then t[#t + 1] = "+" .. (#liste - (max or 4)) end
+	return table.concat(t, " · ")
+end
+local function Contient (liste, nom) for _, n in ipairs(liste or {}) do if n == nom then return true end end end
+
+local function ObjetDe (a)
+	local nom, _, qualite = GetItemInfo(a.id)
+	return { nom = nom or (a.lien and a.lien:match("%[(.-)%]")) or ("objet " .. a.id), icone = GetItemIcon(a.id), qualite = qualite or 4 }
+end
+
+-- ta place dans la liste Suicide King (l'instantané de la soirée, s'il est là)
+local function RangSK (nom)
+	local liste = Raid.ListeSK and Raid.ListeSK() or {}
+	for k, n in ipairs(liste) do if n == nom then return k, #liste end end
+end
+local function Ordinal (k) return k == 1 and "1er" or (k .. "e") end
+
+-- Répondre au maître du butin : par message d'addon, sinon dans le canal raid.
+local function Envoyer (a, mot, chat, quoi)
+	if not Raid.Repondre(mot, a.n, quoi) and IsInGroup() then SendChatMessage(chat, IsInRaid() and "RAID" or "PARTY") end
+	Raid.RafraichirVote()
+end
+
+-- Ce qu'une annonce devient pour toi : sa ligne (sous, étiquette), et son appel s'il te concerne.
+-- d = { sous, etiquette = { texte, sens }, appel = {…} ou nil, clos = texte (la banderole montre la réponse puis rentre),
+--       explication, concerne }
+local function Decrire (a)
+	local moi = Moi()
+	local objet = ObjetDe(a)
+	local d = { objet = objet }
+	local temps = a.fin and (a.etat == "delai" or a.etat == "vote" or a.etat == "sk")
+	local function Appel (genre, t)
+		t.genre, t.objet = genre, objet
+		if temps and not t.fin then t.fin, t.duree = a.fin, a.duree end
+		d.appel = t
+	end
+	local autres = {}
+	for _, n in ipairs(a.etat == "vote" and a.choix or a.candidats or {}) do
+		-- les autres candidats présents : on ne laisse pas un objet à un absent
+		if n ~= moi and (not IsInGroup() or UnitInRaid(n) or UnitInParty(n)) then autres[#autres + 1] = n end
+	end
+	-- « Le laisser » : les autres candidats, un clic sur un nom
+	local function Laisser (t)
+		if #autres == 0 then return end
+		t.boutons = t.boutons or {}
+		table.insert(t.boutons, { texte = "LE LAISSER", clic = function () a.laisser = true Raid.RafraichirVote() end })
+	end
+	if a.laisser and (a.etat == "delai" or a.etat == "vote") and not a.laisse then
+		local c = {}
+		for k, n in ipairs(autres) do
+			if k <= 3 then c[#c + 1] = { nom = n, classe = select(2, UnitClass(n)), clic = function ()
+				a.laisse = n Envoyer(a, "L", "!laisse " .. a.n .. " " .. n, n) end } end
+		end
+		d.sous, d.etiquette = "Le laisser à qui ?", { "À TOI", "toi" }
+		d.explication = { "Tu renonces à l'objet : il va à qui tu choisis.", "Sans choix avant la fin, tu le gardes." }
+		Appel("decision", { sous = d.sous, candidats = c, explication = d.explication,
+			sansReponse = "Tu le gardes.", auSansReponse = function () a.laisser = nil end })
+		return d
+	end
+	if a.laisse then
+		d.sous, d.etiquette, d.clos = Signe("Sablier") .. "Laissé à " .. Nom(a.laisse), { "LAISSÉ", "attente" }, "Laissé à " .. Nom(a.laisse) .. "."
+		return d
+	end
+
+	if a.etat == "delai" then
+		d.etiquette = { "DÉLAI " .. Chrono(a), "attente" }
+		if a.propose == moi then
+			d.sous = "|cffff8a5cProposé à toi|r · sans objection, il est à toi"
+			d.etiquette = { "PROPOSÉ", "toi" }
+			d.explication = { "Tu l'as en liste : il t'est proposé.", "S'il n'y a pas d'objection avant la fin du délai, il est à toi.",
+				"Tu peux aussi le laisser à un autre candidat." }
+			local t = { sous = "|cffff8a5cProposé à toi|r", detail = "Sans objection, il est à toi", explication = d.explication }
+			Laisser(t) Appel("info", t)
+		elseif a.candidat then
+			d.sous = "Proposé à " .. Nom(a.propose) .. " · tu es candidat"
+			d.explication = { "Tu l'as aussi en liste ; le calcul le propose à " .. (a.propose or "?") .. ".",
+				"Si tu penses le mériter plus, objecte avant la fin du délai : les présents voteront." }
+			local t = { sous = "Proposé à " .. Nom(a.propose) .. " · tu es candidat", explication = d.explication }
+			if not a.objecte then
+				t.boutons = { { texte = "OBJECTER", clic = function () a.objecte = true Envoyer(a, "O", "!objection " .. a.n) end } }
+			else t.detail = Signe("Sablier") .. "Ton objection est partie" end
+			Appel("info", t)
+		else
+			d.sous = "Proposé à " .. Nom(a.propose)
+		end
+	elseif a.etat == "vote" then
+		local entre = "Entre " .. Noms(a.choix, 3)
+		local objection = "Objection de " .. Nom(a.auteur)
+		d.explication = { (a.auteur or "?") .. " objecte" .. (a.motif and (" : « " .. a.motif .. " »") or "") .. ".",
+			"Les présents qui ne l'ont pas en liste votent entre les candidats ; sans quorum, la proposition tient." }
+		if Contient(a.choix, moi) or a.candidat or a.propose == moi then
+			d.sous, d.etiquette = objection .. " · vote", { "VOTE " .. Chrono(a), "attente" }
+			local t = { sous = (a.propose == moi and "|cffff8a5cÀ toi|r · " or "") .. objection, detail = entre, explication = d.explication }
+			if Contient(a.choix, moi) then Laisser(t) end
+			Appel("info", t)
+		elseif a.monVote then
+			d.sous, d.etiquette = "Ta voix : " .. Nom(a.monVote), { "VOTÉ", "attente" }
+			Appel("info", { sous = Signe("Sablier") .. "Ta voix : " .. Nom(a.monVote), detail = entre, explication = d.explication })
+		else
+			d.sous, d.etiquette = objection .. " · à toi de voter", { "VOTER", "toi" }
+			local c = {}
+			for _, n in ipairs(a.choix or {}) do
+				c[#c + 1] = { nom = n, classe = select(2, UnitClass(n)), clic = function () a.monVote = n Envoyer(a, "B", "!vote " .. a.n .. " " .. n, n) end }
+			end
+			local t = { sous = "Vote · " .. objection, explication = d.explication, sansReponse = "Sans ta voix, le vote continue." }
+			if #c <= 3 then t.candidats = c
+			else t.boutons = { { texte = "VOTER…", principal = true, clic = function () deplie = Cle(a) Volet.Ouvrir(true) end } } end
+			Appel("decision", t)
+		end
+	elseif a.etat == "sk" then
+		local k, total = RangSK(moi)
+		local place = k and ("tu es " .. Ordinal(k) .. " de la liste") or "tu es hors liste"
+		d.explication = { "Personne de présent ne l'a en liste : il se joue au Suicide King.",
+			"Parmi les déclarés, le mieux placé dans la liste l'emporte, puis passe en bas." }
+		if Raid.GainPawn and Raid.Comparer then
+			local _, classe = UnitClass("player")
+			local g = Raid.GainPawn(Raid.Comparer(moi, a.id), a.id, a.lien, classe)
+			if g and g.pct then table.insert(d.explication, string.format("Pour toi : %+d %% selon Pawn (%s).", math.floor(g.pct + 0.5), g.spe or "")) end
+		end
+		local tete = a.declares and #a.declares > 0 and ("En tête : " .. Noms(a.declares, 3)) or "Personne de déclaré"
+		if a.passe then
+			d.sous, d.etiquette, d.clos = "Tu passes", { "PASSÉ", "cendre" }, "Tu passes."
+		elseif a.veut then
+			d.sous, d.etiquette = Signe("Sablier") .. "Déclaré · " .. place, { "DÉCLARÉ", "attente" }
+			Appel("info", { sous = Signe("Sablier") .. "|cffcfd4dcDéclaré|r · résultat à la fin", detail = tete, explication = d.explication })
+		else
+			d.sous, d.etiquette = "Suicide King · " .. place, { "À TOI", "toi" }
+			Appel("decision", { sous = "Suicide King · " .. place, detail = a.declares and #a.declares > 0 and tete or nil, explication = d.explication,
+				boutons = { { texte = "JE LE VEUX", principal = true, clic = function () a.veut = true Envoyer(a, "W", "!sk " .. a.n) end },
+				            { texte = "PASSER", clic = function () a.passe = true Envoyer(a, "X", "!passe " .. a.n) end } },
+				sansReponse = "Sans réponse : tu passes." })
+		end
+	elseif a.etat == "trancher" then
+		d.sous, d.etiquette = "Égalité au vote · les officiers tranchent", { "OFFICIERS", "attente" }
+		if a.candidat or Contient(a.choix, moi) or a.propose == moi then
+			Appel("info", { sous = Signe("Sablier") .. "Égalité · les officiers tranchent", explication = { "Le vote n'a pas départagé les candidats : les officiers décident, avec un motif." } })
+		end
+	else
+		-- tranché : attribué, désenchanté, banque
+		local qui = a.attributaire
+		local pourquoi = a.avant == "delai" and "sans objection" or a.avant == "vote" and "après le vote" or a.avant == "sk" and "Suicide King"
+			or a.avant == "trancher" and "décision des officiers" or nil
+		if a.etat == "attribue" then
+			d.sous = Signe("Coche") .. "À " .. Nom(qui) .. (pourquoi and (" · " .. pourquoi) or "")
+			d.etiquette = { qui == moi and "À TOI" or "ATTRIBUÉ", "rendu" }
+		elseif a.etat == "de" then d.sous, d.etiquette = "Désenchanté" .. (qui and qui ~= "" and (" par " .. Nom(qui)) or ""), { "DÉSENCHANTÉ", "cendre" }
+		else d.sous, d.etiquette = "Pour la banque de guilde", { "BANQUE", "cendre" } end
+		local concerne = a.propose == moi or a.candidat or a.veut or a.monVote or a.objecte or qui == moi
+		if concerne and a.finie and GetTime() - a.finie < 8 then
+			Appel("resultat", { sous = d.sous, fin = a.finie + 8,
+				explication = qui == moi and { "Le maître du butin te le remet : depuis le corps, ou par échange." } or nil })
+		end
+	end
+	return d
+end
+
+-- l'ordre des lignes : ce qui t'attend, ce qui te concerne, ce qui court, puis le tranché (le plus récent d'abord)
+local function Poids (a, d)
+	if d.appel and d.appel.genre == "decision" then return 0 end
+	if d.appel then return 1 end
+	if a.etat == "delai" or a.etat == "vote" or a.etat == "sk" or a.etat == "trancher" then return 2 end
+	return 3
+end
+
+local descriptions = {}                 -- [clé] = d, refaites à chaque rafraîchissement
+
+-- Les annonces → les appels. Un appel qui disparaît en laissant une réponse (« Tu passes ») la montre deux secondes.
+function Volet.Synchroniser ()
+	if Reglages().ancien then return end
+	local maintenant = GetTime()
+	-- les annonces tranchées s'effacent après la traîne
+	for k = #Raid.annonces, 1, -1 do
+		local a = Raid.annonces[k]
+		if a.finie and maintenant - a.finie > TRAINE then table.remove(Raid.annonces, k) end
+	end
+	if #Raid.annonces > 0 then Volet.Creer() end
+	local enCours = false
+	for _, a in ipairs(Raid.annonces) do if not a.finie then enCours = true end end
+	if enCours then finAnnonces = nil elseif #Raid.annonces > 0 and not finAnnonces then finAnnonces = maintenant end
+	-- une vraie annonce met fin à la démonstration
+	if #Raid.annonces > 0 and Demo.actif then
+		Demo.actif = nil Demo.generation = (Demo.generation or 0) + 1
+		for id in pairs(appels) do if id:sub(1, 1) ~= "r" then appels[id] = nil end end
+		montre = nil
+	end
+	local vus = {}
+	wipe(descriptions)
+	for _, a in ipairs(Raid.annonces) do
+		local cle = Cle(a)
+		local d = Decrire(a)
+		descriptions[cle] = d
+		local ancien = appels[cle]
+		if d.appel then
+			vus[cle] = true
+			if not (ancien and ancien.clos) then
+				d.appel.id = cle
+				if ancien then d.appel.sonne = ancien.sonne end
+				Volet.Appeler(d.appel)
+			end
+		elseif d.clos and ancien then
+			vus[cle] = true
+			if not ancien.clos then Volet.Clore(cle, d.clos) end
+		end
+	end
+	for id, ap in pairs(appels) do
+		if id:sub(1, 1) == "r" and not vus[id] and not ap.clos then Volet.Retirer(id) end
+	end
+	-- la languette : là tant qu'il y a du butin, et dix minutes après
+	local voulue = Reglages().demo or #Raid.annonces > 0
+	if voulue then
+		Volet.Creer()
+		if not languette:IsShown() then languette:Show() end
+	elseif languette and languette:IsShown() and not Reglages().demo then
+		languette:Hide() volet:Hide() banderole:Hide()
+	end
+	PoserLanguette()
+end
+
+-- le registre du volet, en direct
+local HAUT_LIGNE = 50
+local function LigneDirecte (r, k)
+	if r.lignes[k] then return r.lignes[k] end
+	local f = CreateFrame("Button", nil, r)
+	f:SetWidth(INTERIEUR)
+	f.fond = Aplat(f, C.encre, 0.55, "BACKGROUND") f.fond:SetAllPoints()
+	f.dessus = Aplat(f, C.orVif, 0.08) f.dessus:SetHeight(1) f.dessus:SetPoint("TOPLEFT") f.dessus:SetPoint("TOPRIGHT")
+	f.dessous = Aplat(f, C.encre, 0.8) f.dessous:SetHeight(1) f.dessous:SetPoint("BOTTOMLEFT") f.dessous:SetPoint("BOTTOMRIGHT")
+	f.lisere = Aplat(f, C.braise, 1) f.lisere:SetWidth(3) f.lisere:SetPoint("TOPLEFT", 0, -1) f.lisere:SetPoint("BOTTOMLEFT", 0, 1)
+	f.cadre = Cadre(f, nil, 36) f.cadre:SetPoint("TOPLEFT", 8, -7)
+	f.nom = Texte(f, "Nom") f.nom:SetPoint("TOPLEFT", 52, -8)
+	f.sous = Texte(f, "Texte", C.pale) f.sous:SetPoint("TOPLEFT", 52, -27) f.sous:SetPoint("TOPRIGHT", -8, -27)
+	f.etiquettes = {}
+	f.detail = Texte(f, "Texte", C.parchemin) f.detail:SetWordWrap(true) f.detail:SetWidth(INTERIEUR - 18)
+	f.detail:SetPoint("TOPLEFT", 10, -HAUT_LIGNE - 2)
+	f.prim = BoutonPrincipal(f, "", nil) f.sec = BoutonSecond(f, "", nil)
+	f.noms = { BoutonNom(f), BoutonNom(f), BoutonNom(f), BoutonNom(f) }
+	f:SetScript("OnClick", function (self)
+		deplie = deplie ~= self.cle and self.cle or nil
+		volet:Remplir()
+	end)
+	r.lignes[k] = f
+	return f
+end
+
+-- une étiquette par texte et sens, faite une fois puis réutilisée
+local function EtiquetteDe (f, texte, sens)
+	local cle = sens .. "|" .. texte:gsub("%d", "0")
+	local e = f.etiquettes[cle]
+	if not e then e = Etiquette(f, texte, sens) e:SetPoint("TOPRIGHT", -6, -15) f.etiquettes[cle] = e end
+	e.texte:SetText(texte)
+	return e
+end
+
+function Volet.RemplirDirect (r)
+	local liste = {}
+	for _, a in ipairs(Raid.annonces) do
+		local d = descriptions[Cle(a)] or Decrire(a)
+		liste[#liste + 1] = { a = a, d = d, p = Poids(a, d) }
+	end
+	table.sort(liste, function (x, y) if x.p ~= y.p then return x.p < y.p end return x.a.n > y.a.n end)
+	-- sans choix du joueur, la première ligne qui t'attend est dépliée
+	local cles = {}
+	for _, e in ipairs(liste) do cles[Cle(e.a)] = true end
+	if deplie and not cles[deplie] then deplie = nil end
+	if not deplie and liste[1] and liste[1].p == 0 then deplie = Cle(liste[1].a) end
+	for _, f in ipairs(r.lignes) do f:Hide() end
+	r.vide:SetShown(#liste == 0)
+	local y, place, caches = 0, r:GetHeight() - 16, 0
+	for k, e in ipairs(liste) do
+		local a, d = e.a, e.d
+		local f = LigneDirecte(r, k)
+		f.cle = Cle(a)
+		f.cadre.icone:SetTexture(d.objet.icone)
+		f.nom:SetText(d.objet.nom) f.nom:SetTextColor(Qualite(d.objet.qualite))
+		f.sous:SetText(d.sous or "")
+		for _, et in pairs(f.etiquettes) do et:Hide() end
+		if d.etiquette then
+			local et = EtiquetteDe(f, d.etiquette[1], d.etiquette[2]) et:Show()
+			f.nom:SetPoint("TOPRIGHT", -(et:GetWidth() + 12), -8)
+		end
+		f.lisere:SetShown(e.p == 0)
+		f.fond:SetShown(f.cle == deplie)
+		f:SetAlpha(e.p == 3 and 0.6 or 1)
+		-- dépliée : l'explication en clair, et les mêmes actions que la banderole
+		local h = HAUT_LIGNE
+		f.detail:Hide() f.prim:Hide() f.sec:Hide()
+		for _, n in ipairs(f.noms) do n:Hide() end
+		if f.cle == deplie then
+			local texte = table.concat(d.explication or {}, "\n")
+			if d.appel and d.appel.detail then texte = d.appel.detail .. (texte ~= "" and ("\n" .. texte) or "") end
+			if texte ~= "" then f.detail:SetText(texte) f.detail:Show() h = h + 6 + f.detail:GetStringHeight() end
+			local ap = d.appel
+			local x = 10
+			if ap and ap.boutons then
+				for _, bt in ipairs(ap.boutons) do
+					local w = bt.principal and f.prim or f.sec
+					w:Poser(bt.texte) w:SetScript("OnClick", bt.clic) w:ClearAllPoints() w:SetPoint("TOPLEFT", x, -h - 8) w:Show()
+					x = x + w:GetWidth() + 14
+				end
+			end
+			if ap and ap.candidats then
+				for i, c in ipairs(ap.candidats) do
+					local w = f.noms[i]
+					if w then w:Poser(Classe(c.nom, c.classe)) w:SetScript("OnClick", c.clic) w:ClearAllPoints() w:SetPoint("TOPLEFT", x, -h - 8) w:Show() x = x + w:GetWidth() + 6 end
+				end
+			end
+			if x > 10 then h = h + 8 + 30 end
+			h = h + 10
+		end
+		f:SetHeight(h)
+		if y + h > place then caches = caches + 1
+		else f:ClearAllPoints() f:SetPoint("TOPLEFT", 0, -y) f:Show() y = y + h end
+	end
+	r.plus:SetShown(caches > 0)
+	r.plus:SetText(caches > 0 and ("et " .. caches .. " de plus, plus anciens") or "")
+end
+
+-- La fenêtre des annonces d'avant (RaidVote.lua) laisse la place au volet ; /opus volet ancien la rend.
+local AncienRafraichir = Raid.RafraichirVote
+Raid.RafraichirVote = function ()
+	if Reglages and OpusDB and OpusDB.volet and OpusDB.volet.ancien then return AncienRafraichir() end
+	Volet.Synchroniser()
+end
+
+-- la traîne : sans annonce depuis dix minutes, la languette s'en va (sauf si on l'a montrée à la main)
+C_Timer.NewTicker(5, function ()
+	if finAnnonces and GetTime() - finAnnonces > TRAINE and #Raid.annonces > 0 then
+		for k = #Raid.annonces, 1, -1 do if Raid.annonces[k].finie then table.remove(Raid.annonces, k) end end
+		finAnnonces = nil
+		Volet.Synchroniser()
+	end
+end)
+
+------------------------------------------------------------------------
 -- mise en route
 ------------------------------------------------------------------------
 
@@ -789,12 +1166,13 @@ local function Creer ()
 	Placer()
 	PoserLanguette()
 end
+Volet.Creer = Creer
 
 local function Montrer (oui)
 	Creer()
 	languette:SetShown(oui)
 	if not oui then
-		Demo.generation = (Demo.generation or 0) + 1
+		Demo.generation, Demo.actif = (Demo.generation or 0) + 1, nil
 		wipe(appels) montre = nil
 		volet:Hide() banderole:Hide() volet.decal, banderole.decal = nil, nil
 		Placer()
@@ -916,7 +1294,7 @@ function Demo.Proposition ()
 end
 
 function Demo.Tout ()
-	Demo.generation = (Demo.generation or 0) + 1
+	Demo.generation, Demo.actif = (Demo.generation or 0) + 1, true
 	local g = Demo.generation
 	wipe(appels) montre = nil
 	Demo.SK(25)
@@ -935,7 +1313,28 @@ local AIDE = {
 	"|cffffd100/opus volet etat repos|cours|toi|auto|r — imposer le signe de la languette, ou le rendre aux appels",
 	"|cffffd100/opus volet echelle 0.8 à 1.4|r — la taille du volet, de la languette et de la banderole",
 	"|cffffd100/opus volet son|r — le son d'une décision qui arrive, oui ou non",
+	"|cffffd100/opus volet essai|r — de fausses annonces d'un maître du butin, par le vrai circuit (seul, hors groupe)",
+	"|cffffd100/opus volet ancien|r — revenir à la fenêtre des annonces d'avant, ou au volet",
 }
+
+-- L'essai : un maître du butin imaginaire (« Essai ») annonce trois objets ; tes clics partent comme en raid (hors
+-- groupe, nulle part), et la suite est jouée d'avance.
+local function Essai ()
+	local moi = Raid.MonNom()
+	local g = (Demo.generation or 0) + 1
+	Demo.generation, Demo.actif = g, nil
+	for k = #Raid.annonces, 1, -1 do if Raid.annonces[k].ml == "Essai" then table.remove(Raid.annonces, k) end end
+	local function Dire (t, c) C_Timer.After(t, function () if Demo.generation == g then Raid.RecevoirAnnonce("Essai", c) end end) end
+	Dire(0, { "A", "1", "19143", moi, "40", moi .. ",Vorthas" })
+	Dire(0, { "S", "2", "19147", "25" })
+	Dire(3, { "A", "3", "19137", "Seliane", "8", "Seliane,Vorthas" })
+	Dire(6, { "K", "2", "Vorthas" })
+	Dire(11, { "V", "3", "30", "3", "8", "Vorthas", "Seliane,Vorthas,Brannok", "déjà servie ce soir" })
+	Dire(14, { "V", "1", "25", "3", "8", "Vorthas", moi .. ",Vorthas", "elle a déjà reçu la Ceinture" })
+	Dire(25, { "R", "2", "attribue", "Vorthas" })
+	Dire(39, { "R", "1", "attribue", moi })
+	Dire(41, { "R", "3", "attribue", "Seliane" })
+end
 
 Opus.Commande("volet", "volet [aide]", "le volet latéral du butin, en démonstration", function (texte)
 	local mot, reste = (texte or ""):match("^%s*(%S*)%s*(.-)%s*$")
@@ -948,7 +1347,7 @@ Opus.Commande("volet", "volet [aide]", "le volet latéral du butin, en démonstr
 		Montrer(true) etatForce = nil Demo.Tout()
 		Opus.Msg("démonstration : trois appels arrivent, une banderole à la fois (survole l'objet pour l'explication).")
 	elseif mot == "appel" then
-		Montrer(true) etatForce = nil Demo.generation = (Demo.generation or 0) + 1 Demo.SK(25)
+		Montrer(true) etatForce = nil Demo.generation, Demo.actif = (Demo.generation or 0) + 1, true Demo.SK(25)
 	elseif mot == "etat" and (reste == "repos" or reste == "cours" or reste == "toi" or reste == "auto") then
 		Montrer(true) etatForce = reste ~= "auto" and reste or nil PoserLanguette()
 	elseif mot == "echelle" and tonumber(reste) then
@@ -956,6 +1355,13 @@ Opus.Commande("volet", "volet [aide]", "le volet latéral du butin, en démonstr
 		Reglages().echelle = e
 		Creer() languette:SetScale(e) banderole:SetScale(e) volet:SetScale(e) Placer()
 		Opus.Msg("échelle du volet : " .. e)
+	elseif mot == "essai" then
+		Essai()
+		Opus.Msg("essai : trois annonces arrivent d'un maître du butin imaginaire.")
+	elseif mot == "ancien" then
+		Reglages().ancien = not Reglages().ancien or nil
+		Opus.Msg(Reglages().ancien and "annonces : la fenêtre d'avant." or "annonces : le volet.")
+		if not Reglages().ancien and languette then Volet.Synchroniser() end
 	elseif mot == "son" then
 		Reglages().son = (Reglages().son == false)
 		Opus.Msg("son d'une décision : " .. (Reglages().son and "oui" or "non"))

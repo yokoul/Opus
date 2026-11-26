@@ -211,7 +211,8 @@ function Raid.RecevoirAnnonce (ml, c)
 		if not id or not secondes or Trouver(ml, n) then return end
 		local moi, candidat = Raid.MonNom(), false
 		for _, nom in ipairs(Raid.Liste(c[6])) do if nom == moi then candidat = true end end
-		Raid.annonces[#Raid.annonces + 1] = { ml = ml, n = n, id = id, lien = Raid.LienDe(id), propose = c[4] or "?", etat = "delai", fin = GetTime() + secondes, duree = secondes, candidat = candidat }
+		Raid.annonces[#Raid.annonces + 1] = { ml = ml, n = n, id = id, lien = Raid.LienDe(id), propose = c[4] or "?", etat = "delai", fin = GetTime() + secondes, duree = secondes, candidat = candidat,
+			candidats = Raid.Liste(c[6]) }
 		masquee = false
 		-- leur équipement, pour comparer au moment du vote
 		Raid.Prioriser(Raid.Liste(c[6]))
@@ -223,7 +224,10 @@ function Raid.RecevoirAnnonce (ml, c)
 			a.etat, a.fin, a.auteur, a.duree = "vote", GetTime() + (tonumber(c[3]) or 0), c[6], tonumber(c[3])
 			a.choix = Raid.Liste(c[7])
 			a.motif = (c[8] and c[8] ~= "") and c[8] or nil
+		elseif genre == "K" then
+			a.declares = Raid.Liste(c[3])
 		elseif genre == "R" then
+			a.avant = a.etat            -- d'où vient le résultat : délai sans objection, vote, Suicide King
 			a.etat, a.attributaire = c[3] or "", c[4] or ""
 			if a.etat ~= "trancher" then a.finie = GetTime() end
 		end

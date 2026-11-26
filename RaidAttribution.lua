@@ -249,6 +249,37 @@ local function Objecter (a, nom, motif)
 	if Raid.OuvrirFiche then Raid.OuvrirFiche(a) end
 end
 
+-- « Je le laisse » : un candidat renonce, pendant le délai ou le vote. Le proposé qui le laisse à un candidat présent
+-- le lui donne ; sinon il sort des candidats du vote (s'il n'en reste qu'un, l'objet est à lui), ou, pendant le délai,
+-- la proposition passe au suivant du calcul.
+local function Laisser (a, nom, choix)
+	if a.etat ~= "delai" and a.etat ~= "vote" then return end
+	local presents = Raid.Presents()
+	local r = Raid.Proposer(a.id, presents)
+	local suivants = {}
+	for _, c in ipairs(r and r.candidats or {}) do if c.nom ~= nom then suivants[#suivants + 1] = c.nom end end
+	local pour = strtrim(tostring(choix or ""))
+	local valide = false
+	for _, c in ipairs(suivants) do if c:lower() == pour:lower() then pour, valide = c, true end end
+	if a.etat == "vote" then
+		local reste = {}
+		for _, c in ipairs(a.choix) do if c ~= nom then reste[#reste + 1] = c end end
+		if #reste == #a.choix then return end           -- il n'était pas candidat du vote
+		for votant, c in pairs(a.votes) do if c == nom then a.votes[votant] = nil end end
+		if valide then Attribuer(a, pour, "wish", " (laissé par " .. nom .. ")") return end
+		a.choix = reste
+		if #reste == 1 then Attribuer(a, reste[1], "wish", " (" .. nom .. " le laisse)") return end
+		Diffuser("V", a.n, math.max(1, math.floor(a.fin - GetTime())), a.quorum, a.nElecteurs, a.objecteurs[1] or "", table.concat(a.choix, ","), a.motif or "")
+		Raid.Annoncer(string.format("#%d %s le laisse : vote entre %s.", a.n, nom, table.concat(a.choix, ", ")))
+		Rafraichir()
+		return
+	end
+	if nom ~= a.propose then return end
+	if valide then Attribuer(a, pour, "wish", " (laissé par " .. nom .. ")") return end
+	if #suivants == 0 then Raid.LancerSK(a, a.lien .. " : " .. nom .. " le laisse, Suicide King.", true) return end
+	Attribuer(a, suivants[1], "wish", " (" .. nom .. " le laisse au suivant)")
+end
+
 -- Une objection, un vote ou un « je le veux » (Suicide King), venu du canal raid ou de la fenêtre d'un joueur
 -- (Comm.lua) : mot = « objection », « vote », « pour », « sk » ou « passe » ; n = le numéro de l'annonce, ou nil.
 function Raid.Recevoir (mot, n, expediteur, choix)
@@ -261,6 +292,8 @@ function Raid.Recevoir (mot, n, expediteur, choix)
 		a.passes = a.passes or {}
 		if mot == "sk" then a.interesses[nom], a.passes[nom] = true, nil
 		else a.passes[nom], a.interesses[nom] = true, nil end
+		-- les déclarés, du mieux placé au moins bien : chacun voit qui est en tête
+		Diffuser("K", a.n, table.concat((Raid.ClassementSK(a)), ","))
 		Rafraichir()
 		-- tout le monde a répondu (je le veux ou je passe) : inutile d'attendre la fin du temps
 		if Raid.ToutLeMondeARepondu(a) then Raid.FinSK(a) end
@@ -269,6 +302,11 @@ function Raid.Recevoir (mot, n, expediteur, choix)
 	if mot == "objection" then
 		local a = Visee(n, "delai")
 		if a then Objecter(a, nom, choix) end
+		return
+	end
+	if mot == "laisse" then
+		local a = (n and Raid.attributions[n]) or Visee(nil, "delai") or Visee(nil, "vote")
+		if a then Laisser(a, nom, choix) end
 		return
 	end
 	local a = Visee(n, "vote")
@@ -301,7 +339,7 @@ function Raid.Entendre (message, expediteur)
 	if not message or not expediteur then return end
 	local mot, n, reste = strtrim(message):match("^!(%a+)%s*(%d*)%s*(.-)$")
 	mot = mot and mot:lower()
-	if mot ~= "objection" and mot ~= "vote" and mot ~= "pour" and mot ~= "sk" and mot ~= "passe" then return end
+	if mot ~= "objection" and mot ~= "vote" and mot ~= "pour" and mot ~= "sk" and mot ~= "passe" and mot ~= "laisse" then return end
 	-- « !vote 2 » : le candidat n° 2 du seul vote en cours
 	if mot == "vote" and reste == "" then n, reste = nil, n end
 	Raid.Recevoir(mot, tonumber(n), expediteur, reste)
