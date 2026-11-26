@@ -138,7 +138,8 @@ local function Etiquette (parent, texte, sens)
 	e:SetBackdrop({ edgeFile = BLANC8, edgeSize = 1 })
 	local bord, couleur = C.orSombre, C["or"]
 	if sens == "toi" then bord, couleur = C.braiseBord, C.braiseTexte
-	elseif sens == "attente" then bord, couleur = { Hex("#5a606a") }, C.acier end
+	elseif sens == "attente" then bord, couleur = { Hex("#5a606a") }, C.acier
+	elseif sens == "cendre" then bord, couleur = C.cendre, C.poussiere end
 	e:SetBackdropBorderColor(bord[1], bord[2], bord[3], 1)
 	local x = 6
 	if SIGNES[sens] then
@@ -165,6 +166,10 @@ local function Classe (nom, classe)
 	local c = RAID_CLASS_COLORS and RAID_CLASS_COLORS[classe]
 	return c and ("|c" .. c.colorStr .. nom .. "|r") or nom
 end
+local function Icone (id, chemin)
+	local icone = id and GetItemIcon and GetItemIcon(id)
+	return icone or chemin or "Interface\\Icons\\INV_Misc_QuestionMark"
+end
 local function Qualite (n)
 	local q = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[n]
 	if q then return q.r, q.g, q.b end
@@ -178,14 +183,14 @@ end
 local DEMO = {
 	titre = "Butin", lieu = "Cœur du Magma · Garr",
 	appel = {
-		nom = "Anneau d'obsidienne", icone = "Interface\\Icons\\INV_Jewelry_Ring_15", qualite = 4,
+		nom = "Anneau d'obsidienne", icone = Icone(19147), qualite = 4,
 		resume = "Hors liste · |cff9fd67f+6 %|r pour toi · tu passerais en tête",
 		duree = 30,
 	},
 	lignes = {
-		{ nom = "Ceinture de braises", icone = "Interface\\Icons\\INV_Belt_13", qualite = 4,
+		{ nom = "Ceinture de braises", icone = Icone(19137), qualite = 4,
 		  sous = Classe("Seliane", "DRUID") .. " ou " .. Classe("Vorthas", "WARLOCK") .. " · 5 sur 9 ont voté", etiquette = "VOTER", sens = "toi" },
-		{ nom = "Gantelets de flammèche", icone = "Interface\\Icons\\INV_Gauntlets_19", qualite = 4,
+		{ nom = "Gantelets de flammèche", icone = Icone(19143), qualite = 4,
 		  sous = Classe("Brannok", "WARRIOR") .. " · liste 1 sur 2", etiquette = "DÉLAI 0:48", sens = "attente" },
 		{ nom = "Fragment de cœur ardent", icone = "Interface\\Icons\\INV_Misc_Gem_Ruby_01", qualite = 4,
 		  sous = "remis à " .. Classe("Seliane", "DRUID"), sens = "rendu", pale = 0.55 },
@@ -211,15 +216,38 @@ local function Reglages ()
 	return OpusDB.volet
 end
 
+local LARGEUR, HAUTEUR = 392, 624
+local DECALAGE = 66                     -- la languette, sous le haut du volet ouvert
+
+local function PourToi () return reponse and 1 or 2 end
+
+-- La languette garde sa hauteur (glissée à la souris) ; ouvert, le volet se cale sur elle sans sortir de l'écran.
+local function Placer ()
+	local y = Reglages().y or -260
+	local hauteurEcran = UIParent:GetHeight() * UIParent:GetEffectiveScale() / languette:GetEffectiveScale()
+	y = math.max(-(hauteurEcran - languette:GetHeight()), math.min(0, y))
+	languette:ClearAllPoints()
+	if volet:IsShown() then
+		local haut = math.max(-(hauteurEcran - HAUTEUR), math.min(0, y + DECALAGE))
+		volet:ClearAllPoints() volet:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, haut)
+		languette:SetPoint("TOPLEFT", UIParent, "TOPLEFT", LARGEUR - 2, y)
+	else
+		languette:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, y)
+	end
+end
+
 local function PoserLanguette ()
 	if not languette then return end
 	local l = languette
 	l.gemme:SetShown(etat ~= "toi") l.rubis:SetShown(etat == "toi")
 	l.gemme:SetDesaturated(etat == "repos") l.gemme:SetAlpha(etat == "repos" and 0.5 or 1)
-	if etat == "toi" then l.compte:SetText("2") l.compte:SetTextColor(C.braiseTexte[1], C.braiseTexte[2], C.braiseTexte[3])
+	if etat == "toi" then l.compte:SetText(PourToi()) l.compte:SetTextColor(C.braiseTexte[1], C.braiseTexte[2], C.braiseTexte[3])
 	elseif etat == "cours" then l.compte:SetText("4") l.compte:SetTextColor(C.orVif[1], C.orVif[2], C.orVif[3])
 	else l.compte:SetText("") end
-	l.fleche:SetShown(volet and volet:IsShown())
+	local ouvert = volet and volet:IsShown()
+	l.fleche:SetTexture(ouvert and "Interface\\Buttons\\UI-SpellbookIcon-PrevPage-Up" or "Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up")
+	-- le rubis bat doucement tant qu'une décision attend et que le volet est fermé
+	if etat == "toi" and not ouvert then l.pouls:Play() else l.pouls:Stop() l.rubis:SetAlpha(1) end
 end
 
 local function OuvrirVolet (ouvrir)
@@ -227,44 +255,69 @@ local function OuvrirVolet (ouvrir)
 	if ouvrir and InCombatLockdown() then Opus.Msg("le volet reste fermé en combat.") return end
 	volet:SetShown(ouvrir)
 	if ouvrir then banderole:Hide() end
-	languette:ClearAllPoints()
-	if ouvrir then languette:SetPoint("TOPLEFT", volet, "TOPRIGHT", -2, -66)
-	else languette:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, Reglages().y or -260) end
+	Placer()
 	PoserLanguette()
 end
 
-local function FinAppel (texte)
+local function FinAppel (texte, r)
 	banderole:SetScript("OnUpdate", nil)
 	banderole:Hide()
-	if texte then reponse = texte Opus.Msg(texte) end
+	if r then reponse = r end
+	if texte then Opus.Msg(texte) end
 	if volet and volet.Remplir then volet:Remplir() end
+	PoserLanguette()
 end
 
 local function CreerLanguette ()
 	local l = CreateFrame("Button", "OpusVoletLanguette", UIParent)
 	l:SetSize(30, 128) l:SetFrameStrata("HIGH") l:SetClampedToScreen(true)
 	NeufParts(l, "Panneau.tga", 512, 256, 42, 39, 10, 0)
-	l.gemme = Image(l, "Gemme.tga", 18, 36) l.gemme:SetPoint("CENTER", 0, 8)
-	l.rubis = Image(l, "Rubis.tga", 24, 24) l.rubis:SetPoint("CENTER", 0, 10)
-	l.compte = Texte(l, "Titre") l.compte:SetPoint("TOP", l, "CENTER", 0, -14) l.compte:SetJustifyH("CENTER")
-	l.fleche = l:CreateTexture(nil, "OVERLAY") l.fleche:SetSize(12, 12) l.fleche:SetPoint("BOTTOM", 0, 14)
-	l.fleche:SetTexture("Interface\\Buttons\\UI-SpellbookIcon-PrevPage-Up")
+	-- une ombre portée vers l'écran, peinte en dégradé, pour détacher la languette du décor
+	l.ombre = l:CreateTexture(nil, "BACKGROUND", nil, -8)
+	l.ombre:SetPoint("TOPLEFT", l, "TOPRIGHT", -3, -6) l.ombre:SetPoint("BOTTOMLEFT", l, "BOTTOMRIGHT", -3, 6) l.ombre:SetWidth(10)
+	l.ombre:SetTexture(BLANC8)
+	if not (CreateColor and pcall(l.ombre.SetGradient, l.ombre, "HORIZONTAL", CreateColor(0, 0, 0, 0.55), CreateColor(0, 0, 0, 0))) then
+		l.ombre:SetVertexColor(0, 0, 0, 0.3)
+	end
+	-- le contenu se centre sur le cuir, pas sur la languette entière (le bord ouvragé de droite en mange une part)
+	local cx = -2
+	l.gemme = Image(l, "Gemme.tga", 18, 36) l.gemme:SetPoint("CENTER", cx, 12)
+	l.rubis = Image(l, "Rubis.tga", 24, 24) l.rubis:SetPoint("CENTER", cx, 14)
+	l.compte = Texte(l, "Titre") l.compte:SetPoint("TOP", l, "CENTER", cx, -8) l.compte:SetJustifyH("CENTER")
+	l.fleche = l:CreateTexture(nil, "OVERLAY") l.fleche:SetSize(14, 14) l.fleche:SetPoint("BOTTOM", cx, 12)
+	l.fleche:SetVertexColor(C["or"][1], C["or"][2], C["or"][3])
+	l.pouls = l.rubis:CreateAnimationGroup() l.pouls:SetLooping("BOUNCE")
+	local a = l.pouls:CreateAnimation("Alpha") a:SetFromAlpha(1) a:SetToAlpha(0.55) a:SetDuration(0.9) a:SetSmoothing("IN_OUT")
+	l:SetHighlightTexture(BLANC8)
+	local h = l:GetHighlightTexture() h:ClearAllPoints() h:SetPoint("TOPLEFT", 0, -6) h:SetPoint("BOTTOMRIGHT", -8, 6)
+	h:SetVertexColor(C.orVif[1], C.orVif[2], C.orVif[3], 0.07)
 	l:RegisterForClicks("LeftButtonUp")
-	l:SetScript("OnClick", function () OuvrirVolet() end)
-	-- maj + glisser : monter ou descendre la languette le long du bord
-	l:SetMovable(true) l:RegisterForDrag("LeftButton")
-	l:SetScript("OnDragStart", function (self) if IsShiftKeyDown() and not volet:IsShown() then self:StartMoving() end end)
+	l:SetScript("OnClick", function (self)
+		if self.glisse then self.glisse = nil return end
+		OuvrirVolet()
+	end)
+	-- glisser : monter ou descendre la languette le long du bord (le volet ouvert la suit)
+	l:RegisterForDrag("LeftButton")
+	l:SetScript("OnDragStart", function (self)
+		self.glisse = true
+		local _, depart = GetCursorPosition()
+		local y0 = Reglages().y or -260
+		self:SetScript("OnUpdate", function (s)
+			local _, y = GetCursorPosition()
+			Reglages().y = y0 + (y - depart) / s:GetEffectiveScale()
+			Placer()
+		end)
+	end)
 	l:SetScript("OnDragStop", function (self)
-		self:StopMovingOrSizing()
-		local haut = self:GetTop() - UIParent:GetTop()
-		Reglages().y = math.floor(haut + 0.5)
-		self:ClearAllPoints() self:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, Reglages().y)
+		self:SetScript("OnUpdate", nil)
+		Reglages().y = math.floor((Reglages().y or -260) + 0.5)
+		Placer()
 	end)
 	l:SetScript("OnEnter", function (self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		GameTooltip:AddLine("Opus · butin")
 		GameTooltip:AddLine(etat == "toi" and "Une décision t'attend." or etat == "cours" and "Des objets circulent, rien pour toi." or "Rien en cours.", 1, 1, 1)
-		GameTooltip:AddLine("Clic : ouvrir le volet. Maj + glisser : le déplacer.", 0.6, 0.6, 0.6)
+		GameTooltip:AddLine("Clic : ouvrir le volet. Glisser : la monter ou la descendre.", 0.6, 0.6, 0.6)
 		GameTooltip:Show()
 	end)
 	l:SetScript("OnLeave", GameTooltip_Hide)
@@ -284,9 +337,9 @@ local function CreerBanderole ()
 	objet.nom:SetTextColor(Qualite(a.qualite))
 	objet.sous = Texte(objet, "Texte", C.pale) objet.sous:SetPoint("BOTTOMLEFT", 46, 1) objet.sous:SetText(a.resume)
 	objet:SetScript("OnClick", function () OuvrirVolet(true) end)
-	b.oui = BoutonPrincipal(b, "JE LE VEUX", function () FinAppel("démonstration : tu t'es déclaré pour l'Anneau d'obsidienne.") end)
+	b.oui = BoutonPrincipal(b, "JE LE VEUX", function () FinAppel("démonstration : tu t'es déclaré pour l'Anneau d'obsidienne.", "pris") end)
 	b.oui:SetPoint("TOPLEFT", objet, "BOTTOMLEFT", 0, -9)
-	b.non = BoutonSecond(b, "PASSER", function () FinAppel("démonstration : tu passes l'Anneau d'obsidienne.") end)
+	b.non = BoutonSecond(b, "PASSER", function () FinAppel("démonstration : tu passes l'Anneau d'obsidienne.", "passe") end)
 	b.non:SetPoint("LEFT", b.oui, "RIGHT", 14, 0)
 	b.temps = Texte(b, "Titre", C.acier) b.temps:SetPoint("TOPRIGHT", objet, "BOTTOMRIGHT", 0, -15) b.temps:SetJustifyH("RIGHT")
 	b.barre = Aplat(b, C.encre, 0.6) b.barre:SetHeight(2)
@@ -303,7 +356,7 @@ local function LancerAppel ()
 	local largeur = banderole.barre:GetWidth()
 	banderole:SetScript("OnUpdate", function (self)
 		local reste = fin - GetTime()
-		if reste <= 0 then FinAppel("démonstration : sans réponse, tu passes l'Anneau d'obsidienne.") return end
+		if reste <= 0 then FinAppel("démonstration : sans réponse, tu passes l'Anneau d'obsidienne.", "passe") return end
 		self.temps:SetText(string.format("%d:%02d", math.floor(reste / 60), math.floor(reste % 60)))
 		self.reste:SetWidth(math.max(1, (largeur > 0 and largeur or 298) * reste / duree))
 	end)
@@ -315,7 +368,6 @@ end
 -- le volet
 ------------------------------------------------------------------------
 
-local LARGEUR, HAUTEUR = 392, 624
 local INTERIEUR = LARGEUR - 14 - 20     -- la largeur utile, entre les bords du cuir
 
 -- Une ligne du registre : gravée (un filet clair dessus, un filet noir dessous), liseré braise quand c'est à toi.
@@ -354,6 +406,8 @@ local function LigneAppel (parent, haut)
 	f.nom = Texte(f, "Nom") f.nom:SetPoint("TOPLEFT", 52, -9) f.nom:SetText(a.nom) f.nom:SetTextColor(Qualite(a.qualite))
 	f.sous = Texte(f, "Texte", C.pale) f.sous:SetPoint("TOPLEFT", 52, -28) f.sous:SetText("Hors liste · Suicide King")
 	f.etiquette = Etiquette(f, "À TOI", "toi") f.etiquette:SetPoint("TOPRIGHT", -6, -15)
+	f.declare = Etiquette(f, "DÉCLARÉ", "attente") f.declare:SetPoint("TOPRIGHT", -6, -15)
+	f.passe = Etiquette(f, "PASSÉ", "cendre") f.passe:SetPoint("TOPRIGHT", -6, -15)
 
 	f.phrase = Texte(f, "Texte", C.parchemin) f.phrase:SetPoint("TOPLEFT", 10, -54) f.phrase:SetPoint("TOPRIGHT", -8, -54)
 	f.phrase:SetWordWrap(true)
@@ -377,12 +431,12 @@ local function LigneAppel (parent, haut)
 	z:SetBackdrop({ bgFile = BLANC8, edgeFile = BLANC8, edgeSize = 1 })
 	z:SetBackdropColor(C.braise[1], C.braise[2], C.braise[3], 0.08)
 	z:SetBackdropBorderColor(C.braiseBord[1], C.braiseBord[2], C.braiseBord[3], 1)
-	local rubis = Image(z, "Rubis.tga", 16, 16) rubis:SetPoint("TOPLEFT", 8, -6)
-	z.titre = Texte(z, "Etiquette", C.braiseTexte) z.titre:SetPoint("LEFT", rubis, "RIGHT", 6, 0) z.titre:SetText("À TOI DE DÉCIDER")
+	z.signe = Image(z, "Rubis.tga", 16, 16) z.signe:SetPoint("TOPLEFT", 8, -6)
+	z.titre = Texte(z, "Etiquette", C.braiseTexte) z.titre:SetPoint("TOPLEFT", 30, -9) z.titre:SetText("À TOI DE DÉCIDER")
 	z.temps = Texte(z, "Texte", C.parchemin) z.temps:SetPoint("TOPRIGHT", -8, -6) z.temps:SetJustifyH("RIGHT")
-	z.oui = BoutonPrincipal(z, "JE LE VEUX", function () reponse = "pris" Opus.Msg("démonstration : tu t'es déclaré.") volet:Remplir() end)
+	z.oui = BoutonPrincipal(z, "JE LE VEUX", function () FinAppel("démonstration : tu t'es déclaré.", "pris") end)
 	z.oui:SetPoint("BOTTOMLEFT", 8, 6)
-	z.non = BoutonSecond(z, "PASSER", function () reponse = "passe" Opus.Msg("démonstration : tu passes.") volet:Remplir() end)
+	z.non = BoutonSecond(z, "PASSER", function () FinAppel("démonstration : tu passes.", "passe") end)
 	z.non:SetPoint("LEFT", z.oui, "RIGHT", 14, 0)
 	z.note = Texte(z, "Petit", C.poussiere) z.note:SetPoint("BOTTOMRIGHT", -8, 12) z.note:SetJustifyH("RIGHT") z.note:SetText("sans réponse : passe")
 	z.rendu = Texte(z, "Texte", C.mousse) z.rendu:SetPoint("BOTTOMLEFT", 30, 14)
@@ -393,7 +447,6 @@ end
 local function CreerVolet ()
 	local v = CreateFrame("Frame", "OpusVolet", UIParent)
 	v:SetSize(LARGEUR, HAUTEUR) v:SetFrameStrata("HIGH") v:SetToplevel(true) v:EnableMouse(true)
-	v:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, -104)
 	NeufParts(v, "Cuir.tga", 256, 512, 18, 15, 20, 14)
 	local c = CreateFrame("Frame", nil, v)            -- le contenu, en retrait du bord du cuir
 	c:SetPoint("TOPLEFT", 14, -20) c:SetPoint("BOTTOMRIGHT", -20, 20)
@@ -414,7 +467,8 @@ local function CreerVolet ()
 		o:SetSize(lo, 26) o:SetPoint("TOPLEFT", (i - 1) * (lo + 4), -50)
 		o.ouvert = CreateFrame("Frame", nil, o) o.ouvert:SetAllPoints() NeufParts(o.ouvert, "OngletOuvert.tga", 256, 128, 14, 14, 6)
 		o.ferme = CreateFrame("Frame", nil, o) o.ferme:SetAllPoints() NeufParts(o.ferme, "Onglet.tga", 256, 128, 14, 14, 6)
-		o.texte = Texte(o, "Etiquette") o.texte:SetPoint("CENTER", 0, 0) o.texte:SetText(nom)
+		o.dessus = CreateFrame("Frame", nil, o) o.dessus:SetAllPoints() o.dessus:SetFrameLevel(o:GetFrameLevel() + 3)
+		o.texte = Texte(o.dessus, "Etiquette") o.texte:SetPoint("CENTER", 0, 0) o.texte:SetText(nom)
 		o:SetScript("OnClick", function () v.onglet = i v:Remplir() end)
 		v.onglets[i] = o
 	end
@@ -447,14 +501,27 @@ local function CreerVolet ()
 		end
 		self.registre:SetShown(self.onglet == 1) self.ailleurs:SetShown(self.onglet ~= 1)
 		local z = self.appel.zone
-		local attend = reponse and 1 or 2
-		self.attend:SetText(attend .. " pour toi")
+		self.attend:SetText(PourToi() .. " pour toi")
+		local a = self.appel
+		a.lisere:SetShown(not reponse)
+		a.etiquette:SetShown(not reponse) a.declare:SetShown(reponse == "pris") a.passe:SetShown(reponse == "passe")
 		z.oui:SetShown(not reponse) z.non:SetShown(not reponse) z.note:SetShown(not reponse)
 		z.temps:SetShown(not reponse)
-		if reponse then
-			z.titre:SetText("C'EST NOTÉ") z.titre:SetTextColor(C.mousse[1], C.mousse[2], C.mousse[3])
-			z.rendu:SetText(reponse == "passe" and "Tu passes." or "Tu es déclaré, résultat à la fin du tour.")
+		-- après la réponse, la zone se calme : sablier d'acier si tu es déclaré (on attend la fin du tour),
+		-- cendre si tu passes ; le vert reste pour ce qui est tranché
+		if reponse == "pris" then
+			z:SetBackdropColor(0, 0, 0, 0.25) z:SetBackdropBorderColor(Hex("#5a606a"))
+			z.signe:SetTexture(MEDIA .. "Sablier.tga") z.signe:Show()
+			z.titre:SetText("TU ES DÉCLARÉ") z.titre:SetTextColor(C.acier[1], C.acier[2], C.acier[3])
+			z.rendu:SetText("Résultat à la fin du tour.") z.rendu:SetTextColor(C.pale[1], C.pale[2], C.pale[3])
+		elseif reponse == "passe" then
+			z:SetBackdropColor(0, 0, 0, 0.25) z:SetBackdropBorderColor(C.cendre[1], C.cendre[2], C.cendre[3])
+			z.signe:Hide()
+			z.titre:SetText("TU PASSES") z.titre:SetTextColor(C.poussiere[1], C.poussiere[2], C.poussiere[3])
+			z.rendu:SetText("L'objet ira aux suivants.") z.rendu:SetTextColor(C.poussiere[1], C.poussiere[2], C.poussiere[3])
 		else
+			z:SetBackdropColor(C.braise[1], C.braise[2], C.braise[3], 0.08) z:SetBackdropBorderColor(C.braiseBord[1], C.braiseBord[2], C.braiseBord[3])
+			z.signe:SetTexture(MEDIA .. "Rubis.tga") z.signe:Show()
 			z.titre:SetText("À TOI DE DÉCIDER") z.titre:SetTextColor(C.braiseTexte[1], C.braiseTexte[2], C.braiseTexte[3])
 			z.rendu:SetText("")
 		end
@@ -480,7 +547,7 @@ local function Creer ()
 	CreerBanderole()
 	CreerVolet()
 	languette:SetFrameLevel(volet:GetFrameLevel() + 10)
-	languette:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, Reglages().y or -260)
+	Placer()
 	local e = Reglages().echelle or 1
 	languette:SetScale(e) banderole:SetScale(e) volet:SetScale(e)
 	PoserLanguette()
@@ -502,7 +569,7 @@ Opus.Ecoute("PLAYER_LOGIN", function ()
 end)
 
 local AIDE = {
-	"|cffffd100/opus volet|r — montrer ou cacher la démonstration (la languette au bord gauche)",
+	"|cffffd100/opus volet|r — montrer ou cacher la démonstration (la languette au bord gauche, à glisser vers le haut ou le bas)",
 	"|cffffd100/opus volet appel|r — faire sortir la banderole d'un appel (30 s)",
 	"|cffffd100/opus volet etat repos|cours|toi|r — le signe de la languette",
 	"|cffffd100/opus volet echelle 0.8 à 1.4|r — la taille du volet, de la languette et de la banderole",
@@ -523,7 +590,7 @@ Opus.Commande("volet", "volet [aide]", "le volet latéral du butin, en démonstr
 	elseif mot == "echelle" and tonumber(reste) then
 		local e = math.max(0.8, math.min(1.4, tonumber(reste)))
 		Reglages().echelle = e
-		Creer() languette:SetScale(e) banderole:SetScale(e) volet:SetScale(e)
+		Creer() languette:SetScale(e) banderole:SetScale(e) volet:SetScale(e) Placer()
 		Opus.Msg("échelle du volet : " .. e)
 	elseif mot == "son" then
 		Reglages().son = (Reglages().son == false)
