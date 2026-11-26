@@ -4,6 +4,10 @@ Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, E
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
 ## À paraître
+- Raids : un joueur qui recharge (ou arrive) en cours de soirée retrouve les annonces : son addon demande l'état au maître du butin, qui le renvoie.
+- Raids : les règles fixes du maître du butin, « /opus raid regle scarabée Bob » (un lien ou un itemID marche aussi ; « de » pour le désenchanteur, « banque » pour soi). À l'ouverture du corps, ces objets partent tout seuls, sans annonce. « /opus raid regle » les liste, « /opus raid regle retirer 2 » en retire une.
+- Raids : Alt+clic sur un objet des sacs (maître du butin, soirée ouverte) l'ajoute au volet, à annoncer.
+- Infobulle des objets : qui l'a en liste (et à quel rang de sa liste), et à qui il est allé ce soir.
 - Roster : le filtre « Raiders » compte aussi le Magister et les Architectes (les officiers raident), qui n'apparaissaient pas.
 - Donjons : les jets de groupe dans le volet. Chaque jet y entre dès qu'il commence (qui a choisi quoi, le jet de chacun, qui ne peut pas le porter) et y reste pour le donjon ; quand un jet auquel tu as pris part se termine, une courte banderole dit le gagnant et ton jet. Plus de fenêtre qui s'ouvre au hasard.
 - Raids : « Je le laisse ». Un candidat peut renoncer à un objet, pendant le délai ou le vote : à un autre candidat présent (il le reçoit), ou au suivant du calcul (« !laisse n [nom] » dans le canal raid). Au Suicide King, chacun voit qui s'est déclaré et qui est en tête.

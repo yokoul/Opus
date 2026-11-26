@@ -218,6 +218,11 @@ function Raid.RecevoirAnnonce (ml, c)
 		Raid.Prioriser(Raid.Liste(c[6]))
 	else
 		local a = Trouver(ml, n)
+		-- un résultat d'une annonce qu'on n'a pas vue (rechargement, arrivée en cours de soirée) : il entre, déjà ancien
+		if not a and genre == "R" and tonumber(c[5]) then
+			a = { ml = ml, n = n, id = tonumber(c[5]), lien = Raid.LienDe(tonumber(c[5])), propose = "", resync = true }
+			Raid.annonces[#Raid.annonces + 1] = a
+		end
 		if not a then return end
 		if genre == "V" then
 			masquee = false   -- un vote s'ouvre : la fenêtre revient, il faut pouvoir voter
@@ -229,7 +234,8 @@ function Raid.RecevoirAnnonce (ml, c)
 		elseif genre == "R" then
 			a.avant = a.etat            -- d'où vient le résultat : délai sans objection, vote, Suicide King
 			a.etat, a.attributaire = c[3] or "", c[4] or ""
-			if a.etat ~= "trancher" then a.finie = GetTime() end
+			-- un résultat repris (rechargement) n'a pas à sortir de banderole
+			if a.etat ~= "trancher" then a.finie = GetTime() - (a.resync and 30 or 0) end
 		end
 	end
 	Raid.RafraichirVote()

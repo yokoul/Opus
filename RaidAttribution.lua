@@ -83,7 +83,7 @@ end
 
 -- aux addons du raid (Comm.lua), s'il est chargé
 local function Diffuser (...) if Raid.Diffuser then Raid.Diffuser(...) end end
-Raid.DiffuserAttribution = function (a) Diffuser("R", a.n, a.etat, a.attributaire or "") end
+Raid.DiffuserAttribution = function (a) Diffuser("R", a.n, a.etat, a.attributaire or "", a.id or "") end
 
 local function Attribuer (a, nom, voie, comment)
 	a.etat, a.attributaire = "attribue", nom
@@ -292,8 +292,14 @@ function Raid.Recevoir (mot, n, expediteur, choix)
 		a.passes = a.passes or {}
 		if mot == "sk" then a.interesses[nom], a.passes[nom] = true, nil
 		else a.passes[nom], a.interesses[nom] = true, nil end
-		-- les déclarés, du mieux placé au moins bien : chacun voit qui est en tête
-		Diffuser("K", a.n, table.concat((Raid.ClassementSK(a)), ","))
+		-- les déclarés, du mieux placé au moins bien : chacun voit qui est en tête (un envoi par seconde au plus)
+		if not a.classementPrevu then
+			a.classementPrevu = true
+			C_Timer.After(1, function ()
+				a.classementPrevu = nil
+				if a.etat == "sk" then Diffuser("K", a.n, table.concat((Raid.ClassementSK(a)), ",")) end
+			end)
+		end
 		Rafraichir()
 		-- tout le monde a répondu (je le veux ou je passe) : inutile d'attendre la fin du temps
 		if Raid.ToutLeMondeARepondu(a) then Raid.FinSK(a) end
@@ -371,6 +377,43 @@ function Raid.Decider (a, nom, voie, motif)
 		Raid.Desenchanter(a, " sur décision des officiers : " .. motif)
 	end
 	return true
+end
+
+-- Un joueur qui recharge (ou arrive) demande où en est la soirée : on lui renvoie l'état des annonces récentes et en
+-- cours, comme au moment de les faire (A, V, S, K, R). Les clients qui les ont déjà ignorent ce qu'ils connaissent.
+-- Une seule reprise à la fois, les messages espacés.
+local renvoi = false
+function Raid.RenvoyerEtat ()
+	if renvoi or #Raid.attributions == 0 or not Raid.PeutGerer() then return end
+	renvoi = true
+	local file = {}
+	local premier = math.max(1, #Raid.attributions - 9)
+	for n, a in ipairs(Raid.attributions) do
+		local actif = a.etat == "delai" or a.etat == "vote" or a.etat == "sk" or a.etat == "trancher"
+		if not actif and n >= premier then
+			-- déjà tranché : le résultat seul (avec l'objet, pour qui ne connaissait pas l'annonce)
+			file[#file + 1] = { "R", a.n, a.etat, a.attributaire or "", a.id or "" }
+		elseif actif then
+			local reste = a.fin and math.max(1, math.floor(a.fin - GetTime())) or 1
+			local candidats = {}
+			for nom in pairs(a.candidats or {}) do candidats[#candidats + 1] = nom end
+			if a.propose and a.propose ~= "?" then
+				file[#file + 1] = { "A", a.n, a.id, a.propose, a.etat == "delai" and reste or 1, table.concat(candidats, ",") }
+			else
+				file[#file + 1] = { "S", a.n, a.id, a.etat == "sk" and reste or 1 }
+			end
+			if a.etat == "vote" then
+				file[#file + 1] = { "V", a.n, reste, a.quorum or 1, a.nElecteurs or 1, a.objecteurs[1] or "", table.concat(a.choix or {}, ","), a.motif or "" }
+			elseif a.etat == "sk" then
+				file[#file + 1] = { "K", a.n, table.concat((Raid.ClassementSK(a)), ",") }
+			end
+			if a.etat == "trancher" then file[#file + 1] = { "R", a.n, a.etat, a.attributaire or "", a.id or "" } end
+		end
+	end
+	for k, m in ipairs(file) do
+		C_Timer.After(k * 0.3, function () Diffuser(unpack(m)) end)
+	end
+	C_Timer.After(#file * 0.3 + 5, function () renvoi = false end)
 end
 
 -- ce qu'affiche la fenêtre pour une attribution

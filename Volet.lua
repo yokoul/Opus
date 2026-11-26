@@ -1524,6 +1524,50 @@ C_Timer.NewTicker(5, function ()
 end)
 
 ------------------------------------------------------------------------
+-- l'infobulle des objets : qui l'a en liste (et à quel rang de sa liste), et à qui il est allé ce soir
+------------------------------------------------------------------------
+
+local OR_BULLE = { 0.85, 0.64, 0.30 }
+local function AjouterListes (bulle, id)
+	if not id or not Raid.db then return end
+	local i = Raid.db.instantane
+	local souhaits = i and i.souhaits and i.souhaits[id]
+	local moi = Moi()
+	if souhaits and #souhaits > 0 then
+		local tries = {}
+		for _, c in ipairs(souhaits) do tries[#tries + 1] = c end
+		table.sort(tries, function (x, y) if x.rang ~= y.rang then return x.rang < y.rang end return x.nom < y.nom end)
+		local t = {}
+		for k, c in ipairs(tries) do if k <= 5 then t[#t + 1] = Nom(c.nom) .. " |cff9b8865(" .. c.rang .. ")|r" end end
+		if #tries > 5 then t[#t + 1] = "+" .. (#tries - 5) end
+		bulle:AddLine("Opus · en liste : " .. table.concat(t, ", "), OR_BULLE[1], OR_BULLE[2], OR_BULLE[3], true)
+	end
+	-- ce soir : qui l'a reçu (les annonces vues, et celles du maître du butin)
+	local vus = {}
+	local function Recu (qui)
+		if qui and qui ~= "" and not vus[qui] then vus[qui] = true bulle:AddLine("Opus · ce soir : à " .. Nom(qui), OR_BULLE[1], OR_BULLE[2], OR_BULLE[3]) end
+	end
+	for _, a in ipairs(Raid.annonces or {}) do if a.id == id and a.etat == "attribue" then Recu(a.attributaire) end end
+	for _, a in ipairs(Raid.attributions or {}) do if a.id == id and a.etat == "attribue" then Recu(a.attributaire) end end
+end
+
+local function IdDeLien (lien) return lien and tonumber(lien:match("item:(%d+)")) end
+if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Item then
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function (bulle, donnees)
+		if bulle ~= GameTooltip and bulle ~= ItemRefTooltip then return end
+		local id = donnees and donnees.id
+		if not id and bulle.GetItem then id = IdDeLien(select(2, bulle:GetItem())) end
+		pcall(AjouterListes, bulle, id)
+	end)
+else
+	for _, b in ipairs({ GameTooltip, ItemRefTooltip }) do
+		if b and b.HookScript then
+			b:HookScript("OnTooltipSetItem", function (bulle) pcall(AjouterListes, bulle, IdDeLien(select(2, bulle:GetItem()))) end)
+		end
+	end
+end
+
+------------------------------------------------------------------------
 -- mise en route
 ------------------------------------------------------------------------
 

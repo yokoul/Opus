@@ -356,7 +356,57 @@ function Raid.Donner (o)
 	Msg(dest .. " ne peut pas recevoir " .. o.lien .. " depuis ce corps (trop loin, hors ligne ou pas éligible). « Donner » pour réessayer, ou ramasse-le et remets-le par échange.")
 end
 
--- les objets d'un corps, au-dessus du seuil de butin du groupe (épique par défaut)
+------------------------------------------------------------------------
+-- les règles fixes du maître du butin : « tous les scarabées vont chez Bob ». Une règle vise un objet (son numéro) ou
+-- un morceau de nom (« scarabée ») ; elle l'envoie à un joueur, au désenchanteur (« de ») ou au maître du butin
+-- (« banque »). À l'ouverture d'un corps, ces objets partent tout seuls, sans annonce ; il faut que le seuil de butin
+-- du groupe les laisse au maître du butin (un objet sous le seuil ne se donne pas par son menu).
+------------------------------------------------------------------------
+
+local function Regles ()
+	Raid.db.reglages.regles = Raid.db.reglages.regles or {}
+	return Raid.db.reglages.regles
+end
+local function RegleDe (id, nom)
+	local bas = (nom or ""):lower()
+	for _, r in ipairs(Regles()) do
+		if (r.id and r.id == id) or (r.motif and bas ~= "" and bas:find(r.motif, 1, true)) then return r end
+	end
+end
+-- à qui va l'objet d'une règle : le joueur s'il est là, le désenchanteur, ou le maître du butin ; nil s'il manque
+local function DestinationDe (r)
+	local presents = Raid.Presents()
+	if r.dest == "de" then return Raid.Desenchanteur() or Raid.MonNom() end
+	if r.dest == "banque" or r.dest == "moi" then return Raid.MonNom() end
+	if not presents or presents[r.dest] then return r.dest end
+end
+local function DonnerSlot (slot, dest)
+	if not GetMasterLootCandidate or not GiveMasterLoot then return false end
+	for i = 1, 40 do
+		local c = GetMasterLootCandidate(slot, i)
+		if c and Raid.Court(c) == dest then GiveMasterLoot(slot, i) return true end
+	end
+	return false
+end
+-- appliquées aux objets du corps ouvert ; rend ceux qui restent à traiter à la main
+local function AppliquerRegles (releves)
+	if #Regles() == 0 then return releves end
+	local reste = {}
+	for _, o in ipairs(releves) do
+		local _, nom = GetLootSlotInfo(o.slot)
+		local r = RegleDe(o.id, nom)
+		local dest = r and DestinationDe(r)
+		if r and dest and DonnerSlot(o.slot, dest) then
+			Msg(o.lien .. " » " .. dest .. " (règle).")
+		else
+			if r then Msg(o.lien .. " : la règle vise " .. r.dest .. ", qui ne peut pas le recevoir d'ici (absent, trop loin, ou objet sous le seuil de butin).") end
+			reste[#reste + 1] = o
+		end
+	end
+	return reste
+end
+
+-- les objets d'un corps, au-dessus du seuil de butin du groupe (épique par défaut), ceux d'une liste, ceux d'une règle
 local function Relever ()
 	local seuil = (GetLootThreshold and GetLootThreshold()) or 4
 	local releves = {}
@@ -364,10 +414,14 @@ local function Relever ()
 		local lien = GetLootSlotLink(slot)
 		local id = ItemID(lien)
 		if id then
-			local _, _, _, _, qualite = GetLootSlotInfo(slot)
+			local _, nom, _, _, qualite = GetLootSlotInfo(slot)
 			local voulu = Raid.db.instantane and Raid.db.instantane.souhaits[id]
 			local source = GetLootSourceInfo and GetLootSourceInfo(slot)
-			if (qualite and qualite >= seuil) or voulu then releves[#releves + 1] = { lien = lien, id = id, slot = slot, source = source } end
+			-- un seuil abaissé pour les règles ne doit pas remplir le volet de tout le vert du corps : sous l'épique,
+			-- seulement ce qu'une liste ou une règle vise
+			local plancher = #Regles() > 0 and math.max(seuil, 4) or seuil
+			local retenu = (qualite and qualite >= plancher) or voulu or RegleDe(id, nom)
+			if retenu then releves[#releves + 1] = { lien = lien, id = id, slot = slot, source = source } end
 		end
 	end
 	return releves
@@ -466,6 +520,12 @@ Raid.Ecoute("LOOT_OPENED", function ()
 	local releves = Relever()
 	if #releves == 0 then return end
 	Rattacher(releves)
+	-- les objets d'une règle partent tout de suite (pas ceux déjà annoncés)
+	local libres, annonces = {}, {}
+	for _, o in ipairs(releves) do if o.attribution then annonces[#annonces + 1] = o else libres[#libres + 1] = o end end
+	releves = AppliquerRegles(libres)
+	for _, o in ipairs(annonces) do releves[#releves + 1] = o end
+	if #releves == 0 then return end
 	Garder(releves)
 	Raid.MontrerButin()
 	local ids = {}
@@ -494,6 +554,56 @@ Raid.Ecoute("LOOT_SLOT_CLEARED", function (slot)
 		if #objets == 0 then f:Hide() else Raid.MontrerButin() end
 	end
 	Raid.RafraichirButin()
+end)
+
+-- Alt+clic sur un objet des sacs (maître du butin, soirée ouverte) : il rejoint les objets du butin, à annoncer (un
+-- objet ramassé, ou gardé après le corps) ; l'annonce reste un geste à part.
+function Raid.AjouterAuButin (lien)
+	local id = ItemID(lien)
+	if not id then return end
+	for _, o in ipairs(objets) do if o.lien == lien and not o.attribution then Raid.MontrerButin() return end end
+	Garder({ { lien = lien, id = id } })
+	Raid.MontrerButin()
+	Raid.PrioriserObjets({ id })
+end
+if hooksecurefunc and HandleModifiedItemClick then
+	hooksecurefunc("HandleModifiedItemClick", function (lien)
+		if type(lien) ~= "string" or not IsAltKeyDown() or IsShiftKeyDown() or IsControlKeyDown() then return end
+		if not lien:find("|Hitem:", 1, true) or not IsInGroup() or not Raid.EstMaitreButin() or not Raid.PeutGerer() then return end
+		if not Raid.Actif() then return end
+		Raid.AjouterAuButin(lien)
+	end)
+end
+
+-- /opus raid regle : les règles fixes
+Raid.Commande("regle", "regle [objet ou nom] [joueur|de|banque]", "les règles fixes : « /opus raid regle scarabée Bob », un lien ou un itemID marche aussi ; « /opus raid regle retirer 2 »", function (texte)
+	texte = strtrim(texte or "")
+	local liste = Regles()
+	if texte == "" then
+		if #liste == 0 then Msg("aucune règle. Exemple : /opus raid regle scarabée Bob (ou de, banque).") return end
+		Msg("règles du butin :")
+		for k, r in ipairs(liste) do
+			DEFAULT_CHAT_FRAME:AddMessage(string.format("  %d. %s » %s", k, r.id and (Raid.LienDe(r.id)) or ("« " .. r.motif .. " »"),
+				r.dest == "de" and "désenchanteur" or r.dest == "banque" and "banque (toi)" or r.dest))
+		end
+		return
+	end
+	local k = tonumber(texte:match("^retirer%s+(%d+)$"))
+	if k then
+		if liste[k] then table.remove(liste, k) Msg("règle " .. k .. " retirée.") else Msg("pas de règle " .. k .. ".") end
+		return
+	end
+	local lien = texte:match("|c%x+|Hitem:.-|h.-|h|r")
+	local quoi, dest
+	if lien then quoi, dest = lien, strtrim((texte:gsub("|c%x+|Hitem:.-|h.-|h|r", "", 1)))
+	else quoi, dest = texte:match("^(.-)%s+(%S+)$") end
+	if not quoi or not dest or dest == "" or quoi == "" then Msg("usage : /opus raid regle <objet ou morceau de nom> <joueur|de|banque>") return end
+	local d = dest:lower()
+	dest = (d == "de" or d == "banque" or d == "moi") and d or (dest:sub(1, 1):upper() .. dest:sub(2))
+	local id = lien and ItemID(lien) or tonumber(quoi)
+	liste[#liste + 1] = id and { id = id, dest = dest } or { motif = quoi:lower(), dest = dest }
+	Msg(string.format("règle ajoutée : %s » %s. Pense au seuil de butin du groupe s'il s'agit d'objets sous l'épique.",
+		id and Raid.LienDe(id) or ("« " .. quoi:lower() .. " »"), dest))
 end)
 
 -- pour le volet (Volet.lua) : l'état d'un objet, son action principale, et s'il peut partir au désenchantement
