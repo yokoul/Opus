@@ -109,7 +109,8 @@ local function BoutonPrincipal (parent, texte, clic)
 	b.reflet:SetPoint("TOPLEFT", 1, -1) b.reflet:SetPoint("TOPRIGHT", -1, -1)
 	b.texte = Texte(b, "Bouton", C.orVif) b.texte:SetPoint("CENTER", 0, 0) b.texte:SetText(texte)
 	b.texte:SetShadowColor(0, 0, 0, 1) b.texte:SetShadowOffset(1, -1)
-	b:SetSize(math.max(96, b.texte:GetStringWidth() + 36), 30)
+	b.Poser = function (self, t) self.texte:SetText(t) self:SetSize(math.max(96, self.texte:GetStringWidth() + 36), 30) end
+	b:Poser(texte)
 	b:SetHighlightTexture(BLANC8) b:GetHighlightTexture():SetVertexColor(C.orVif[1], C.orVif[2], C.orVif[3], 0.10)
 	b:SetScript("OnClick", clic)
 	return b
@@ -119,12 +120,25 @@ end
 local function BoutonSecond (parent, texte, clic)
 	local b = CreateFrame("Button", nil, parent)
 	b.texte = Texte(b, "Bouton", { Hex("#e7d09a") }) b.texte:SetPoint("CENTER", 0, 1) b.texte:SetText(texte)
-	b:SetSize(b.texte:GetStringWidth() + 6, 30)
+	b.Poser = function (self, t) self.texte:SetText(t) self:SetSize(self.texte:GetStringWidth() + 6, 30) end
+	b:Poser(texte)
 	b.filet = Aplat(b, C["or"], 0.4) b.filet:SetHeight(1)
 	b.filet:SetPoint("BOTTOMLEFT", 0, 4) b.filet:SetPoint("BOTTOMRIGHT", 0, 4)
 	b:SetScript("OnEnter", function (self) self.texte:SetTextColor(C.orVif[1], C.orVif[2], C.orVif[3]) end)
 	b:SetScript("OnLeave", function (self) self.texte:SetTextColor(Hex("#e7d09a")) end)
 	b:SetScript("OnClick", clic)
+	return b
+end
+
+-- Un nom à choisir (le vote) : le nom à la couleur de sa classe, dans un cadre sombre à filet or.
+local function BoutonNom (parent)
+	local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
+	b:SetBackdrop({ bgFile = BLANC8, edgeFile = BLANC8, edgeSize = 1 })
+	b:SetBackdropColor(0, 0, 0, 0.35) b:SetBackdropBorderColor(C.orSombre[1], C.orSombre[2], C.orSombre[3], 1)
+	b.texte = Texte(b, "Nom") b.texte:SetPoint("CENTER", 0, 0)
+	b.Poser = function (self, t) self.texte:SetText(t) self:SetSize(math.max(64, self.texte:GetStringWidth() + 22), 30) end
+	b:SetScript("OnEnter", function (self) self:SetBackdropBorderColor(C["or"][1], C["or"][2], C["or"][3], 1) end)
+	b:SetScript("OnLeave", function (self) self:SetBackdropBorderColor(C.orSombre[1], C.orSombre[2], C.orSombre[3], 1) end)
 	return b
 end
 
@@ -204,12 +218,24 @@ local DEMO = {
 }
 
 ------------------------------------------------------------------------
--- la languette et la banderole
+-- les appels : ce qui attend le joueur, et ce qu'on lui dit
 ------------------------------------------------------------------------
 
+-- Un appel, c'est une banderole possible :
+--   genre "decision" : à toi de choisir avant la fin (boutons, ou les noms des candidats) ;
+--   genre "info"     : ça te concerne et tu dois le comprendre (objet proposé, objection, vote en cours), sans bouton ;
+--   genre "resultat" : ce qui vient d'être tranché, quelques secondes.
+-- { id, genre, objet = { nom, icone, qualite }, sous, detail, fin, duree, boutons = { { texte, clic, principal } },
+--   candidats = { { nom, classe, clic } }, sansReponse = texte (et fonction auSansReponse), apres }
+-- Une seule banderole à la fois : les décisions d'abord (celle qui finit le plus tôt), puis les infos, puis les résultats.
+local appels = {}
+local Demo = {}                         -- la démonstration (en bas du fichier)
+local montre                            -- l'appel dans la banderole
 local languette, banderole, volet
-local etat = "toi"                      -- repos, cours ou toi
-local reponse                           -- ce que le joueur a répondu à l'appel de la démonstration
+local etatForce                         -- /opus volet etat : le signe imposé, pour l'essai
+local reponse                           -- la réponse du joueur au Suicide King de la démonstration
+local derniereDecision                  -- pour refermer le volet non épinglé, un moment après
+local GLISSE = 0.2                      -- la durée d'une entrée ou d'une sortie
 
 local function Reglages ()
 	OpusDB.volet = OpusDB.volet or {}
@@ -218,55 +244,244 @@ end
 
 local LARGEUR, HAUTEUR = 392, 624
 local DECALAGE = 66                     -- la languette, sous le haut du volet ouvert
+local LARGEUR_B = 340                   -- la banderole
 
-local function PourToi () return reponse and 1 or 2 end
+local function PourToi ()
+	local n = 0
+	for _, a in pairs(appels) do if a.genre == "decision" and not a.clos then n = n + 1 end end
+	return n
+end
+local function Etat ()
+	if etatForce then return etatForce end
+	if PourToi() > 0 then return "toi" end
+	for _, a in pairs(appels) do if not a.clos then return "cours" end end
+	return "repos"
+end
+
+------------------------------------------------------------------------
+-- glisser : la banderole et le volet entrent et sortent par le bord
+------------------------------------------------------------------------
+
+local glissements = {}                  -- [cadre] = { de, a, debut, fini }
+local moteur = CreateFrame("Frame")
+local Placer
+
+local function Lisse (t) return 1 - (1 - t) * (1 - t) end
+moteur:SetScript("OnUpdate", function ()
+	local now = GetTime()
+	local bouge = next(glissements) ~= nil
+	for f, g in pairs(glissements) do
+		local t = math.min(1, (now - g.debut) / GLISSE)
+		f.decal = g.de + (g.a - g.de) * Lisse(t)
+		if t >= 1 then glissements[f] = nil if g.fini then g.fini() end end
+	end
+	-- un appel arrivé au bout de son temps tombe de lui-même, montré ou non
+	for id, a in pairs(appels) do
+		if a.fin and not a.clos and now >= a.fin then
+			if a.genre == "resultat" then Volet.Retirer(id)
+			else
+				if a.auSansReponse then a.auSansReponse() end
+				Volet.Clore(id, a.sansReponse or "Temps écoulé.")
+			end
+		end
+	end
+	if languette and (bouge or languette.enDrag) then Placer() end
+	-- le volet non épinglé se referme un moment après la dernière décision, s'il ne reste rien pour toi
+	if volet and volet:IsShown() and not volet.sortant and derniereDecision and not Reglages().epingle
+		and GetTime() - derniereDecision > 6 and PourToi() == 0 and not volet:IsMouseOver() then
+		derniereDecision = nil
+		Volet.Ouvrir(false)
+	end
+end)
+
+local function Glisser (f, sortir, largeur, fini)
+	if sortir then f:Show() end
+	glissements[f] = { de = f.decal or (sortir and -largeur or 0), a = sortir and 0 or -largeur, debut = GetTime(),
+		fini = function () if not sortir then f:Hide() end if fini then fini() end end }
+end
 
 -- La languette garde sa hauteur (glissée à la souris) ; ouvert, le volet se cale sur elle sans sortir de l'écran.
-local function Placer ()
+function Placer ()
 	local y = Reglages().y or -260
 	local hauteurEcran = UIParent:GetHeight() * UIParent:GetEffectiveScale() / languette:GetEffectiveScale()
 	y = math.max(-(hauteurEcran - languette:GetHeight()), math.min(0, y))
-	languette:ClearAllPoints()
-	if volet:IsShown() then
-		local haut = math.max(-(hauteurEcran - HAUTEUR), math.min(0, y + DECALAGE))
-		volet:ClearAllPoints() volet:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, haut)
-		languette:SetPoint("TOPLEFT", UIParent, "TOPLEFT", LARGEUR - 2, y)
-	else
-		languette:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, y)
-	end
+	local dv = volet:IsShown() and (LARGEUR + (volet.decal or 0)) or 0
+	local haut = math.max(-(hauteurEcran - HAUTEUR), math.min(0, y + DECALAGE))
+	volet:ClearAllPoints() volet:SetPoint("TOPLEFT", UIParent, "TOPLEFT", volet.decal or 0, haut)
+	languette:ClearAllPoints() languette:SetPoint("TOPLEFT", UIParent, "TOPLEFT", math.max(0, dv - 2), y)
+	banderole:ClearAllPoints() banderole:SetPoint("TOPLEFT", languette, "TOPRIGHT", 2 + (banderole.decal or 0), -14)
 end
 
 local function PoserLanguette ()
 	if not languette then return end
-	local l = languette
+	local l, etat = languette, Etat()
 	l.gemme:SetShown(etat ~= "toi") l.rubis:SetShown(etat == "toi")
 	l.gemme:SetDesaturated(etat == "repos") l.gemme:SetAlpha(etat == "repos" and 0.5 or 1)
-	if etat == "toi" then l.compte:SetText(PourToi()) l.compte:SetTextColor(C.braiseTexte[1], C.braiseTexte[2], C.braiseTexte[3])
-	elseif etat == "cours" then l.compte:SetText("4") l.compte:SetTextColor(C.orVif[1], C.orVif[2], C.orVif[3])
+	local n = 0
+	for _, a in pairs(appels) do if not a.clos then n = n + 1 end end
+	if etat == "toi" then l.compte:SetText(etatForce and 2 or PourToi()) l.compte:SetTextColor(C.braiseTexte[1], C.braiseTexte[2], C.braiseTexte[3])
+	elseif etat == "cours" then l.compte:SetText(etatForce and 4 or n) l.compte:SetTextColor(C.orVif[1], C.orVif[2], C.orVif[3])
 	else l.compte:SetText("") end
-	local ouvert = volet and volet:IsShown()
+	local ouvert = volet and volet:IsShown() and not volet.sortant
 	l.fleche:SetTexture(ouvert and "Interface\\Buttons\\UI-SpellbookIcon-PrevPage-Up" or "Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up")
 	-- le rubis bat doucement tant qu'une décision attend et que le volet est fermé
 	if etat == "toi" and not ouvert then l.pouls:Play() else l.pouls:Stop() l.rubis:SetAlpha(1) end
+	if volet and volet.Remplir and volet:IsShown() then volet:Remplir() end
 end
 
-local function OuvrirVolet (ouvrir)
-	if ouvrir == nil then ouvrir = not volet:IsShown() end
-	if ouvrir and InCombatLockdown() then Opus.Msg("le volet reste fermé en combat.") return end
-	volet:SetShown(ouvrir)
-	if ouvrir then banderole:Hide() end
-	Placer()
+local Choisir
+
+-- Le volet ne s'ouvre jamais tout seul : un clic sur la languette ou sur l'objet de la banderole.
+function Volet.Ouvrir (ouvrir)
+	if ouvrir == nil then ouvrir = not volet:IsShown() or volet.sortant end
+	if ouvrir and InCombatLockdown() and not Reglages().epingle then Opus.Msg("le volet reste fermé en combat.") return end
+	volet.sortant = not ouvrir or nil
+	if ouvrir then
+		if not volet:IsShown() then volet.decal = -LARGEUR end
+		Glisser(volet, true, LARGEUR)
+		if banderole:IsShown() then Glisser(banderole, false, LARGEUR_B) end
+	else
+		Glisser(volet, false, LARGEUR, function () volet.sortant = nil Choisir() end)
+	end
 	PoserLanguette()
 end
 
-local function FinAppel (texte, r)
-	banderole:SetScript("OnUpdate", nil)
-	banderole:Hide()
-	if r then reponse = r end
-	if texte then Opus.Msg(texte) end
-	if volet and volet.Remplir then volet:Remplir() end
+------------------------------------------------------------------------
+-- la banderole
+------------------------------------------------------------------------
+
+local function Temps (s) return string.format("%d:%02d", math.floor(s / 60), math.floor(s % 60)) end
+
+local function Rang (a)
+	local r = a.genre == "decision" and 0 or a.genre == "info" and 1e6 or 2e6
+	return r + (a.fin or 1e5)
+end
+
+-- ce que la banderole montre, mis en page selon l'appel
+local function Remplir (a)
+	local b = banderole
+	b.appel = a
+	b.objet.cadre.icone:SetTexture(a.objet.icone)
+	b.objet.nom:SetText(a.objet.nom) b.objet.nom:SetTextColor(Qualite(a.objet.qualite or 4))
+	b.objet.sous:SetText(a.sous or "")
+	local y = -16 - 36
+	b.detail:SetShown(a.detail ~= nil)
+	if a.detail then
+		b.detail:SetText(a.detail)
+		b.detail:ClearAllPoints() b.detail:SetPoint("TOPLEFT", 16, y - 8) b.detail:SetWidth(LARGEUR_B - 32)
+		y = y - 8 - b.detail:GetStringHeight()
+	end
+	-- les actions : les boutons, ou les noms des candidats
+	b.prim:Hide() b.sec:Hide()
+	for _, n in ipairs(b.noms) do n:Hide() end
+	local x, actions = 16, false
+	if not a.clos and a.boutons then
+		for _, bt in ipairs(a.boutons) do
+			local w = bt.principal and b.prim or b.sec
+			w:Poser(bt.texte) w:SetScript("OnClick", bt.clic)
+			w:ClearAllPoints() w:SetPoint("TOPLEFT", x, y - 10) w:Show()
+			x = x + w:GetWidth() + 14 actions = true
+		end
+	elseif not a.clos and a.candidats then
+		for i, c in ipairs(a.candidats) do
+			local w = b.noms[i]
+			if w then
+				w:Poser(Classe(c.nom, c.classe)) w:SetScript("OnClick", c.clic)
+				w:ClearAllPoints() w:SetPoint("TOPLEFT", x, y - 10) w:Show()
+				x = x + w:GetWidth() + 6 actions = true
+			end
+		end
+	end
+	-- une fois clos : la réponse, à la place des actions
+	b.rendu:SetShown(a.clos ~= nil)
+	if a.clos then
+		b.rendu:SetText(a.clos) b.rendu:ClearAllPoints() b.rendu:SetPoint("TOPLEFT", 16, y - 10)
+		y = y - 10 - 20
+	elseif actions then
+		y = y - 10 - 30
+	end
+	-- le temps : au bout de la rangée des actions, ou seul au-dessus de la barre
+	local compte = a.fin ~= nil and not a.clos and a.genre ~= "resultat"
+	b.temps:ClearAllPoints()
+	if actions then b.temps:SetPoint("RIGHT", b, "TOPRIGHT", -16, y + 20)
+	elseif compte then b.temps:SetPoint("BOTTOMRIGHT", -16, 20) y = y - 22 end
+	b.temps:SetShown(compte)
+	b.barre:SetShown(compte and a.duree ~= nil) b.reste:SetShown(b.barre:IsShown())
+	-- le liseré gauche dit le genre : braise pour une décision, or pour une info, rien pour un résultat
+	b.lisere:SetShown(a.genre ~= "resultat")
+	local c = a.genre == "decision" and C.braise or C["or"]
+	b.lisere:SetVertexColor(c[1], c[2], c[3], 1)
+	b:SetHeight(-y + 24)
+end
+
+-- Choisir l'appel à montrer, et faire entrer, changer ou sortir la banderole.
+function Choisir ()
+	if not banderole then return end
+	local meilleur
+	for _, a in pairs(appels) do
+		if not a.clos and (not meilleur or Rang(a) < Rang(meilleur)) then meilleur = a end
+	end
+	if montre and montre.clos then return end      -- la réponse reste lisible, puis l'appel s'en va
+	local ouvert = volet:IsShown() and not volet.sortant
+	if not meilleur or ouvert then
+		montre = nil
+		if banderole:IsShown() and not glissements[banderole] then Glisser(banderole, false, LARGEUR_B) end
+		PoserLanguette()
+		return
+	end
+	montre = meilleur
+	Remplir(meilleur)
+	local g = glissements[banderole]
+	if not banderole:IsShown() or (g and g.a < 0) then
+		if not banderole:IsShown() then banderole.decal = -LARGEUR_B end
+		Glisser(banderole, true, LARGEUR_B)
+	end
+	-- un son, une fois, quand une décision se montre pour la première fois
+	if meilleur.genre == "decision" and not meilleur.sonne then
+		meilleur.sonne = true
+		if Reglages().son ~= false then PlaySound(SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959) end
+	end
 	PoserLanguette()
 end
+
+-- Un appel arrive, ou change (même id) : il prend sa place dans la file.
+function Volet.Appeler (a)
+	appels[a.id] = a
+	if montre and montre.id == a.id then montre = a Remplir(a) end
+	if a.genre == "resultat" and not a.fin then a.fin = GetTime() + 6 end
+	Choisir()
+end
+
+-- C'est décidé (ici, au chat, par la fin du temps ou par les officiers) : la réponse reste deux secondes, puis
+-- la banderole rentre ou passe à l'appel suivant.
+function Volet.Clore (id, texte)
+	local a = appels[id]
+	if not a or a.clos then return end
+	a.clos = texte or "C'est noté."
+	if a.genre == "decision" then derniereDecision = GetTime() end
+	if montre == a then
+		Remplir(a)
+		C_Timer.After(2, function ()
+			if appels[id] == a then appels[id] = nil end
+			if montre == a then montre = nil end
+			Choisir()
+		end)
+	else
+		appels[id] = nil
+		Choisir()
+	end
+	PoserLanguette()
+end
+
+function Volet.Retirer (id)
+	if appels[id] == montre then montre = nil end
+	appels[id] = nil
+	Choisir()
+end
+
+------------------------------------------------------------------------
+-- création de la languette et de la banderole
+------------------------------------------------------------------------
 
 local function CreerLanguette ()
 	local l = CreateFrame("Button", "OpusVoletLanguette", UIParent)
@@ -294,26 +509,26 @@ local function CreerLanguette ()
 	l:RegisterForClicks("LeftButtonUp")
 	l:SetScript("OnClick", function (self)
 		if self.glisse then self.glisse = nil return end
-		OuvrirVolet()
+		Volet.Ouvrir()
 	end)
 	-- glisser : monter ou descendre la languette le long du bord (le volet ouvert la suit)
 	l:RegisterForDrag("LeftButton")
 	l:SetScript("OnDragStart", function (self)
-		self.glisse = true
+		self.glisse, self.enDrag = true, true
 		local _, depart = GetCursorPosition()
 		local y0 = Reglages().y or -260
 		self:SetScript("OnUpdate", function (s)
 			local _, y = GetCursorPosition()
 			Reglages().y = y0 + (y - depart) / s:GetEffectiveScale()
-			Placer()
 		end)
 	end)
 	l:SetScript("OnDragStop", function (self)
 		self:SetScript("OnUpdate", nil)
 		Reglages().y = math.floor((Reglages().y or -260) + 0.5)
-		Placer()
+		Placer() self.enDrag = nil
 	end)
 	l:SetScript("OnEnter", function (self)
+		local etat = Etat()
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		GameTooltip:AddLine("Opus · butin")
 		GameTooltip:AddLine(etat == "toi" and "Une décision t'attend." or etat == "cours" and "Des objets circulent, rien pour toi." or "Rien en cours.", 1, 1, 1)
@@ -326,42 +541,35 @@ end
 
 local function CreerBanderole ()
 	local b = CreateFrame("Frame", nil, UIParent)
-	b:SetSize(330, 112) b:SetFrameStrata("HIGH")
-	b:SetPoint("TOPLEFT", languette, "TOPRIGHT", 2, -18)
+	b:SetSize(LARGEUR_B, 112) b:SetFrameStrata("HIGH")
 	NeufParts(b, "Panneau.tga", 512, 256, 42, 39, 18)
-	local a = DEMO.appel
+	b.lisere = Aplat(b, C.braise, 1) b.lisere:SetWidth(3) b.lisere:SetPoint("TOPLEFT", 6, -14) b.lisere:SetPoint("BOTTOMLEFT", 6, 14)
 	local objet = CreateFrame("Button", nil, b)
-	objet:SetPoint("TOPLEFT", 16, -16) objet:SetPoint("RIGHT", -16, 0) objet:SetHeight(36)
-	objet.cadre = Cadre(objet, a.icone, 36) objet.cadre:SetPoint("LEFT")
-	objet.nom = Texte(objet, "Nom") objet.nom:SetPoint("TOPLEFT", 46, -1) objet.nom:SetText(a.nom)
-	objet.nom:SetTextColor(Qualite(a.qualite))
-	objet.sous = Texte(objet, "Texte", C.pale) objet.sous:SetPoint("BOTTOMLEFT", 46, 1) objet.sous:SetText(a.resume)
-	objet:SetScript("OnClick", function () OuvrirVolet(true) end)
-	b.oui = BoutonPrincipal(b, "JE LE VEUX", function () FinAppel("démonstration : tu t'es déclaré pour l'Anneau d'obsidienne.", "pris") end)
-	b.oui:SetPoint("TOPLEFT", objet, "BOTTOMLEFT", 0, -9)
-	b.non = BoutonSecond(b, "PASSER", function () FinAppel("démonstration : tu passes l'Anneau d'obsidienne.", "passe") end)
-	b.non:SetPoint("LEFT", b.oui, "RIGHT", 14, 0)
-	b.temps = Texte(b, "Titre", C.acier) b.temps:SetPoint("TOPRIGHT", objet, "BOTTOMRIGHT", 0, -15) b.temps:SetJustifyH("RIGHT")
+	objet:SetPoint("TOPLEFT", 16, -16) objet:SetPoint("TOPRIGHT", -16, -16) objet:SetHeight(36)
+	objet.cadre = Cadre(objet, nil, 36) objet.cadre:SetPoint("LEFT")
+	objet.nom = Texte(objet, "Nom") objet.nom:SetPoint("TOPLEFT", 46, -1) objet.nom:SetPoint("TOPRIGHT", 0, -1)
+	objet.sous = Texte(objet, "Texte", C.pale) objet.sous:SetPoint("BOTTOMLEFT", 46, 1) objet.sous:SetPoint("BOTTOMRIGHT", 0, 1)
+	objet:SetScript("OnClick", function () Volet.Ouvrir(true) end)
+	b.objet = objet
+	b.detail = Texte(b, "Texte", C.parchemin) b.detail:SetWordWrap(true)
+	b.prim = BoutonPrincipal(b, "", nil)
+	b.sec = BoutonSecond(b, "", nil)
+	b.noms = { BoutonNom(b), BoutonNom(b), BoutonNom(b) }
+	b.rendu = Texte(b, "Nom", C.pale)
+	b.temps = Texte(b, "Titre", C.acier) b.temps:SetJustifyH("RIGHT")
 	b.barre = Aplat(b, C.encre, 0.6) b.barre:SetHeight(2)
 	b.barre:SetPoint("BOTTOMLEFT", 16, 14) b.barre:SetPoint("BOTTOMRIGHT", -16, 14)
 	b.reste = Aplat(b, C.acier, 1) b.reste:SetHeight(2) b.reste:SetPoint("LEFT", b.barre, "LEFT")
+	-- le temps qui reste ; à zéro, la décision tombe d'elle-même (« sans réponse : … »)
+	b:SetScript("OnUpdate", function (self)
+		local a = self.appel
+		if not a or a.clos or not a.fin then return end
+		local reste = math.max(0, a.fin - GetTime())
+		self.temps:SetText(Temps(reste))
+		if a.duree then self.reste:SetWidth(math.max(1, (LARGEUR_B - 32) * reste / a.duree)) end
+	end)
 	b:Hide()
 	banderole = b
-end
-
-local function LancerAppel ()
-	if volet:IsShown() then OuvrirVolet(false) end
-	reponse = nil
-	local fin, duree = GetTime() + DEMO.appel.duree, DEMO.appel.duree
-	local largeur = banderole.barre:GetWidth()
-	banderole:SetScript("OnUpdate", function (self)
-		local reste = fin - GetTime()
-		if reste <= 0 then FinAppel("démonstration : sans réponse, tu passes l'Anneau d'obsidienne.", "passe") return end
-		self.temps:SetText(string.format("%d:%02d", math.floor(reste / 60), math.floor(reste % 60)))
-		self.reste:SetWidth(math.max(1, (largeur > 0 and largeur or 298) * reste / duree))
-	end)
-	banderole:Show()
-	if Reglages().son ~= false then PlaySound(SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959) end
 end
 
 ------------------------------------------------------------------------
@@ -434,9 +642,9 @@ local function LigneAppel (parent, haut)
 	z.signe = Image(z, "Rubis.tga", 16, 16) z.signe:SetPoint("TOPLEFT", 8, -6)
 	z.titre = Texte(z, "Etiquette", C.braiseTexte) z.titre:SetPoint("TOPLEFT", 30, -9) z.titre:SetText("À TOI DE DÉCIDER")
 	z.temps = Texte(z, "Texte", C.parchemin) z.temps:SetPoint("TOPRIGHT", -8, -6) z.temps:SetJustifyH("RIGHT")
-	z.oui = BoutonPrincipal(z, "JE LE VEUX", function () FinAppel("démonstration : tu t'es déclaré.", "pris") end)
+	z.oui = BoutonPrincipal(z, "JE LE VEUX", function () Demo.Repondre("pris") end)
 	z.oui:SetPoint("BOTTOMLEFT", 8, 6)
-	z.non = BoutonSecond(z, "PASSER", function () FinAppel("démonstration : tu passes.", "passe") end)
+	z.non = BoutonSecond(z, "PASSER", function () Demo.Repondre("passe") end)
 	z.non:SetPoint("LEFT", z.oui, "RIGHT", 14, 0)
 	z.note = Texte(z, "Petit", C.poussiere) z.note:SetPoint("BOTTOMRIGHT", -8, 12) z.note:SetJustifyH("RIGHT") z.note:SetText("sans réponse : passe")
 	z.rendu = Texte(z, "Texte", C.mousse) z.rendu:SetPoint("BOTTOMLEFT", 30, 14)
@@ -456,7 +664,25 @@ local function CreerVolet ()
 	emb:SetSize(40, 40) emb:SetPoint("TOPLEFT", 2, 0)
 	local titre = Texte(c, "Titre", C.orVif) titre:SetPoint("TOPLEFT", 52, -2) titre:SetText(string.upper(DEMO.titre))
 	local lieu = Texte(c, "Texte", C.pale) lieu:SetPoint("TOPLEFT", 52, -22) lieu:SetText(DEMO.lieu)
-	v.attend = Texte(c, "Texte", C.braiseTexte) v.attend:SetPoint("TOPRIGHT", -2, -12) v.attend:SetJustifyH("RIGHT")
+	-- l'épingle : le volet reste ouvert (même en combat) tant qu'elle est mise
+	local ep = CreateFrame("Button", nil, c)
+	ep:SetSize(20, 20) ep:SetPoint("TOPRIGHT", -2, -2)
+	ep.image = ep:CreateTexture(nil, "ARTWORK") ep.image:SetAllPoints()
+	ep:SetHighlightTexture(BLANC8) ep:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.08)
+	ep.Poser = function (self)
+		local mise = Reglages().epingle
+		self.image:SetTexture(mise and "Interface\\Buttons\\LockButton-Locked-Up" or "Interface\\Buttons\\LockButton-Unlocked-Up")
+		self.image:SetAlpha(mise and 1 or 0.6)
+	end
+	ep:SetScript("OnClick", function (self) Reglages().epingle = not Reglages().epingle or nil self:Poser() end)
+	ep:SetScript("OnEnter", function (self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:AddLine(Reglages().epingle and "Épinglé : le volet reste ouvert." or "Épingler : garder le volet ouvert, même en combat.")
+		GameTooltip:Show()
+	end)
+	ep:SetScript("OnLeave", GameTooltip_Hide)
+	ep:Poser()
+	v.attend = Texte(c, "Texte", C.braiseTexte) v.attend:SetPoint("TOPRIGHT", -2, -26) v.attend:SetJustifyH("RIGHT")
 
 	-- les onglets : cartouches de l'atlas d'Auberdine, parchemin pour l'onglet ouvert, fer pour les autres
 	v.onglets = {}
@@ -501,7 +727,8 @@ local function CreerVolet ()
 		end
 		self.registre:SetShown(self.onglet == 1) self.ailleurs:SetShown(self.onglet ~= 1)
 		local z = self.appel.zone
-		self.attend:SetText(PourToi() .. " pour toi")
+		local n = PourToi()
+		self.attend:SetText(n > 0 and (n .. " pour toi") or "")
 		local a = self.appel
 		a.lisere:SetShown(not reponse)
 		a.etiquette:SetShown(not reponse) a.declare:SetShown(reponse == "pris") a.passe:SetShown(reponse == "passe")
@@ -526,11 +753,11 @@ local function CreerVolet ()
 			z.rendu:SetText("")
 		end
 	end
-	-- le décompte de la zone d'action tourne en boucle, pour l'essai
-	local debut = GetTime()
+	-- le décompte de la zone d'action : celui de l'appel du Suicide King, s'il court
 	v:SetScript("OnUpdate", function (self)
-		local reste = 30 - ((GetTime() - debut) % 30)
-		self.appel.zone.temps:SetText("encore |cfff1e6cf" .. string.format("%d:%02d", math.floor(reste / 60), math.floor(reste % 60)) .. "|r")
+		local a = appels.sk
+		local reste = a and a.fin and not a.clos and (a.fin - GetTime())
+		self.appel.zone.temps:SetText(reste and reste > 0 and ("encore |cfff1e6cf" .. Temps(reste) .. "|r") or "")
 	end)
 	v:SetScript("OnShow", function (self) self:Remplir() end)
 	v:Hide()
@@ -538,7 +765,7 @@ local function CreerVolet ()
 end
 
 ------------------------------------------------------------------------
--- mise en route et commandes
+-- mise en route
 ------------------------------------------------------------------------
 
 local function Creer ()
@@ -547,33 +774,104 @@ local function Creer ()
 	CreerBanderole()
 	CreerVolet()
 	languette:SetFrameLevel(volet:GetFrameLevel() + 10)
-	Placer()
+	banderole:SetFrameLevel(languette:GetFrameLevel() - 5)   -- la banderole sort de derrière la languette
 	local e = Reglages().echelle or 1
 	languette:SetScale(e) banderole:SetScale(e) volet:SetScale(e)
+	Placer()
 	PoserLanguette()
 end
 
 local function Montrer (oui)
 	Creer()
 	languette:SetShown(oui)
-	if not oui then volet:Hide() FinAppel() end
+	if not oui then
+		Demo.generation = (Demo.generation or 0) + 1
+		wipe(appels) montre = nil
+		volet:Hide() banderole:Hide() volet.decal, banderole.decal = nil, nil
+		Placer()
+	end
 	Reglages().demo = oui or nil
+	PoserLanguette()
 end
 
--- le volet se ferme à l'entrée en combat ; la languette et la banderole restent
+-- le volet se ferme à l'entrée en combat, sauf s'il est épinglé ; la languette et la banderole restent
 Opus.Ecoute("PLAYER_REGEN_DISABLED", function ()
-	if volet and volet:IsShown() then OuvrirVolet(false) end
+	if volet and volet:IsShown() and not Reglages().epingle then Volet.Ouvrir(false) end
 end)
 Opus.Ecoute("PLAYER_LOGIN", function ()
 	if OpusDB and OpusDB.volet and OpusDB.volet.demo then Montrer(true) end
 end)
 
+------------------------------------------------------------------------
+-- la démonstration : un Suicide King, un vote, un objet proposé qui rencontre une objection
+------------------------------------------------------------------------
+
+local function Objet (n) return n == 1 and DEMO.appel or DEMO.lignes[n - 1] end
+
+-- le Suicide King de l'Anneau d'obsidienne (la ligne dépliée du volet en suit la réponse)
+function Demo.Repondre (r)
+	reponse = r
+	Volet.Clore("sk", r == "pris" and "|cffcfd4dcTu es déclaré.|r Résultat à la fin du tour." or "Tu passes.")
+end
+function Demo.SK (duree)
+	reponse = nil
+	local o = Objet(1)
+	Volet.Appeler({ id = "sk", genre = "decision", objet = o, sous = DEMO.appel.resume,
+		fin = GetTime() + duree, duree = duree,
+		boutons = { { texte = "JE LE VEUX", principal = true, clic = function () Demo.Repondre("pris") end },
+		            { texte = "PASSER", clic = function () Demo.Repondre("passe") end } },
+		sansReponse = "Sans réponse : tu passes.", auSansReponse = function () reponse = "passe" end })
+end
+
+-- le vote : les noms des candidats, directement
+function Demo.Vote (duree)
+	local o = Objet(2)
+	local function Voter (nom) Volet.Clore("vote", "Ta voix va à " .. nom .. ".") end
+	Volet.Appeler({ id = "vote", genre = "decision", objet = o, sous = "Objection : vote entre les candidats",
+		fin = GetTime() + duree, duree = duree,
+		candidats = { { nom = "Seliane", classe = "DRUID", clic = function () Voter(Classe("Seliane", "DRUID")) end },
+		              { nom = "Vorthas", classe = "WARLOCK", clic = function () Voter(Classe("Vorthas", "WARLOCK")) end } },
+		sansReponse = "Sans ta voix, le vote continue." })
+end
+
+-- l'objet proposé : toujours lisible, l'objection et ce qui va se passer dits en clair
+function Demo.Proposition (g)
+	local o = Objet(3)
+	local function Encore (f, t) C_Timer.After(t, function () if Demo.generation == g then f() end end) end
+	Volet.Appeler({ id = "prop", genre = "info", objet = o, sous = "|cffff8a5cProposé à toi|r · liste 1 sur 2",
+		detail = "S'il n'y a pas d'objection avant la fin du délai, il est à toi.", fin = GetTime() + 20, duree = 20 })
+	Encore(function ()
+		Volet.Appeler({ id = "prop", genre = "info", objet = o, sous = "|cffff8a5cProposé à toi|r · objection en cours",
+			detail = Classe("Vorthas", "WARLOCK") .. " objecte : « elle a déjà reçu la Ceinture ce soir ». Sans retrait, les présents votent entre toi et lui à la fin du délai.",
+			fin = GetTime() + 25, duree = 25 })
+	end, 8)
+	Encore(function ()
+		Volet.Retirer("prop")
+		Volet.Appeler({ id = "resprop", genre = "resultat", objet = o, sous = "|cff9fd67fÀ toi|r · la proposition tient",
+			detail = "Vote : 5 voix pour toi, 3 pour " .. Classe("Vorthas", "WARLOCK") .. ". Le maître du butin te le remet.", fin = GetTime() + 8 })
+	end, 33)
+end
+
+function Demo.Tout ()
+	Demo.generation = (Demo.generation or 0) + 1
+	local g = Demo.generation
+	wipe(appels) montre = nil
+	Demo.SK(25)
+	C_Timer.After(3, function () if Demo.generation == g then Demo.Vote(40) end end)
+	C_Timer.After(5, function () if Demo.generation == g then Demo.Proposition(g) end end)
+end
+
+------------------------------------------------------------------------
+-- commandes
+------------------------------------------------------------------------
+
 local AIDE = {
-	"|cffffd100/opus volet|r — montrer ou cacher la démonstration (la languette au bord gauche, à glisser vers le haut ou le bas)",
-	"|cffffd100/opus volet appel|r — faire sortir la banderole d'un appel (30 s)",
-	"|cffffd100/opus volet etat repos|cours|toi|r — le signe de la languette",
+	"|cffffd100/opus volet|r — montrer ou cacher la languette (au bord gauche, à glisser vers le haut ou le bas)",
+	"|cffffd100/opus volet demo|r — un scénario : Suicide King, vote, objet proposé puis objection et résultat",
+	"|cffffd100/opus volet appel|r — un appel au Suicide King seul (25 s)",
+	"|cffffd100/opus volet etat repos|cours|toi|auto|r — imposer le signe de la languette, ou le rendre aux appels",
 	"|cffffd100/opus volet echelle 0.8 à 1.4|r — la taille du volet, de la languette et de la banderole",
-	"|cffffd100/opus volet son|r — le son de l'appel, oui ou non",
+	"|cffffd100/opus volet son|r — le son d'une décision qui arrive, oui ou non",
 }
 
 Opus.Commande("volet", "volet [aide]", "le volet latéral du butin, en démonstration", function (texte)
@@ -582,11 +880,14 @@ Opus.Commande("volet", "volet [aide]", "le volet latéral du butin, en démonstr
 	if mot == "" then
 		Creer()
 		Montrer(not languette:IsShown())
-		Opus.Msg(languette:IsShown() and "démonstration du volet : la languette est au bord gauche (/opus volet aide)." or "démonstration du volet cachée.")
+		Opus.Msg(languette:IsShown() and "la languette du volet est au bord gauche (/opus volet aide)." or "volet caché.")
+	elseif mot == "demo" then
+		Montrer(true) etatForce = nil Demo.Tout()
+		Opus.Msg("démonstration : trois appels arrivent, une banderole à la fois.")
 	elseif mot == "appel" then
-		Montrer(true) etat = "toi" PoserLanguette() LancerAppel()
-	elseif mot == "etat" and (reste == "repos" or reste == "cours" or reste == "toi") then
-		Montrer(true) etat = reste PoserLanguette()
+		Montrer(true) etatForce = nil Demo.SK(25)
+	elseif mot == "etat" and (reste == "repos" or reste == "cours" or reste == "toi" or reste == "auto") then
+		Montrer(true) etatForce = reste ~= "auto" and reste or nil PoserLanguette()
 	elseif mot == "echelle" and tonumber(reste) then
 		local e = math.max(0.8, math.min(1.4, tonumber(reste)))
 		Reglages().echelle = e
@@ -594,7 +895,7 @@ Opus.Commande("volet", "volet [aide]", "le volet latéral du butin, en démonstr
 		Opus.Msg("échelle du volet : " .. e)
 	elseif mot == "son" then
 		Reglages().son = (Reglages().son == false)
-		Opus.Msg("son de l'appel : " .. (Reglages().son and "oui" or "non"))
+		Opus.Msg("son d'une décision : " .. (Reglages().son and "oui" or "non"))
 	else
 		Opus.Msg("le volet latéral, en démonstration :")
 		for _, l in ipairs(AIDE) do DEFAULT_CHAT_FRAME:AddMessage("  " .. l) end
