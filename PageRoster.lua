@@ -33,8 +33,9 @@ local function Garder (m)
 	if filtre == "max" then return m.niveau >= NIVEAU_MAX end
 	if filtre == "enligne" then return m.enLigne end
 	if filtre == "raid" then
+		-- la voie du Tour, l'essai raid, et les officiers (le chef et les grades « officier »), qui raident tous
 		local g = Opus.GRADES[m.grade] or {}
-		return g.voie == "Tour" or g.essai == "raid"
+		return g.voie == "Tour" or g.essai == "raid" or m.grade == 1 or g.officier == true
 	end
 	return true
 end

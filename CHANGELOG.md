@@ -4,6 +4,7 @@ Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, E
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
 ## À paraître
+- Roster : le filtre « Raiders » compte aussi le Magister et les Architectes (les officiers raident), qui n'apparaissaient pas.
 - Donjons : les jets de groupe dans le volet. Chaque jet y entre dès qu'il commence (qui a choisi quoi, le jet de chacun, qui ne peut pas le porter) et y reste pour le donjon ; quand un jet auquel tu as pris part se termine, une courte banderole dit le gagnant et ton jet. Plus de fenêtre qui s'ouvre au hasard.
 - Raids : « Je le laisse ». Un candidat peut renoncer à un objet, pendant le délai ou le vote : à un autre candidat présent (il le reçoit), ou au suivant du calcul (« !laisse n [nom] » dans le canal raid). Au Suicide King, chacun voit qui s'est déclaré et qui est en tête.
 - Raids : le volet latéral du butin, en démonstration (/opus volet). Une languette au bord gauche de l'écran, une banderole pour décider en un clic, un volet aux couleurs de la guilde (cuir, cartouches, cadres de fer, polices Cinzel et PT Sans Narrow). Données factices : il sert à régler la taille et la lisibilité avant de remplacer les fenêtres du butin.
