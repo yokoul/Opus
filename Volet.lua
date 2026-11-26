@@ -180,8 +180,11 @@ local function Classe (nom, classe)
 	local c = RAID_CLASS_COLORS and RAID_CLASS_COLORS[classe]
 	return c and ("|c" .. c.colorStr .. nom .. "|r") or nom
 end
+-- les objets : ce client range ces fonctions dans C_Item (comme ButinGroupe.lua)
+local InfoObjet = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+local IconeObjet = (C_Item and C_Item.GetItemIconByID) or GetItemIcon
 local function Icone (id, chemin)
-	local icone = id and GetItemIcon and GetItemIcon(id)
+	local icone = id and IconeObjet and IconeObjet(id)
 	return icone or chemin or "Interface\\Icons\\INV_Misc_QuestionMark"
 end
 local function Qualite (n)
@@ -823,8 +826,8 @@ end
 local function Contient (liste, nom) for _, n in ipairs(liste or {}) do if n == nom then return true end end end
 
 local function ObjetDe (a)
-	local nom, _, qualite = GetItemInfo(a.id)
-	return { nom = nom or (a.lien and a.lien:match("%[(.-)%]")) or ("objet " .. a.id), icone = GetItemIcon(a.id), qualite = qualite or 4 }
+	local nom, _, qualite = InfoObjet(a.id)
+	return { nom = nom or (a.lien and a.lien:match("%[(.-)%]")) or ("objet " .. a.id), icone = Icone(a.id), qualite = qualite or 4 }
 end
 
 -- ta place dans la liste Suicide King (l'instantané de la soirée, s'il est là)
