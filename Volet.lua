@@ -253,7 +253,7 @@ local DECALAGE = 66                     -- la languette, sous le haut du volet o
 local LARGEUR_B = 340                   -- la banderole
 
 local function PourToi ()
-	local n = 0
+	local n = Volet.AFaireML and Volet.AFaireML() or 0
 	for _, a in pairs(appels) do if a.genre == "decision" and not a.clos then n = n + 1 end end
 	return n
 end
@@ -1057,6 +1057,118 @@ local function DecrireJet (t)
 	return d
 end
 
+------------------------------------------------------------------------
+-- le maître du butin : les objets du corps dans le volet, chacun avec son action ; la fiche de décision (RaidFiche.lua)
+-- s'ouvre collée à droite du volet. Le volet s'ouvre de lui-même à l'ouverture d'un corps (un geste volontaire) et
+-- se referme avec lui s'il ne reste rien à annoncer.
+------------------------------------------------------------------------
+
+local ouvertParCorps = false
+local afaireML = 0                      -- les objets qui attendent le maître du butin : annoncer, donner, trancher
+
+-- « à donner » → « À DONNER » (string.upper ne connaît pas les accents)
+local function Capitales (s)
+	return (s:upper():gsub("\195\160", "\195\128"):gsub("\195\169", "\195\137"):gsub("\195\168", "\195\136"))
+end
+local SENS = { afaire = "toi", cours = "attente", fait = "rendu", neutre = "cendre", de = "cendre" }
+
+local function ObjetsML () return Raid.ObjetsDuCorps and Raid.ObjetsDuCorps() or {} end
+
+-- la fiche de décision, collée à droite du volet ouvert (la languette entre les deux)
+local function Accrocher ()
+	local fiche = _G.OpusRaidFiche
+	if not fiche or not fiche:IsShown() or not volet or not volet:IsShown() then return end
+	fiche:ClearAllPoints()
+	fiche:SetPoint("TOPLEFT", volet, "TOPRIGHT", 34, 0)
+end
+local function Fiche (o) Raid.OuvrirFiche(o) Accrocher() end
+
+local function DecrireObjet (o, presents)
+	local etat, sens, detail, action, r = Raid.EtatObjet(o, presents)
+	local a = o.attribution
+	local d = { objet = ObjetDe(o) }
+	d.sous = (detail or ""):gsub("^#%d+ » ", "")
+	local libelle = etat and Capitales(etat) or ""
+	if not a then
+		d.etiquette = { r and "À ANNONCER" or "INSTANTANÉ ?", "toi" }
+	else
+		d.etiquette = { libelle, SENS[sens] or "cendre" }
+	end
+	-- les candidats, pour comprendre la proposition avant d'annoncer
+	d.explication = {}
+	if r and r.candidats and #r.candidats > 0 and not a then
+		for k, c in ipairs(r.candidats) do
+			if k <= 4 then d.explication[#d.explication + 1] = k .. ". " .. Nom(c.nom) .. " · " .. (Raid.Score and Raid.Score(c.score) or "") end
+		end
+		if #r.candidats > 4 then d.explication[#d.explication + 1] = "et " .. (#r.candidats - 4) .. " autres : voir les détails" end
+	elseif r and not a then
+		d.explication[1] = "Personne de présent ne l'a en liste : Suicide King à l'annonce, ou désenchantement."
+	end
+	-- les actions : la principale (annoncer, donner, trancher), puis désenchanter (hors liste) et les détails
+	local boutons = {}
+	if action and action[2] then
+		boutons[#boutons + 1] = { texte = Capitales(action[1]):gsub("…$", "…"), principal = true, clic = function () Raid.ActionObjet(o) Accrocher() end }
+	end
+	if Raid.DesenchanterLibre(o, r) and r then
+		boutons[#boutons + 1] = { texte = "DÉSENCHANTER", clic = function () Raid.DesenchanterLigne(o) end }
+	end
+	boutons[#boutons + 1] = { texte = "DÉTAILS", clic = function () Fiche(o) end }
+	d.boutons = boutons
+	d.aFaire = (not a and r ~= nil) or sens == "afaire"
+	-- une égalité au vote : une banderole pour trancher, même volet fermé
+	if a and a.etat == "trancher" then
+		d.appel = { genre = "decision", objet = d.objet, sous = "Égalité au vote · à trancher",
+			explication = { "Le vote n'a pas départagé les candidats : les officiers décident, avec un motif." },
+			boutons = { { texte = "TRANCHER…", principal = true, clic = function () Raid.OuvrirDecision(a) Accrocher() end } } }
+	end
+	return d, a and (a.etat == "delai" or a.etat == "vote" or a.etat == "sk" or a.etat == "trancher")
+end
+
+-- les lignes du maître du butin, ajoutées aux autres (Volet.Synchroniser)
+function Volet.SourcesML (sources)
+	afaireML = 0
+	local objets = ObjetsML()
+	if #objets == 0 then return end
+	local presents = Raid.Presents and Raid.Presents()
+	for k, o in ipairs(objets) do
+		local d, enCours = DecrireObjet(o, presents)
+		if d.aFaire then afaireML = afaireML + 1 end
+		-- les objets à traiter passent devant (poids 0 : la ligne se déplie d'elle-même)
+		sources[#sources + 1] = { cle = "m" .. (o.attribution and ("a" .. o.attribution.n) or (o.id .. "#" .. k)), d = d,
+			enCours = enCours, ordre = 1000 - k, poids = d.aFaire and 0 or nil }
+	end
+end
+function Volet.AFaireML () return afaireML end
+
+-- le corps s'ouvre : le volet aussi (à la place de la fenêtre du butin d'avant)
+local AncienMontrer = Raid.MontrerButin
+Raid.MontrerButin = function ()
+	if OpusDB and OpusDB.volet and OpusDB.volet.ancien then return AncienMontrer() end
+	if #ObjetsML() == 0 then return AncienMontrer() end   -- le message « aucun objet relevé »
+	Volet.Creer()
+	languette:Show()
+	if not volet:IsShown() or volet.sortant then
+		ouvertParCorps = true
+		Volet.Ouvrir(true)
+	end
+	Volet.Synchroniser()
+end
+
+-- le corps se ferme : le volet aussi, s'il s'était ouvert pour lui, qu'il n'est pas épinglé et que tout est annoncé
+Opus.Ecoute("LOOT_CLOSED", function ()
+	if not ouvertParCorps or not volet or Reglages().epingle then return end
+	ouvertParCorps = false
+	for _, o in ipairs(ObjetsML()) do if not o.attribution then return end end
+	if volet:IsShown() then Volet.Ouvrir(false) end
+end)
+
+-- la fiche suit le volet : ouverte d'ailleurs (une objection l'ouvre chez le maître du butin), elle s'y colle aussi
+local AncienneFiche = Raid.OuvrirFiche
+Raid.OuvrirFiche = function (...)
+	AncienneFiche(...)
+	if not (OpusDB and OpusDB.volet and OpusDB.volet.ancien) then Accrocher() end
+end
+
 -- l'ordre des lignes : ce qui t'attend, ce qui te concerne, ce qui court, puis le tranché (le plus récent d'abord)
 local function Poids (enCours, d)
 	if d.appel and d.appel.genre == "decision" then return 0 end
@@ -1068,15 +1180,25 @@ end
 local entrees = {}                      -- les lignes du volet : { cle, d, p, ordre }, refaites à chaque rafraîchissement
 
 -- Les annonces → les appels. Un appel qui disparaît en laissant une réponse (« Tu passes ») la montre deux secondes.
+local derniereSync
 function Volet.Synchroniser ()
 	if Reglages().ancien then return end
 	local maintenant = GetTime()
+	-- plusieurs événements dans la même image : une seule passe, juste après (rien ne se perd)
+	if derniereSync == maintenant then
+		if not Volet.reprise then
+			Volet.reprise = true
+			C_Timer.After(0.05, function () Volet.reprise = nil Volet.Synchroniser() end)
+		end
+		return
+	end
+	derniereSync = maintenant
 	-- les annonces tranchées s'effacent après la traîne
 	for k = #Raid.annonces, 1, -1 do
 		local a = Raid.annonces[k]
 		if a.finie and maintenant - a.finie > TRAINE then table.remove(Raid.annonces, k) end
 	end
-	if #Raid.annonces > 0 or #Jets() > 0 then Volet.Creer() end
+	if #Raid.annonces > 0 or #Jets() > 0 or #ObjetsML() > 0 then Volet.Creer() end
 	local enCours = false
 	for _, a in ipairs(Raid.annonces) do if not a.finie then enCours = true end end
 	if enCours then finAnnonces = nil elseif #Raid.annonces > 0 and not finAnnonces then finAnnonces = maintenant end
@@ -1089,10 +1211,14 @@ function Volet.Synchroniser ()
 	local vus = {}
 	wipe(entrees)
 	local sources = {}
+	local moi = Moi()
 	for _, a in ipairs(Raid.annonces) do
 		local en = a.etat == "delai" or a.etat == "vote" or a.etat == "sk" or a.etat == "trancher"
-		sources[#sources + 1] = { cle = Cle(a), d = Decrire(a), enCours = en, ordre = a.n }
+		-- le maître du butin voit ses objets par ses lignes à lui ; de ses propres annonces, il ne garde que l'appel
+		-- (se déclarer à son Suicide King)
+		sources[#sources + 1] = { cle = Cle(a), d = Decrire(a), enCours = en, ordre = a.n, sansLigne = a.ml == moi }
 	end
+	Volet.SourcesML(sources)
 	-- les jets de groupe
 	local jetEnCours = false
 	for _, t in ipairs(Jets()) do
@@ -1102,7 +1228,7 @@ function Volet.Synchroniser ()
 	if jetEnCours then finJets = nil elseif #jets > 0 and not finJets then finJets = maintenant end
 	for _, e in ipairs(sources) do
 		local cle, d = e.cle, e.d
-		entrees[#entrees + 1] = { cle = cle, d = d, p = Poids(e.enCours, d), ordre = e.ordre }
+		if not e.sansLigne then entrees[#entrees + 1] = { cle = cle, d = d, p = e.poids or Poids(e.enCours, d), ordre = e.ordre } end
 		local ancien = appels[cle]
 		if d.appel then
 			vus[cle] = true
@@ -1118,11 +1244,11 @@ function Volet.Synchroniser ()
 	end
 	for id, ap in pairs(appels) do
 		local source = id:sub(1, 1)
-		if (source == "r" or source == "j") and not vus[id] and not ap.clos then Volet.Retirer(id) end
+		if (source == "r" or source == "j" or source == "m") and not vus[id] and not ap.clos then Volet.Retirer(id) end
 	end
 	-- la languette : là tant qu'il y a du butin, et dix minutes après le dernier jet
 	local jetsRecents = #jets > 0 and (jetEnCours or (finJets and maintenant - finJets < TRAINE))
-	local voulue = Reglages().demo or #Raid.annonces > 0 or jetsRecents
+	local voulue = Reglages().demo or #Raid.annonces > 0 or jetsRecents or #ObjetsML() > 0
 	if voulue then
 		Volet.Creer()
 		if not languette:IsShown() then languette:Show() end
@@ -1148,7 +1274,7 @@ local function LigneDirecte (r, k)
 	f.etiquettes = {}
 	f.detail = Texte(f, "Texte", C.parchemin) f.detail:SetWordWrap(true) f.detail:SetWidth(INTERIEUR - 18)
 	f.detail:SetPoint("TOPLEFT", 10, -HAUT_LIGNE - 2)
-	f.prim = BoutonPrincipal(f, "", nil) f.sec = BoutonSecond(f, "", nil)
+	f.prim = BoutonPrincipal(f, "", nil) f.secs = { BoutonSecond(f, "", nil), BoutonSecond(f, "", nil) }
 	f.noms = { BoutonNom(f), BoutonNom(f), BoutonNom(f), BoutonNom(f) }
 	f:SetScript("OnClick", function (self)
 		deplie = deplie ~= self.cle and self.cle or nil
@@ -1178,7 +1304,32 @@ function Volet.RemplirDirect (r)
 	if not deplie and liste[1] and liste[1].p == 0 then deplie = liste[1].cle end
 	for _, f in ipairs(r.lignes) do f:Hide() end
 	r.vide:SetShown(#liste == 0)
-	local y, place, caches = 0, r:GetHeight() - 16, 0
+	-- en pied, pour le maître du butin : le désenchanteur de la soirée, un clic pour passer au suivant
+	local ml = #ObjetsML() > 0
+	if not r.de then
+		r.de = CreateFrame("Button", nil, r)
+		r.de:SetPoint("BOTTOMLEFT", 6, 0) r.de:SetPoint("BOTTOMRIGHT", -6, 0) r.de:SetHeight(20)
+		r.de.texte = Texte(r.de, "Texte", C.poussiere) r.de.texte:SetPoint("LEFT")
+		r.de:SetScript("OnClick", function ()
+			local presents = Raid.Presents and Raid.Presents() or {}
+			local noms = { "" }
+			for nom in pairs(presents) do noms[#noms + 1] = nom end
+			table.sort(noms)
+			local actuel, k = Raid.db.reglages.desenchanteur or "", 1
+			for i, n in ipairs(noms) do if n == actuel then k = i end end
+			local suivant = noms[k % #noms + 1]
+			Raid.db.reglages.desenchanteur = suivant ~= "" and suivant or nil
+			volet:Remplir()
+		end)
+	end
+	r.de:SetShown(ml)
+	if ml then
+		local choisi = Raid.db.reglages.desenchanteur
+		local qui = Raid.Desenchanteur and Raid.Desenchanteur()
+		r.de.texte:SetText("Désenchanteur : " .. (choisi and Nom(choisi) or ("auto" .. (qui and (" (" .. Nom(qui) .. ")") or " · personne : banque")))
+			.. "  |cff8a8070clic : changer|r")
+	end
+	local y, place, caches = 0, r:GetHeight() - 16 - (ml and 22 or 0), 0
 	for k, e in ipairs(liste) do
 		local d = e.d
 		local f = LigneDirecte(r, k)
@@ -1196,19 +1347,24 @@ function Volet.RemplirDirect (r)
 		f:SetAlpha(e.p == 3 and 0.6 or 1)
 		-- dépliée : l'explication en clair, et les mêmes actions que la banderole
 		local h = HAUT_LIGNE
-		f.detail:Hide() f.prim:Hide() f.sec:Hide()
+		f.detail:Hide() f.prim:Hide()
+		for _, b in ipairs(f.secs) do b:Hide() end
 		for _, n in ipairs(f.noms) do n:Hide() end
 		if f.cle == deplie then
 			local texte = table.concat(d.explication or {}, "\n")
 			if d.appel and d.appel.detail then texte = d.appel.detail .. (texte ~= "" and ("\n" .. texte) or "") end
 			if texte ~= "" then f.detail:SetText(texte) f.detail:Show() h = h + 6 + f.detail:GetStringHeight() end
 			local ap = d.appel
-			local x = 10
-			if ap and ap.boutons then
-				for _, bt in ipairs(ap.boutons) do
-					local w = bt.principal and f.prim or f.sec
-					w:Poser(bt.texte) w:SetScript("OnClick", bt.clic) w:ClearAllPoints() w:SetPoint("TOPLEFT", x, -h - 8) w:Show()
-					x = x + w:GetWidth() + 14
+			local x, isec = 10, 0
+			local boutons = (ap and ap.boutons) or d.boutons
+			if boutons then
+				for _, bt in ipairs(boutons) do
+					local w
+					if bt.principal then w = f.prim else isec = isec + 1 w = f.secs[isec] end
+					if w then
+						w:Poser(bt.texte) w:SetScript("OnClick", bt.clic) w:ClearAllPoints() w:SetPoint("TOPLEFT", x, -h - 8) w:Show()
+						x = x + w:GetWidth() + 14
+					end
 				end
 			end
 			if ap and ap.candidats then
@@ -1244,6 +1400,16 @@ end
 local AncienButinGroupe = Opus.RafraichirButinGroupe
 Opus.RafraichirButinGroupe = function ()
 	if AncienButinGroupe then AncienButinGroupe() end
+	if OpusDB and OpusDB.volet and OpusDB.volet.ancien then return end
+	local ok, err = xpcall(Volet.Synchroniser, function (e) return tostring(e) .. "\n" .. (debugstack and debugstack(2, 3, 0) or "") end)
+	if not ok and GetTime() - dernierAvis > 60 then
+		dernierAvis = GetTime()
+		Opus.Msg("|cffff5a5aerreur du volet|r : " .. tostring(err):gsub("Interface\\AddOns\\Opus\\", ""))
+	end
+end
+local AncienButin = Raid.RafraichirButin
+Raid.RafraichirButin = function ()
+	AncienButin()
 	if OpusDB and OpusDB.volet and OpusDB.volet.ancien then return end
 	local ok, err = xpcall(Volet.Synchroniser, function (e) return tostring(e) .. "\n" .. (debugstack and debugstack(2, 3, 0) or "") end)
 	if not ok and GetTime() - dernierAvis > 60 then

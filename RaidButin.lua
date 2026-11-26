@@ -236,6 +236,10 @@ end
 
 -- Met les lignes à jour : avant l'annonce, la proposition ; après, l'état de l'attribution (délai, vote…).
 function Raid.RafraichirButin ()
+	-- attribué et sur le corps ouvert : on le donne, une fois (un refus laisse le bouton « Donner »), fenêtre ou volet
+	for _, o in ipairs(objets) do
+		if ADonner(o) and not o.tente then o.tente = true Raid.Donner(o) end
+	end
 	if not f or not f:IsShown() then
 		if Raid.RafraichirFiche then Raid.RafraichirFiche() end
 		return
@@ -254,10 +258,6 @@ function Raid.RafraichirButin ()
 	for _, nom in ipairs(noms) do f.deChoix[#f.deChoix + 1] = { nom, nom } end
 	f.deMenu:GenerateMenu()
 	f.reglages:SetText((Raid.Detaillees() and "annonces détaillées" or "annonces courtes") .. " · Suicide King " .. Raid.TexteDuree(Raid.Duree("sk")))
-	-- attribué et sur le corps ouvert : on le donne, une fois (un refus laisse le bouton « Donner »)
-	for _, o in ipairs(objets) do
-		if ADonner(o) and not o.tente then o.tente = true Raid.Donner(o) end
-	end
 	local enCours, aAnnoncer, aFaire = 0, 0, 0
 	for n, o in ipairs(objets) do
 		local l = Ligne(n)
@@ -495,6 +495,20 @@ Raid.Ecoute("LOOT_SLOT_CLEARED", function (slot)
 	end
 	Raid.RafraichirButin()
 end)
+
+-- pour le volet (Volet.lua) : l'état d'un objet, son action principale, et s'il peut partir au désenchantement
+Raid.EtatObjet = EtatObjet
+function Raid.ActionObjet (o) Principal({ objet = o }) end
+function Raid.DesenchanterLibre (o, r)
+	if o.attribution then return false end
+	return r == nil or #r.candidats == 0
+end
+function Raid.DesenchanterLigne (o)
+	if not o or o.attribution then return end
+	local a = Raid.DesenchanterObjet(o)
+	if a then o.attribution = a end
+	Raid.RafraichirButin()
+end
 
 -- les objets et les lignes de la fenêtre (simulations hors jeu)
 function Raid.ObjetsDuCorps () return objets end
