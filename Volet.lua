@@ -1162,11 +1162,104 @@ Opus.Ecoute("LOOT_CLOSED", function ()
 	if volet:IsShown() then Volet.Ouvrir(false) end
 end)
 
+------------------------------------------------------------------------
+-- la fiche de décision (RaidFiche.lua), aux couleurs du volet : le panneau sombre aux coins ouvragés, le titre en
+-- Cinzel sur le séparateur d'acier, les textes en PT Sans Narrow, les boutons au filet or, l'icône dans le cadre de
+-- fer. On l'habille sans toucher à son fonctionnement ; les lignes créées plus tard s'habillent au rafraîchissement.
+------------------------------------------------------------------------
+
+local function HabillerBoutonFiche (b)
+	if b.opusVolet then return end
+	b.opusVolet = true
+	for _, r in ipairs { b:GetRegions() } do
+		if r:GetObjectType() == "Texture" then r:SetAlpha(0) end
+	end
+	for _, n in ipairs { "GetNormalTexture", "GetPushedTexture", "GetHighlightTexture", "GetDisabledTexture" } do
+		local t = b[n] and b[n](b)
+		if t then t:SetAlpha(0) end
+	end
+	local cadre = CreateFrame("Frame", nil, b, "BackdropTemplate")
+	cadre:SetAllPoints() cadre:SetFrameLevel(math.max(0, b:GetFrameLevel() - 1))
+	cadre:SetBackdrop({ edgeFile = BLANC8, edgeSize = 1 })
+	cadre:SetBackdropBorderColor(C["or"][1], C["or"][2], C["or"][3], 1)
+	local fond = cadre:CreateTexture(nil, "BACKGROUND")
+	fond:SetPoint("TOPLEFT", 1, -1) fond:SetPoint("BOTTOMRIGHT", -1, 1) fond:SetTexture(BLANC8)
+	if not (CreateColor and pcall(fond.SetGradient, fond, "VERTICAL", CreateColor(0.43, 0.29, 0.10, 0.30), CreateColor(0.95, 0.84, 0.54, 0.20))) then
+		fond:SetVertexColor(0.6, 0.45, 0.2, 0.25)
+	end
+	local fs = b.GetFontString and b:GetFontString()
+	if fs then
+		local _, taille = fs:GetFont()
+		fs:SetFont(POLICES .. "Cinzel-SemiBold.ttf", math.max(10, (taille or 12) - 1), "")
+		fs:SetTextColor(C.orVif[1], C.orVif[2], C.orVif[3])
+		fs.opusVolet = true
+	end
+	-- désactivé : il pâlit, comme les autres boutons du volet
+	b:HookScript("OnDisable", function (self) self:SetAlpha(0.45) end)
+	b:HookScript("OnEnable", function (self) self:SetAlpha(1) end)
+	if not b:IsEnabled() then b:SetAlpha(0.45) end
+end
+
+-- tous les textes en PT Sans Narrow (un point de plus : elle est plus étroite), les boutons au filet or
+local function HabillerTextes (cadre)
+	for _, r in ipairs { cadre:GetRegions() } do
+		if r:GetObjectType() == "FontString" and not r.opusVolet then
+			r.opusVolet = true
+			local _, taille, drapeaux = r:GetFont()
+			if taille then r:SetFont(POLICES .. "PTSansNarrow.ttf", math.floor(taille + 1.5), drapeaux or "") end
+		end
+	end
+	for _, enfant in ipairs { cadre:GetChildren() } do
+		local type = enfant:GetObjectType()
+		if type == "Button" and enfant.GetFontString and enfant:GetFontString() and (enfant.Left or enfant.Middle or enfant.Center or enfant.LeftSeparator or enfant:GetNormalTexture()) then
+			HabillerBoutonFiche(enfant)
+		end
+		if type ~= "EditBox" then HabillerTextes(enfant) end
+	end
+end
+
+local function HabillerFiche ()
+	local fiche = _G.OpusRaidFiche
+	if not fiche or (OpusDB and OpusDB.volet and OpusDB.volet.ancien) then return end
+	if not fiche.opusVolet then
+		fiche.opusVolet = true
+		if fiche.SetBackdrop then fiche:SetBackdrop(nil) end
+		NeufParts(fiche, "Panneau.tga", 512, 256, 42, 39, 24)
+		-- le titre, plus bas et en Cinzel ; le contenu commence sous le séparateur, en retrait des bords ouvragés
+		fiche.titre:SetFontObject(polices.Titre) fiche.titre:SetTextColor(C.orVif[1], C.orVif[2], C.orVif[3])
+		fiche.titre:ClearAllPoints() fiche.titre:SetPoint("TOPLEFT", 26, -20) fiche.titre:SetPoint("TOPRIGHT", -40, -20)
+		fiche.titre.opusVolet = true
+		if fiche.filet then
+			fiche.filet:SetTexture(MEDIA .. "Separateur.tga") fiche.filet:SetVertexColor(1, 1, 1, 1)
+			fiche.filet:ClearAllPoints() fiche.filet:SetHeight(14)
+			fiche.filet:SetPoint("TOPLEFT", 18, -40) fiche.filet:SetPoint("TOPRIGHT", -18, -40)
+		end
+		if fiche.fermer then fiche.fermer:ClearAllPoints() fiche.fermer:SetPoint("TOPRIGHT", -12, -12) end
+		fiche.Inset:ClearAllPoints() fiche.Inset:SetPoint("TOPLEFT", 12, -50) fiche.Inset:SetPoint("BOTTOMRIGHT", -12, 14)
+		-- la fiche calcule sa hauteur pour son ancien cadre : on ajoute ce que le nouveau prend en plus
+		local hauteur = fiche.SetHeight
+		fiche.SetHeight = function (self, h) hauteur(self, h + 34) end
+		-- l'icône de l'objet dans le cadre de fer
+		if fiche.icone then
+			local fer = fiche.icone:CreateTexture(nil, "OVERLAY")
+			fer:SetTexture(MEDIA .. "CadreFer.tga") fer:SetPoint("TOPLEFT", -5, 5) fer:SetPoint("BOTTOMRIGHT", 5, -5)
+		end
+		if fiche.objet and fiche.objet.texte then fiche.objet.texte:SetFontObject(polices.Nom) fiche.objet.texte.opusVolet = true end
+	end
+	HabillerTextes(fiche)
+end
+
 -- la fiche suit le volet : ouverte d'ailleurs (une objection l'ouvre chez le maître du butin), elle s'y colle aussi
 local AncienneFiche = Raid.OuvrirFiche
 Raid.OuvrirFiche = function (...)
 	AncienneFiche(...)
-	if not (OpusDB and OpusDB.volet and OpusDB.volet.ancien) then Accrocher() end
+	if not (OpusDB and OpusDB.volet and OpusDB.volet.ancien) then HabillerFiche() Accrocher() end
+end
+-- les lignes de candidats se créent au fil des rafraîchissements : elles s'habillent aussi
+local AncienRafraichirFiche = Raid.RafraichirFiche
+Raid.RafraichirFiche = function (...)
+	AncienRafraichirFiche(...)
+	if _G.OpusRaidFiche and _G.OpusRaidFiche:IsShown() then HabillerFiche() end
 end
 
 -- l'ordre des lignes : ce qui t'attend, ce qui te concerne, ce qui court, puis le tranché (le plus récent d'abord)
