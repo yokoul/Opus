@@ -225,7 +225,8 @@ local function EtatObjet (o, presents)
 		local n = 0
 		for _ in pairs(a.interesses or {}) do n = n + 1 end
 		local tete = Raid.ClassementSK and Raid.ClassementSK(a)[1]
-		return "Suicide King " .. Chrono(a), "cours", n .. " intéressé" .. (n > 1 and "s" or "") .. (tete and (" · en tête : |cffffffff" .. tete .. "|r") or "")
+		return "Suicide King " .. Chrono(a), "cours", (n == 0 and "personne de déclaré" or (n .. " déclaré" .. (n > 1 and "s" or "")))
+			.. (tete and (" · en tête : |cffffffff" .. tete .. "|r") or "")
 	end
 	if a.etat == "trancher" then return "à trancher", "afaire", "égalité au vote : aux officiers", { "Trancher…", true } end
 	if a.etat == "banque" then return "banque", "neutre", "#" .. a.n .. " » banque de guilde" end
