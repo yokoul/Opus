@@ -2,7 +2,7 @@
 local ADDON, Opus = ...
 _G.Opus = Opus
 Opus.version = "0.32.0"
-Opus.build = "26 nov. 23h · reprise après rechargement, règles fixes, Alt+clic, infobulle des listes"   -- la version du code en cours de route, entre deux sorties (/opus raid diag)
+Opus.build = "27 nov. 8h · cadre de fer percé (icônes visibles)"   -- la version du code en cours de route, entre deux sorties (/opus raid diag)
 
 local DEFAUTS = {
 	dureeEssai = { Apprenti = 14, Aspirant = 14 },
