@@ -83,7 +83,7 @@ local function Construire (cadre)
 	Ligne(40)
 
 	Section("Donjons")
-	Libelle("Comparer le butin en donjon", "À chaque jet de groupe : qui peut le porter, ce qu'il y gagne, qui jette quoi.")
+	Libelle("Comparer le butin en donjon", "Sous le cadre de jet et dans le volet : qui jette quoi, qui peut le porter.")
 	cadre.butinGroupe = Case(function () return Opus.db.butinGroupe == true end,
 		function (v) Opus.db.butinGroupe = v end)
 	Ligne(40)

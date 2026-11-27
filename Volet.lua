@@ -1604,52 +1604,52 @@ function Volet.RemplirDirect (r)
 end
 
 -- La fenêtre des annonces d'avant (RaidVote.lua) laisse la place au volet ; /opus volet ancien la rend.
+-- Une erreur du volet ne casse rien d'autre : elle est gardée (/opus raid diag la montre) et dite une seule fois par
+-- session, sans le détail, pour qu'on la signale.
+local avertie = false
+local function Synchroniser ()
+	local ok, err = xpcall(Volet.Synchroniser, function (e) return tostring(e) .. "\n" .. (debugstack and debugstack(2, 3, 0) or "") end)
+	if ok then return end
+	err = tostring(err):gsub("Interface\\AddOns\\Opus\\", "")
+	if OpusDB then OpusDB.erreurVolet = date("%d/%m %H:%M") .. " (" .. Opus.version .. (Opus.build and (", " .. Opus.build) or "") .. ") : " .. err end
+	if not avertie then
+		avertie = true
+		Opus.Msg("le volet du butin a rencontré un souci d'affichage. Signale-le sur le Discord de la guilde (le détail : /opus raid diag).")
+	end
+end
+
 local AncienRafraichir = Raid.RafraichirVote
-local dernierAvis = 0
 Raid.RafraichirVote = function ()
 	if OpusDB and OpusDB.volet and OpusDB.volet.ancien then return AncienRafraichir() end
-	-- pendant les essais : une erreur du volet se dit dans le chat (une fois par minute), avec sa ligne
-	local ok, err = xpcall(Volet.Synchroniser, function (e) return tostring(e) .. "\n" .. (debugstack and debugstack(2, 3, 0) or "") end)
-	if not ok and GetTime() - dernierAvis > 60 then
-		dernierAvis = GetTime()
-		Opus.Msg("|cffff5a5aerreur du volet|r : " .. tostring(err):gsub("Interface\\AddOns\\Opus\\", ""))
-	end
+	Synchroniser()
 end
 
 local AncienButinGroupe = Opus.RafraichirButinGroupe
 Opus.RafraichirButinGroupe = function ()
 	if AncienButinGroupe then AncienButinGroupe() end
 	if OpusDB and OpusDB.volet and OpusDB.volet.ancien then return end
-	local ok, err = xpcall(Volet.Synchroniser, function (e) return tostring(e) .. "\n" .. (debugstack and debugstack(2, 3, 0) or "") end)
-	if not ok and GetTime() - dernierAvis > 60 then
-		dernierAvis = GetTime()
-		Opus.Msg("|cffff5a5aerreur du volet|r : " .. tostring(err):gsub("Interface\\AddOns\\Opus\\", ""))
-	end
+	Synchroniser()
 end
 local AncienButin = Raid.RafraichirButin
 Raid.RafraichirButin = function ()
 	AncienButin()
 	if OpusDB and OpusDB.volet and OpusDB.volet.ancien then return end
-	local ok, err = xpcall(Volet.Synchroniser, function (e) return tostring(e) .. "\n" .. (debugstack and debugstack(2, 3, 0) or "") end)
-	if not ok and GetTime() - dernierAvis > 60 then
-		dernierAvis = GetTime()
-		Opus.Msg("|cffff5a5aerreur du volet|r : " .. tostring(err):gsub("Interface\\AddOns\\Opus\\", ""))
-	end
+	Synchroniser()
 end
 -- volet ouvert : ses comptes à rebours et ses étiquettes avancent chaque seconde, d'où que vienne le butin
 C_Timer.NewTicker(1, function ()
-	if volet and volet:IsShown() and not (OpusDB and OpusDB.volet and OpusDB.volet.ancien) then pcall(Volet.Synchroniser) end
+	if volet and volet:IsShown() and not (OpusDB and OpusDB.volet and OpusDB.volet.ancien) then Synchroniser() end
 end)
 -- un nouveau groupe, un nouveau donjon : les jets d'avant s'en vont
 Opus.Ecoute("GROUP_LEFT", function () wipe(jets) finJets = nil end)
 
 -- la traîne : sans annonce depuis dix minutes, la languette s'en va (sauf si on l'a montrée à la main)
 C_Timer.NewTicker(5, function ()
-	if finJets and GetTime() - finJets > TRAINE and languette and languette:IsShown() then Volet.Synchroniser() end
+	if finJets and GetTime() - finJets > TRAINE and languette and languette:IsShown() then Synchroniser() end
 	if finAnnonces and GetTime() - finAnnonces > TRAINE and #Raid.annonces > 0 then
 		for k = #Raid.annonces, 1, -1 do if Raid.annonces[k].finie then table.remove(Raid.annonces, k) end end
 		finAnnonces = nil
-		Volet.Synchroniser()
+		Synchroniser()
 	end
 end)
 

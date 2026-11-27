@@ -1,8 +1,8 @@
 -- Opus.lua : socle de l'addon (base de données, liste de guilde, commandes)
 local ADDON, Opus = ...
 _G.Opus = Opus
-Opus.version = "0.32.0"
-Opus.build = "27 nov. 17h · jets lus ([Butin] :), bande qui reste après le choix"   -- la version du code en cours de route, entre deux sorties (/opus raid diag)
+Opus.version = "0.33.0"
+Opus.build = nil   -- la version du code en cours de route, entre deux sorties (/opus raid diag)
 
 local DEFAUTS = {
 	dureeEssai = { Apprenti = 14, Aspirant = 14 },

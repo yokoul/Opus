@@ -499,6 +499,10 @@ Raid.Commande("diag", "diag", "pourquoi la fenêtre du butin s'ouvre ou non sur 
 		.. ", dernier corps ouvert : " .. (dernierCorps or "aucun depuis le chargement"))
 	DEFAULT_CHAT_FRAME:AddMessage(string.format("  durées sur ce client : objection %s, vote %s, Suicide King %s",
 		Raid.TexteDuree(Raid.Duree("objection")), Raid.TexteDuree(Raid.Duree("vote")), Raid.TexteDuree(Raid.Duree("sk"))))
+	-- la dernière erreur du volet (Volet.lua), gardée d'une session à l'autre
+	if OpusDB and OpusDB.erreurVolet then
+		DEFAULT_CHAT_FRAME:AddMessage("  dernière erreur du volet : |cffff8080" .. OpusDB.erreurVolet:gsub("\n", " · ") .. "|r")
+	end
 end)
 
 Raid.Ecoute("LOOT_OPENED", function ()

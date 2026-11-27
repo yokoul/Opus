@@ -560,9 +560,9 @@ end
 -- les événements
 ------------------------------------------------------------------------
 
--- Les jets se suivent en groupe (pas en raid), même sans la comparaison : le volet les montre. La bande accrochée au
--- cadre de jet du jeu, elle, reste réservée au réglage « Comparer le butin en donjon ».
-local function Suivre () return Opus.ButinGroupeActif() or (IsInGroup() and not IsInRaid()) end
+-- Les jets ne se suivent qu'avec le réglage « Comparer le butin en donjon » (éteint par défaut) : sans lui, Opus ne
+-- montre rien en donjon, ni bande, ni languette, ni banderole.
+local function Suivre () return Opus.ButinGroupeActif() end
 
 Raid.Ecoute("START_LOOT_ROLL", function (rollID, duree)
 	if not Suivre() then return end
