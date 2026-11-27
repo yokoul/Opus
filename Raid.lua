@@ -308,11 +308,16 @@ local suspendue = false
 local function Verifier ()
 	if not Raid.db or not Raid.db.ouverte then suspendue = false return end
 	if not IsInRaid() and not IsInGroup() then
-		Raid.db.ouverte = nil
-		suspendue = false
-		if Raid.Deposer then Raid.Deposer() end
-		Raid.Msg("plus de raid : la soirée de guilde est fermée. Le rapport part au site par le bridge à la déconnexion.")
-		if Opus.Rafraichir then Opus.Rafraichir() end
+		-- juste après un rechargement, le jeu annonce le groupe avant de l'avoir relu : on revérifie dans un moment
+		-- avant de fermer quoi que ce soit
+		C_Timer.After(5, function ()
+			if not Raid.db.ouverte or IsInRaid() or IsInGroup() then return end
+			Raid.db.ouverte = nil
+			suspendue = false
+			if Raid.Deposer then Raid.Deposer() end
+			Raid.Msg("plus de raid : la soirée de guilde est fermée. Le rapport part au site par le bridge à la déconnexion.")
+			if Opus.Rafraichir then Opus.Rafraichir() end
+		end)
 		return
 	end
 	local actif, raison = Raid.Actif()

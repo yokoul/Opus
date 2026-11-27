@@ -4,6 +4,9 @@ Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, E
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
 ## À paraître
+- Raids : un rechargement ne ferme plus la soirée de guilde (le jeu annonçait le groupe avant de l'avoir relu). Le maître du butin retrouve ses attributions telles quelles : les tours en cours reprennent avec le temps qui leur restait, ceux finis pendant le rechargement se terminent normalement, et les joueurs se recalent.
+- Raids : le volet du maître du butin montre aussi les attributions en cours ou à remettre hors du corps ouvert.
+- Volet : l'infobulle de l'objet au survol d'une ligne ou de la banderole (Maj+clic : le lien dans la discussion).
 - Raids : l'infobulle d'un candidat dans les détails de l'objet ne lève plus d'erreur quand Pawn calcule son gain.
 - Raids : un joueur qui recharge (ou arrive) en cours de soirée retrouve les annonces : son addon demande l'état au maître du butin, qui le renvoie.
 - Raids : les règles fixes du maître du butin, « /opus raid regle scarabée Bob » (un lien ou un itemID marche aussi ; « de » pour le désenchanteur, « banque » pour soi). À l'ouverture du corps, ces objets partent tout seuls, sans annonce. « /opus raid regle » les liste, « /opus raid regle retirer 2 » en retire une.

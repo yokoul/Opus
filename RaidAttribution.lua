@@ -440,11 +440,53 @@ function Raid.EtatAttribution (a)
 	return ""
 end
 
--- Après un rechargement en cours de soirée, les attributions se relisent dans le journal : les remises restent suivies.
--- Une annonce qui n'avait pas abouti (délai, vote, Suicide King en cours) est à trancher par les officiers.
+-- À la déconnexion (et à chaque rechargement), les attributions de la soirée sont gardées telles quelles, avec l'heure
+-- de fin de chaque tour en cours ; elles reprennent au retour.
+local FINS = { delai = function (a) FinDelai(a) end, vote = function (a) FinVote(a) end, sk = function (a) Raid.FinSK(a) end }
+Raid.Ecoute("PLAYER_LOGOUT", function ()
+	local s = Raid.db.soiree
+	if not s or #Raid.attributions == 0 then return end
+	for _, a in ipairs(Raid.attributions) do
+		a.finT = a.fin and (time() + math.floor(a.fin - GetTime() + 0.5)) or nil
+		a.classementPrevu = nil
+	end
+	s.attributionsGardees = Raid.attributions
+end)
+
+-- Au retour : les tours en cours reprennent avec le temps qui leur restait ; un tour fini pendant l'absence se termine
+-- comme il l'aurait fait (le délai sans objection attribue, le vote compte ses voix, le Suicide King classe).
+local function Reprendre (s)
+	Raid.attributions = s.attributionsGardees
+	s.attributionsGardees = nil
+	local reprises, finies = 0, 0
+	for _, a in ipairs(Raid.attributions) do
+		local fin = FINS[a.etat]
+		if fin then
+			local reste = (a.finT or 0) - time()
+			if reste > 1 then
+				a.fin = GetTime() + reste
+				C_Timer.After(reste, function () fin(a) end)
+				reprises = reprises + 1
+			else
+				-- le groupe se relit d'abord (présents, électeurs)
+				C_Timer.After(3, function () fin(a) end)
+				finies = finies + 1
+			end
+		end
+	end
+	Msg(string.format("soirée reprise : %d annonce%s, %d tour%s en cours repris, %d terminé%s pendant le rechargement.",
+		#Raid.attributions, #Raid.attributions > 1 and "s" or "", reprises, reprises > 1 and "s" or "", finies, finies > 1 and "s" or ""))
+	-- les joueurs se recalent sur l'état repris
+	C_Timer.After(5, function () if IsInGroup() and Raid.RenvoyerEtat then Raid.RenvoyerEtat() end end)
+	Rafraichir()
+end
+
+-- Après un rechargement en cours de soirée, les attributions reprennent (ci-dessus) ; sans elles (une version d'avant),
+-- elles se relisent dans le journal : les remises restent suivies, et une annonce qui n'avait pas abouti est à trancher.
 Raid.Ecoute("PLAYER_LOGIN", function ()
 	local s = Raid.db.soiree
 	if not s or time() - (s.derniere or 0) > 6 * 3600 or #Raid.attributions > 0 then return end
+	if s.attributionsGardees and #s.attributionsGardees > 0 then Reprendre(s) return end
 	local par, i = {}, Raid.db.instantane
 	for _, e in ipairs(s.evenements) do
 		if e.lettre == "T" then

@@ -562,7 +562,9 @@ local function CreerBanderole ()
 	objet:SetScript("OnEnter", function (self)
 		local a = b.appel
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:AddLine(a and a.objet.nom or "")
+		-- l'infobulle de l'objet, puis l'explication de la banderole
+		if a and a.objet.lien then GameTooltip:SetHyperlink(a.objet.lien) GameTooltip:AddLine(" ")
+		else GameTooltip:AddLine(a and a.objet.nom or "") end
 		for _, l in ipairs(a and a.explication or {}) do GameTooltip:AddLine(l, 1, 1, 1, true) end
 		GameTooltip:AddLine("Clic : ouvrir le volet.", 0.6, 0.6, 0.6)
 		GameTooltip:Show()
@@ -833,9 +835,10 @@ local function Contient (liste, nom) for _, n in ipairs(liste or {}) do if n == 
 
 local function ObjetDe (a)
 	local nom, _, qualite = InfoObjet(a.id)
+	local lien = (a.lien and a.lien:find("|Hitem:", 1, true)) and a.lien or ("item:" .. a.id)
 	-- pas encore connu de ce client : on le demande au serveur, le nom arrive au rafraîchissement suivant
 	if not nom and Demander then pcall(Demander, a.id) end
-	return { nom = nom or (a.lien and a.lien:match("%[(.-)%]")) or ("objet " .. a.id), icone = Icone(a.id), qualite = qualite or 4 }
+	return { nom = nom or (a.lien and a.lien:match("%[(.-)%]")) or ("objet " .. a.id), icone = Icone(a.id), qualite = qualite or 4, lien = lien, id = a.id }
 end
 
 -- ta place dans la liste Suicide King (l'instantané de la soirée, s'il est là)
@@ -949,6 +952,7 @@ local function Decrire (a)
 			if g and g.vide then table.insert(d.explication, "Pour toi : l'emplacement est vide (" .. (g.spe or "") .. ").")
 			elseif g and g.pct then table.insert(d.explication, string.format("Pour toi : %+d %% selon Pawn (%s).", math.floor(g.pct + 0.5), g.spe or "")) end
 		end
+		if not a.veut and Contient(a.declares, moi) then a.veut = true end
 		local tete = a.declares and #a.declares > 0 and ("En tête : " .. Noms(a.declares, 3)) or "Personne de déclaré"
 		if a.passe then
 			d.sous, d.etiquette, d.clos = "Tu passes", { "PASSÉ", "cendre" }, "Tu passes."
@@ -1128,9 +1132,25 @@ local function DecrireObjet (o, presents)
 end
 
 -- les lignes du maître du butin, ajoutées aux autres (Volet.Synchroniser)
+local mlVisible = false                -- le maître du butin a des objets ou des attributions à suivre
+local pseudos = setmetatable({}, { __mode = "k" })   -- [attribution] = son objet, hors du corps ouvert
 function Volet.SourcesML (sources)
-	afaireML = 0
-	local objets = ObjetsML()
+	afaireML, mlVisible = 0, false
+	local objets = {}
+	local vus = {}
+	for _, o in ipairs(ObjetsML()) do objets[#objets + 1] = o if o.attribution then vus[o.attribution] = true end end
+	-- les attributions de la soirée qui ne sont pas sur le corps ouvert : en cours, à remettre, ou parmi les dix
+	-- dernières (après un rechargement, ou un autre corps ouvert depuis)
+	local liste = Raid.attributions or {}
+	for n, a in ipairs(liste) do
+		local actif = a.etat == "delai" or a.etat == "vote" or a.etat == "sk" or a.etat == "trancher"
+		local aRemettre = (a.etat == "attribue" or a.etat == "de") and a.attributaire and not a.remis
+		if not vus[a] and (actif or aRemettre or n > #liste - 10) then
+			pseudos[a] = pseudos[a] or { lien = a.lien, id = a.id, attribution = a }
+			objets[#objets + 1] = pseudos[a]
+		end
+	end
+	mlVisible = #objets > 0
 	if #objets == 0 then return end
 	local presents = Raid.Presents and Raid.Presents()
 	for k, o in ipairs(objets) do
@@ -1138,7 +1158,7 @@ function Volet.SourcesML (sources)
 		if d.aFaire then afaireML = afaireML + 1 end
 		-- les objets à traiter passent devant (poids 0 : la ligne se déplie d'elle-même)
 		sources[#sources + 1] = { cle = "m" .. (o.attribution and ("a" .. o.attribution.n) or (o.id .. "#" .. k)), d = d,
-			enCours = enCours, ordre = 1000 - k, poids = d.aFaire and 0 or nil }
+			enCours = enCours, ordre = o.attribution and o.attribution.n or (1000 - k), poids = d.aFaire and 0 or nil }
 	end
 end
 function Volet.AFaireML () return afaireML end
@@ -1344,7 +1364,7 @@ function Volet.Synchroniser ()
 	end
 	-- la languette : là tant qu'il y a du butin, et dix minutes après le dernier jet
 	local jetsRecents = #jets > 0 and (jetEnCours or (finJets and maintenant - finJets < TRAINE))
-	local voulue = Reglages().demo or #Raid.annonces > 0 or jetsRecents or #ObjetsML() > 0
+	local voulue = Reglages().demo or #Raid.annonces > 0 or jetsRecents or #ObjetsML() > 0 or mlVisible
 	if voulue then
 		Volet.Creer()
 		if not languette:IsShown() then languette:Show() end
@@ -1373,9 +1393,19 @@ local function LigneDirecte (r, k)
 	f.prim = BoutonPrincipal(f, "", nil) f.secs = { BoutonSecond(f, "", nil), BoutonSecond(f, "", nil) }
 	f.noms = { BoutonNom(f), BoutonNom(f), BoutonNom(f), BoutonNom(f) }
 	f:SetScript("OnClick", function (self)
+		-- Maj+clic : le lien dans la discussion, comme ailleurs dans le jeu
+		if IsModifiedClick and IsModifiedClick("CHATLINK") and self.lien and self.lien:find("|H", 1, true) then ChatEdit_InsertLink(self.lien) return end
 		deplie = deplie ~= self.cle and self.cle or nil
 		volet:Remplir()
 	end)
+	-- au survol : l'infobulle de l'objet (avec ce qu'Opus y ajoute : listes, attribution du soir)
+	f:SetScript("OnEnter", function (self)
+		if not self.lien then return end
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetHyperlink(self.lien)
+		GameTooltip:Show()
+	end)
+	f:SetScript("OnLeave", GameTooltip_Hide)
 	r.lignes[k] = f
 	return f
 end
@@ -1430,6 +1460,7 @@ function Volet.RemplirDirect (r)
 		local d = e.d
 		local f = LigneDirecte(r, k)
 		f.cle = e.cle
+		f.lien = d.objet.lien
 		f.cadre.icone:SetTexture(d.objet.icone)
 		f.nom:SetText(d.objet.nom) f.nom:SetTextColor(Qualite(d.objet.qualite))
 		f.sous:SetText(d.sous or "")
@@ -1513,6 +1544,10 @@ Raid.RafraichirButin = function ()
 		Opus.Msg("|cffff5a5aerreur du volet|r : " .. tostring(err):gsub("Interface\\AddOns\\Opus\\", ""))
 	end
 end
+-- volet ouvert : ses comptes à rebours et ses étiquettes avancent chaque seconde, d'où que vienne le butin
+C_Timer.NewTicker(1, function ()
+	if volet and volet:IsShown() and not (OpusDB and OpusDB.volet and OpusDB.volet.ancien) then pcall(Volet.Synchroniser) end
+end)
 -- un nouveau groupe, un nouveau donjon : les jets d'avant s'en vont
 Opus.Ecoute("GROUP_LEFT", function () wipe(jets) finJets = nil end)
 
