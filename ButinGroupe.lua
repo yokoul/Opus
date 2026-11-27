@@ -64,8 +64,12 @@ local function Motifs ()
 	if motifs then return motifs end
 	motifs = {}
 	for _, p in ipairs(PHRASES) do
-		local m, ordre = Motif(_G[p[1]])
-		if m then motifs[#motifs + 1] = { motif = m, ordre = ordre, phrase = p } end
+		local format = _G[p[1]]
+		local m, ordre = Motif(format)
+		-- les clients récents ouvrent la phrase sur un lien « [Butin] : » qui porte un numéro
+		-- (|HlootHistory:%d|h) : les arguments qu'on attend viennent un cran plus loin
+		local decale = type(format) == "string" and format:find("|HlootHistory:", 1, true) and 1 or 0
+		if m then motifs[#motifs + 1] = { motif = m, ordre = ordre, phrase = p, decale = decale } end
 	end
 	-- les plus longues d'abord : « … (automatiquement) » avant la phrase courte qu'elle contient
 	table.sort(motifs, function (a, b) return #a.motif > #b.motif end)
@@ -79,13 +83,13 @@ local function Lire (message)
 		if #captures > 0 then
 			local args = {}
 			for i, v in ipairs(captures) do args[m.ordre[i]] = v end
-			local p = m.phrase
-			local objet = args[p.objet] or ""
+			local p, d = m.phrase, m.decale
+			local objet = args[p.objet + d] or ""
 			return {
 				quoi = p[2],
-				nom = p.nom and Raid.Court(args[p.nom]) or Raid.MonNom(),
+				nom = p.nom and Raid.Court(args[p.nom + d]) or Raid.MonNom(),
 				id = tonumber(objet:match("item:(%d+)")),
-				jet = p.jet and tonumber(args[p.jet]) or nil,
+				jet = p.jet and tonumber(args[p.jet + d]) or nil,
 			}
 		end
 	end
@@ -276,7 +280,7 @@ local function LibreDessous (cadre, hauteur)
 	return true
 end
 
-local bandes = {}                   -- [cadre de jet] = bande
+local bandes = {}                   -- [tirage] = bande
 
 local function Rang (b, k)
 	if b.rangs[k] then return b.rangs[k] end
@@ -309,10 +313,12 @@ local function Rang (b, k)
 	return m
 end
 
-local function BandeDe (cadre)
-	if bandes[cadre] then return bandes[cadre] end
-	-- enfant du cadre de jet : même étage d'affichage que lui, et partie avec lui
-	local b = CreateFrame("Frame", nil, cadre, "BackdropTemplate")
+local accroches = {}                -- les cadres de jet déjà suivis à leur fermeture
+
+local function BandeDe (t)
+	if bandes[t] then return bandes[t] end
+	-- pas enfant du cadre de jet : le jeu le cache dès qu'on a choisi, la bande reste jusqu'au résultat
+	local b = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
 	if b.SetBackdrop then
 		b:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
 			tile = true, tileSize = 16, edgeSize = 10, insets = { left = 2, right = 2, top = 2, bottom = 2 } })
@@ -337,9 +343,7 @@ local function BandeDe (cadre)
 	end)
 	b.ligne:SetScript("OnLeave", GameTooltip_Hide)
 	b.rangs = {}
-	-- le cadre s'en va (jet fini, objet ramassé) : la bande avec lui
-	cadre:HookScript("OnHide", function () b:Hide() end)
-	bandes[cadre] = b
+	bandes[t] = b
 	return b
 end
 
@@ -395,7 +399,7 @@ local function PoserBande (t, cadre, membres)
 	for _, mb in ipairs(membres) do vus[mb.nom] = true tous[#tous + 1] = mb end
 	for nom in pairs(t.choix) do if not vus[nom] then vus[nom] = true tous[#tous + 1] = { nom = nom } end end
 	membres = tous
-	local b = BandeDe(cadre)
+	local b = BandeDe(t)
 	for _, m in ipairs(b.rangs) do m:Hide() end
 	b.ligne.texte:SetText(Resume(t, membres))
 	local liste = Opus.db.butinGroupeListe and LignesDuTirage(t, membres) or {}
@@ -421,12 +425,25 @@ local function PoserBande (t, cadre, membres)
 	end
 	local hauteur = LIGNE + (#liste > 0 and (#liste * RANG + 6) or 2)
 	b:SetHeight(hauteur)
-	-- sous le cadre, de sa largeur ; sinon (un autre cadre de jet dessous) à sa droite
-	b:ClearAllPoints()
-	if LibreDessous(cadre, hauteur + 2) then
-		b:SetPoint("TOPLEFT", cadre, "BOTTOMLEFT", 0, -2) b:SetPoint("TOPRIGHT", cadre, "BOTTOMRIGHT", 0, -2)
-	else
-		b:SetPoint("TOPLEFT", cadre, "TOPRIGHT", 4, 0) b:SetWidth(math.max(cadre:GetWidth() or 0, 240))
+	if cadre then
+		-- sous le cadre, de sa largeur ; sinon (un autre cadre de jet dessous) à sa droite
+		b:SetFrameStrata(cadre:GetFrameStrata()) b:SetFrameLevel(cadre:GetFrameLevel() + 5)
+		b:ClearAllPoints()
+		if LibreDessous(cadre, hauteur + 2) then
+			b:SetPoint("TOPLEFT", cadre, "BOTTOMLEFT", 0, -2) b:SetPoint("TOPRIGHT", cadre, "BOTTOMRIGHT", 0, -2)
+		else
+			b:SetPoint("TOPLEFT", cadre, "TOPRIGHT", 4, 0) b:SetWidth(math.max(cadre:GetWidth() or 0, 240))
+		end
+		b.accrochee = true
+		-- le jeu cache son cadre quand on a choisi (ou le réutilise) : la bande reste là, détachée
+		if not accroches[cadre] then
+			accroches[cadre] = true
+			cadre:HookScript("OnHide", function () C_Timer.After(0, Opus.RafraichirButinGroupe) end)
+		end
+	elseif b.accrochee and b:GetLeft() then
+		local g, h, l = b:GetLeft(), b:GetTop(), b:GetWidth()
+		b:ClearAllPoints() b:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", g, h) b:SetWidth(l)
+		b.accrochee = false
 	end
 	b:Show()
 end
@@ -439,11 +456,10 @@ function Opus.RafraichirButinGroupe ()
 		if not t.finie and GetTime() > t.fin + 5 then t.finie = GetTime() end
 		if not t.finie or GetTime() - t.finie < GARDER then garde[#garde + 1] = t end
 	end
-	for t, c in pairs(faux) do
-		local reste = false
-		for _, g in ipairs(garde) do if g == t then reste = true end end
-		if not reste then c:Hide() faux[t] = nil end
-	end
+	local restent = {}
+	for _, g in ipairs(garde) do restent[g] = true end
+	for t, c in pairs(faux) do if not restent[t] then c:Hide() faux[t] = nil end end
+	for t, b in pairs(bandes) do if not restent[t] then b:Hide() bandes[t] = nil end end
 	tirages = garde
 	if #tirages == 0 then essai, masquee = false, false end
 	if #tirages == 0 or not (Opus.ButinGroupeActif() or essai) then
@@ -457,14 +473,20 @@ function Opus.RafraichirButinGroupe ()
 	for _, t in ipairs(tirages) do
 		local f2 = faux[t]
 		if f2 then
-			-- le cadre imité d'un essai : l'objet, puis il s'en va quelques secondes après le résultat
+			-- le cadre imité d'un essai : l'objet ; comme celui du jeu, il s'en va quand on a choisi
 			t.lien = Raid.LienAJour(t.lien, t.id)
 			Raid.PoserIcone(f2.icone, t.id, t.lien) f2.nom:SetText(t.lien)
-			f2:SetShown(not (t.finie and GetTime() - t.finie > 8))
+			local mien = t.choix[Raid.MonNom()]
+			f2:SetShown(not (t.finie or (mien and mien.quoi)))
 		end
 		local cadre = (t.rollID > 0 or f2) and CadreDeJet(t)
-		if cadre then t.aEuCadre = true PoserBande(t, cadre, membres)
-		elseif not t.aEuCadre and GetTime() - (t.debut or 0) > 1 then enFenetre[#enFenetre + 1] = t end
+		if cadre then t.aEuCadre = true end
+		-- la bande vit du début du jet jusqu'à quelques secondes après le résultat, cadre du jeu ou pas
+		if t.aEuCadre then
+			if t.finie and GetTime() - t.finie > 8 then
+				if bandes[t] then bandes[t]:Hide() end
+			else PoserBande(t, cadre, membres) end
+		elseif GetTime() - (t.debut or 0) > 1 then enFenetre[#enFenetre + 1] = t end
 	end
 	-- avec le volet (Volet.lua), les jets s'y suivent : plus de fenêtre de secours
 	if Opus.db and not (Opus.db.volet and Opus.db.volet.ancien) then enFenetre = {} end
