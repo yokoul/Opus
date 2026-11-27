@@ -285,5 +285,16 @@ end
 
 Raid.Commande("essai", "essai", "un instantané d'essai fabriqué en jeu, pour essayer une soirée en donjon à quelques-uns", Essai)
 Raid.Commande("import", "import", "coller l'instantané du site (selon /opus raid droits)", function () Raid.OuvrirImport() end)
+-- /opus raid oublier : effacer l'instantané de ce poste (essai du mode sans liste, ou fin de l'essai en donjon)
+Raid.Commande("oublier", "oublier", "effacer l'instantané de ce poste (le butin passe en mode sans liste ; réimporte-le après)", function ()
+	if not Raid.PeutGerer() then Msg("oublier l'instantané " .. Raid.QuiPeut() .. ".") return end
+	local i = Raid.db.instantane
+	if not i then Msg("aucun instantané sur ce poste.") return end
+	Raid.db.instantane = nil
+	Msg((i.essai and "instantané d'essai" or ("instantané " .. tostring(i.id or ""))) .. " effacé : le butin passe en mode sans liste "
+		.. "(Annoncer lance un Suicide King, Donner à… donne directement). Réimporte-le avec « Du bridge » ou /opus raid import.")
+	if Raid.RafraichirButin then Raid.RafraichirButin() end
+	if Opus.Rafraichir then Opus.Rafraichir() end
+end)
 Raid.Commande("etat", "etat", "l'instantané importé : joueurs, objets, poids, noms inconnus de la guilde, absents du raid", Etat)
 Raid.Commande("objet", "objet <itemID>", "les candidats d'un objet dans l'instantané", Objet)
