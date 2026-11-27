@@ -206,13 +206,14 @@ function Raid.RecevoirAnnonce (ml, c)
 			masquee = false
 		end
 		a.etat, a.fin, a.duree = "sk", GetTime() + secondes, secondes
+		if c[5] and c[5]:find("^item:") then a.chaine = c[5] end
 	elseif genre == "A" then
 		local id, secondes = tonumber(c[3]), tonumber(c[5])
 		if not id or not secondes or Trouver(ml, n) then return end
 		local moi, candidat = Raid.MonNom(), false
 		for _, nom in ipairs(Raid.Liste(c[6])) do if nom == moi then candidat = true end end
 		Raid.annonces[#Raid.annonces + 1] = { ml = ml, n = n, id = id, lien = Raid.LienDe(id), propose = c[4] or "?", etat = "delai", fin = GetTime() + secondes, duree = secondes, candidat = candidat,
-			candidats = Raid.Liste(c[6]) }
+			candidats = Raid.Liste(c[6]), chaine = (c[7] and c[7]:find("^item:")) and c[7] or nil }
 		masquee = false
 		-- leur équipement, pour comparer au moment du vote
 		Raid.Prioriser(Raid.Liste(c[6]))

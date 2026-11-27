@@ -31,7 +31,7 @@ function Raid.LancerSK (a, debut, garder)
 	else
 		Raid.Annoncer(string.format("#%d %s : Suicide King (%s), « !sk %d » ou « !passe %d ».", a.n, a.lien, Raid.TexteDuree(duree), a.n, a.n))
 	end
-	if Raid.Diffuser then Raid.Diffuser("S", a.n, a.id, duree) end
+	if Raid.Diffuser then Raid.Diffuser("S", a.n, a.id, duree, Raid.ChaineObjet and Raid.ChaineObjet(a.lien) or "") end
 	C_Timer.After(duree, function () Raid.FinSK(a) end)
 	Rafraichir()
 end

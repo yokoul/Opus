@@ -81,6 +81,10 @@ local function Visee (n, etat)
 	return seule
 end
 
+-- « item:12345:0:…:suffixe » : de quoi retrouver le nom complet (« … du tigre ») chez les joueurs ; le numéro seul ne
+-- donne que le nom de base
+function Raid.ChaineObjet (lien) return lien and lien:match("item:[%-%d:]+") or "" end
+
 -- aux addons du raid (Comm.lua), s'il est chargé
 local function Diffuser (...) if Raid.Diffuser then Raid.Diffuser(...) end end
 Raid.DiffuserAttribution = function (a) Diffuser("R", a.n, a.etat, a.attributaire or "", a.id or "") end
@@ -247,7 +251,7 @@ function Raid.Lancer (o)
 	Raid.Annoncer("#" .. a.n .. " " .. texte)
 	local candidats = {}
 	for nom in pairs(a.candidats) do candidats[#candidats + 1] = nom end
-	Diffuser("A", a.n, a.id, a.propose, delai, table.concat(candidats, ","))
+	Diffuser("A", a.n, a.id, a.propose, delai, table.concat(candidats, ","), Raid.ChaineObjet(a.lien))
 	C_Timer.After(delai, function () FinDelai(a) end)
 	Rafraichir()
 	return a
@@ -444,9 +448,9 @@ function Raid.RenvoyerEtat ()
 			local candidats = {}
 			for nom in pairs(a.candidats or {}) do candidats[#candidats + 1] = nom end
 			if a.propose and a.propose ~= "?" then
-				file[#file + 1] = { "A", a.n, a.id, a.propose, a.etat == "delai" and reste or 1, table.concat(candidats, ",") }
+				file[#file + 1] = { "A", a.n, a.id, a.propose, a.etat == "delai" and reste or 1, table.concat(candidats, ","), Raid.ChaineObjet(a.lien) }
 			else
-				file[#file + 1] = { "S", a.n, a.id, a.etat == "sk" and reste or 1 }
+				file[#file + 1] = { "S", a.n, a.id, a.etat == "sk" and reste or 1, Raid.ChaineObjet(a.lien) }
 			end
 			if a.etat == "vote" then
 				file[#file + 1] = { "V", a.n, reste, a.quorum or 1, a.nElecteurs or 1, a.objecteurs[1] or "", table.concat(a.choix or {}, ","), a.motif or "" }

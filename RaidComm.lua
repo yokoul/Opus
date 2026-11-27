@@ -1,8 +1,8 @@
 -- RaidComm.lua : les annonces et les votes entre addons, par messages d'addon dans le raid (ou le groupe)
 -- Le maître du butin diffuse :
---   A;n;itemID;proposé;secondes;candidat,candidat…   une annonce, et le délai d'objection qui reste
+--   A;n;itemID;proposé;secondes;candidat,candidat…;item:…   une annonce, le délai d'objection qui reste, l'objet complet
 --   V;n;secondes;quorum;électeurs;auteur;candidats;motif   une objection : le vote est ouvert, entre ces candidats
---   S;n;itemID;secondes                               un Suicide King : les intéressés se déclarent
+--   S;n;itemID;secondes;item:…                        un Suicide King : les intéressés se déclarent
 --   R;n;état;attributaire;itemID                      la fin : attribue, trancher, de ou banque
 --   K;n;déclaré,déclaré…                              au Suicide King : les déclarés, du mieux placé au moins bien
 -- Un joueur qui recharge envoie Q (où en est la soirée ?) : le maître du butin renvoie l'état des annonces.

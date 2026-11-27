@@ -834,8 +834,12 @@ end
 local function Contient (liste, nom) for _, n in ipairs(liste or {}) do if n == nom then return true end end end
 
 local function ObjetDe (a)
-	local nom, _, qualite = InfoObjet(a.id)
-	local lien = (a.lien and a.lien:find("|Hitem:", 1, true)) and a.lien or ("item:" .. a.id)
+	-- le nom complet (« … du tigre ») : celui du lien, ou de l'objet complet transmis ; à défaut, le nom de base
+	local nom, _, qualite = InfoObjet(a.chaine or a.id)
+	-- chez les joueurs, le lien est refait du seul numéro : l'objet complet transmis passe devant
+	local duLien = not a.chaine and a.lien and a.lien:find("|Hitem:", 1, true) and a.lien:match("|h%[(.-)%]|h")
+	if duLien and duLien ~= "" then nom = duLien end
+	local lien = a.chaine or ((a.lien and a.lien:find("|Hitem:", 1, true)) and a.lien) or ("item:" .. a.id)
 	-- pas encore connu de ce client : on le demande au serveur, le nom arrive au rafraîchissement suivant
 	if not nom and Demander then pcall(Demander, a.id) end
 	return { nom = nom or (a.lien and a.lien:match("%[(.-)%]")) or ("objet " .. a.id), icone = Icone(a.id), qualite = qualite or 4, lien = lien, id = a.id }
