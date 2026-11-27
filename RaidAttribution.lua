@@ -103,6 +103,26 @@ local function FinDelai (a, comment)
 	Attribuer(a, a.propose, "wish", comment or " (pas d'objection)")
 end
 
+-- Sans instantané : l'objet donné directement à un présent, par le maître du butin. Noté au rapport comme une
+-- attribution (T puis A), avec le motif dans l'annonce ; le don depuis le corps suit, comme pour les autres.
+function Raid.DonnerDirect (o, nom)
+	local actif, raison = Raid.Actif()
+	if not actif then Msg(raison .. ".") return nil end
+	if not Raid.PeutGerer() then Msg("attribution " .. Raid.QuiPeut() .. ".") return nil end
+	if o.attribution then return o.attribution end
+	Soiree()
+	local a = { n = #Raid.attributions + 1, lien = o.lien, id = o.id, source = o.source, votes = {}, objecteurs = {}, candidats = {} }
+	Raid.attributions[a.n] = a
+	local noms = {}
+	for p in pairs(Raid.Presents() or {}) do noms[#noms + 1] = p end
+	table.sort(noms)
+	a.evenementT = Raid.Noter("T", { boss = Raid.dernierBoss or "", item = o.id, presents = noms })
+	a.decision = true
+	Attribuer(a, nom, "wish", " (donné par le maître du butin, sans liste ce soir)")
+	o.attribution = a
+	return a
+end
+
 -- Le maître du butin abrège un tour : le délai sans objection attribue tout de suite au proposé, le Suicide King
 -- classe les déclarés du moment. Le minuteur d'origine, plus tard, ne trouve plus rien à faire.
 function Raid.CloreTour (a)
@@ -187,7 +207,18 @@ function Raid.Lancer (o)
 	if not actif then Msg(raison .. ".") return nil end
 	local presents = Raid.Presents()
 	local r = Raid.Proposer(o.id, presents)
-	if not r then Msg("aucun instantané importé.") return nil end
+	-- sans instantané (pas de listes sur ce poste) : le Suicide King, directement
+	if not r then
+		Soiree()
+		local a = { n = #Raid.attributions + 1, lien = o.lien, id = o.id, source = o.source, votes = {}, objecteurs = {}, candidats = {} }
+		Raid.attributions[a.n] = a
+		local noms = {}
+		for nom in pairs(presents or {}) do noms[#noms + 1] = nom end
+		table.sort(noms)
+		a.evenementT = Raid.Noter("T", { boss = Raid.dernierBoss or "", item = o.id, presents = noms })
+		Raid.LancerSK(a, o.lien .. " (sans liste ce soir)")
+		return a
+	end
 	local s = Soiree()
 	-- source : le corps d'où vient l'objet (son GUID), pour le reconnaître quand on le rouvre
 	local a = { n = #Raid.attributions + 1, lien = o.lien, id = o.id, source = o.source, votes = {}, objecteurs = {} }
@@ -299,7 +330,11 @@ function Raid.Recevoir (mot, n, expediteur, choix)
 		local a = Visee(n, "sk")
 		if not a then return end
 		a.passes = a.passes or {}
-		if mot == "sk" then a.interesses[nom], a.passes[nom] = true, nil
+		if mot == "sk" then
+			a.interesses[nom], a.passes[nom] = true, nil
+			-- l'ordre des déclarations départage ceux que la liste ne classe pas
+			a.ordre = a.ordre or {}
+			if not a.ordre[nom] then a.nOrdre = (a.nOrdre or 0) + 1 a.ordre[nom] = a.nOrdre end
 		else a.passes[nom], a.interesses[nom] = true, nil end
 		-- les déclarés, du mieux placé au moins bien : chacun voit qui est en tête (un envoi par seconde au plus)
 		if not a.classementPrevu then

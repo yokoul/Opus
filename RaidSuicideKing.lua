@@ -2,7 +2,8 @@
 -- Annonce « Suicide King » : pendant le temps réglé, les intéressés se déclarent (« Je le veux » dans leur fenêtre, ou
 -- « !sk n » dans le canal raid) ; les autres peuvent passer (« Passer », « !passe n »). Quand tous les présents ont
 -- répondu, le tour finit sans attendre. L'intéressé présent le plus haut dans la liste gagne et passe en bas ; les autres
--- gardent leur ordre. Un intéressé absent de la liste passe après tous ceux qui y sont (puis par ordre alphabétique).
+-- gardent leur ordre. Un intéressé absent de la liste passe après tous ceux qui y sont (puis le premier déclaré).
+-- Sans instantané, l'annonce est un Suicide King direct : la liste de la soirée s'il y en a une, sinon le premier déclaré.
 -- Personne : désenchantement par le premier désenchanteur présent (instantané, « Z »), sinon la banque.
 -- La liste de la soirée part de l'instantané et bouge à chaque gain ; le site la recalcule depuis le rapport.
 local _, Opus = ...
@@ -49,9 +50,13 @@ function Raid.ClassementSK (a, liste)
 	for nom in pairs(a.interesses or {}) do
 		if not presents or presents[nom] then candidats[#candidats + 1] = nom end
 	end
+	-- hors de la liste (ou sans liste) : le premier déclaré passe devant
+	local ordre = a.ordre or {}
 	table.sort(candidats, function (x, y)
 		local px, py = pos[x] or math.huge, pos[y] or math.huge
 		if px ~= py then return px < py end
+		local ox, oy = ordre[x] or math.huge, ordre[y] or math.huge
+		if ox ~= oy then return ox < oy end
 		return x < y
 	end)
 	return candidats, pos

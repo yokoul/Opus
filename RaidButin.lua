@@ -207,7 +207,7 @@ local function EtatObjet (o, presents)
 	if not a then
 		local r = Raid.Proposer(o.id, presents)
 		local c1 = r and r.candidats[1]
-		if not r then return "pas d'instantané", "afaire", "importe-le : onglet Raids, « Du bridge »", { "Annoncer", false, "Importe d'abord l'instantané du site (onglet Raids)." }, r end
+		if not r then return "sans liste", "afaire", "pas d'instantané : l'annonce lance un Suicide King", { "Annoncer", true }, r end
 		if c1 then
 			local autres = #r.candidats - 1
 			return "en liste", "neutre", "proposé : |cffffffff" .. c1.nom .. "|r · " .. Raid.Score(c1.score) .. (r.egalite and " (ex aequo)" or "")

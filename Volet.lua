@@ -1090,6 +1090,37 @@ local function Accrocher ()
 end
 local function Fiche (o) Raid.OuvrirFiche(o) Accrocher() end
 
+-- « Donner à… » : le menu des présents (par classe dans un grand raid), un clic donne l'objet
+function Volet.MenuDonner (bouton, o)
+	if not MenuUtil or not MenuUtil.CreateContextMenu then Opus.Msg("menu indisponible sur ce client : /opus raid annoncer, ou le menu du maître du butin du jeu.") return end
+	local presents = Raid.Presents and Raid.Presents() or { [Moi()] = true }
+	local parClasse, noms = {}, {}
+	for nom in pairs(presents) do
+		noms[#noms + 1] = nom
+		local _, classe = UnitClass(nom)
+		classe = classe or "?"
+		parClasse[classe] = parClasse[classe] or {}
+		table.insert(parClasse[classe], nom)
+	end
+	table.sort(noms)
+	local function Donner (nom) Raid.DonnerDirect(o, nom) Raid.RafraichirButin() end
+	MenuUtil.CreateContextMenu(bouton, function (_, racine)
+		racine:CreateTitle("Donner à")
+		if #noms <= 12 then
+			for _, nom in ipairs(noms) do racine:CreateButton(Nom(nom), function () Donner(nom) end) end
+			return
+		end
+		local classes = {}
+		for c in pairs(parClasse) do classes[#classes + 1] = c end
+		table.sort(classes)
+		for _, c in ipairs(classes) do
+			local sous = racine:CreateButton((LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[c]) or c)
+			table.sort(parClasse[c])
+			for _, nom in ipairs(parClasse[c]) do sous:CreateButton(Nom(nom), function () Donner(nom) end) end
+		end
+	end)
+end
+
 local function DecrireObjet (o, presents)
 	local etat, sens, detail, action, r = Raid.EtatObjet(o, presents)
 	local a = o.attribution
@@ -1097,7 +1128,7 @@ local function DecrireObjet (o, presents)
 	d.sous = (detail or ""):gsub("^#%d+ » ", "")
 	local libelle = etat and Capitales(etat) or ""
 	if not a then
-		d.etiquette = { r and "À ANNONCER" or "INSTANTANÉ ?", "toi" }
+		d.etiquette = { "À ANNONCER", "toi" }
 	else
 		d.etiquette = { libelle, SENS[sens] or "cendre" }
 	end
@@ -1110,6 +1141,10 @@ local function DecrireObjet (o, presents)
 		if #r.candidats > 4 then d.explication[#d.explication + 1] = "et " .. (#r.candidats - 4) .. " autres : voir les détails" end
 	elseif r and not a then
 		d.explication[1] = "Personne de présent ne l'a en liste : Suicide King à l'annonce, ou désenchantement."
+	elseif not r and not a then
+		d.explication = { "Pas d'instantané sur ce poste : pas de listes ce soir.",
+			"« Annoncer » lance un Suicide King (la liste de la soirée s'il y en a une, sinon le premier déclaré l'emporte) ;",
+			"« Donner à… » le donne directement à un présent. Les deux sont notés au rapport." }
 	elseif a and a.etat == "delai" then
 		d.explication[1] = "Personne n'a objecté pour l'instant. « Clore le délai » le donne tout de suite à " .. Nom(a.propose) .. "."
 	elseif a and a.etat == "sk" then
@@ -1127,10 +1162,17 @@ local function DecrireObjet (o, presents)
 		boutons[#boutons + 1] = { texte = a.etat == "delai" and "CLORE LE DÉLAI" or "CLORE LE TOUR", principal = not (action and action[2]),
 			clic = function () Raid.CloreTour(a) end }
 	end
-	if Raid.DesenchanterLibre(o, r) and r then
+	-- sans liste : le donner directement à un présent
+	if not a and not r and Raid.DonnerDirect then
+		boutons[#boutons + 1] = { texte = "DONNER À…", clic = function (self) Volet.MenuDonner(self, o) end }
+	end
+	if Raid.DesenchanterLibre(o, r) then
 		boutons[#boutons + 1] = { texte = "DÉSENCHANTER", clic = function () Raid.DesenchanterLigne(o) end }
 	end
-	boutons[#boutons + 1] = { texte = "DÉTAILS", clic = function () Fiche(o) end }
+	-- les détails demandent les listes (candidats, scores)
+	if Raid.db and Raid.db.instantane then
+		boutons[#boutons + 1] = { texte = "DÉTAILS", clic = function () Fiche(o) end }
+	end
 	d.boutons = boutons
 	d.aFaire = (not a and r ~= nil) or sens == "afaire"
 	-- une égalité au vote : une banderole pour trancher, même volet fermé
@@ -1401,7 +1443,7 @@ local function LigneDirecte (r, k)
 	f.etiquettes = {}
 	f.detail = Texte(f, "Texte", C.parchemin) f.detail:SetWordWrap(true) f.detail:SetWidth(INTERIEUR - 18)
 	f.detail:SetPoint("TOPLEFT", 10, -HAUT_LIGNE - 2)
-	f.prim = BoutonPrincipal(f, "", nil) f.secs = { BoutonSecond(f, "", nil), BoutonSecond(f, "", nil) }
+	f.prim = BoutonPrincipal(f, "", nil) f.secs = { BoutonSecond(f, "", nil), BoutonSecond(f, "", nil), BoutonSecond(f, "", nil) }
 	f.noms = { BoutonNom(f), BoutonNom(f), BoutonNom(f), BoutonNom(f) }
 	f:SetScript("OnClick", function (self)
 		-- Maj+clic : le lien dans la discussion, comme ailleurs dans le jeu
