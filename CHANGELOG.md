@@ -36,6 +36,39 @@ Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://disc
 - Raids : l'infobulle d'un candidat ne lève plus d'erreur quand Pawn calcule son gain.
 - Un souci d'affichage du volet ne se répète plus dans la discussion : il est dit une fois, et /opus raid diag en donne le détail à signaler sur le Discord.
 
+### English
+
+**Raids: the loot side panel**
+- A side panel replaces the announcement and loot windows. A tab on the left edge of the screen (drag it up or down) shows the state at a glance: pale gem when nothing is happening, gold when items are in play, ruby when a decision is waiting for you. A banner slides out so you can decide in one click (I want it, Pass, the names in a vote, Let it go) and follows the round until the result; the panel keeps the evening's loot line by line, with the reason for each decision. It can be pinned (stays open, even in combat). /opus volet ancien brings back the old windows.
+- The master looter finds the corpse's items in the panel, which opens by itself with the corpse, along with assignments in progress or still to hand over: Announce, Give, Decide, Close the delay or the round, Give to…, Disenchant or For the bank, Details (the item sheet opens docked to the panel).
+- Item tooltip when hovering a line or the banner (Shift+click: link in chat). Tooltips now open above the hovered element.
+
+**Raids: assignment**
+- Voting follows WishVote. An objection, with its reason, opens a vote between the candidates present: everyone votes for whoever deserves it in their view (in the panel, or "!vote n k" in raid chat). Everyone present votes except those who have the item on their list. With quorum, the leading candidate gets the item; a tie goes to the officers; without quorum, the proposal stands.
+- Officers can decide at any time, always with a reason. The item sheet shows the candidates present (class, rank and role, detailed score, what they already received, gear comparison), the votes during a vote, and lets you announce or decide in one click.
+- "Let it go": a candidate can give up an item during the delay or the vote, in favour of another candidate present or the next one in the calculation ("!laisse n [name]").
+- Suicide King: everyone sees who declared and who leads; "Pass" (or "!passe n"); the round ends as soon as everyone present has answered. The master looter can declare too. Among off-list declarers, the first to declare goes first.
+- The master looter can shorten a round: "Close the delay" gives the item to the proposed player when nobody objected, "Close the round" ends a Suicide King with the current declarers.
+- Without a snapshot (forgotten import, bridge down), loot no longer gets stuck: "Announce" starts a direct Suicide King, "Give to…" hands the item to someone present picked from a menu (also for an item nobody present has on their list), disenchanting is still possible; everything goes into the report.
+- An item nobody present has on their list can go straight to the disenchanter, chosen among those present. Master looter fixed rules: "/opus raid regle scarab Bob" (or "de", "banque"); these items go out by themselves when the corpse is opened.
+- The assigned item is given straight from the corpse through the master loot menu; if the game refuses, "Give" lets you retry, trading still works. Alt+click on an item in your bags adds it to the panel, to be announced.
+- Round durations are set in Settings, "Loot" view (objection 1 to 5 min, vote 1 to 3 min, Suicide King 30 s to 2 min), together with the guild share needed to open an evening, auto-trade and raid announcements (short by default, detailed if you prefer).
+
+**Raids: the evening**
+- A reload no longer closes the guild evening. The master looter gets the assignments back as they were (rounds resume with their remaining time), and a player who reloads or joins mid-evening gets the announcements back.
+- Gear comparison: each client inspects raid members (out of combat, in range). With Pawn, the verdict is the item's gain in each player's best spec ("+53 %"), otherwise the item level difference; on hover, what the item changes stat by stat, against the piece it would replace.
+- Item tooltips: who has it on their list (and at what rank), and who received it tonight.
+- Raids tab: "Tonight" sums up the evening, the snapshot, tonight's items and the report; "My list" gives one block per character (status, role, evenings, lost priorities, last loot, Suicide King position, items received).
+- /opus raid essai to try an evening in a dungeon with a few people (nothing is sent to the site); /opus raid oublier clears the snapshot to try without one.
+
+**Dungeons**
+- "Compare loot in dungeons" (Settings, "Loot" view, off by default: without it, Opus shows nothing in dungeons). Under each of the game's roll frames, a discreet line counts the choices (dice, coin, disenchant, pass) then names the winner and their roll; one click shows the list: each player's roll and what the item is worth to them, or "can't use". The line stays until the result, even after you pick. Dungeon rolls also show in the side panel, with a short result banner when you rolled. Everything is read in game: it works with players who don't have Opus. /opus volet essai donjon to try it alone.
+
+**Fixes**
+- Roster: the "Raiders" filter now includes the Magister and the Architects.
+- Raids: a candidate's tooltip no longer throws an error when Pawn computes its gain.
+- A display issue in the side panel no longer repeats in chat: it is reported once, and /opus raid diag gives the details to share on Discord.
+
 ## 0.32.0
 - Raids : avec le bridge, le rapport de la soirée part tout seul au site à la déconnexion (ou au /reload), sans copier-coller. Il est déposé à la fermeture de la soirée de guilde (ou en quittant le raid), et complété s'il change encore ; les essais hors groupe ne partent pas. L'export à coller reste possible sans bridge.
 
