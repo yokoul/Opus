@@ -4,6 +4,7 @@ Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, E
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
 ## À paraître
+- Raids : l'infobulle d'un candidat dans les détails de l'objet ne lève plus d'erreur quand Pawn calcule son gain.
 - Raids : un joueur qui recharge (ou arrive) en cours de soirée retrouve les annonces : son addon demande l'état au maître du butin, qui le renvoie.
 - Raids : les règles fixes du maître du butin, « /opus raid regle scarabée Bob » (un lien ou un itemID marche aussi ; « de » pour le désenchanteur, « banque » pour soi). À l'ouverture du corps, ces objets partent tout seuls, sans annonce. « /opus raid regle » les liste, « /opus raid regle retirer 2 » en retire une.
 - Raids : Alt+clic sur un objet des sacs (maître du butin, soirée ouverte) l'ajoute au volet, à annoncer.

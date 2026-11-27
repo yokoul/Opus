@@ -348,6 +348,9 @@ function Volet.Ouvrir (ouvrir)
 		if banderole:IsShown() then Glisser(banderole, false, LARGEUR_B) end
 	else
 		Glisser(volet, false, LARGEUR, function () volet.sortant = nil Choisir() end)
+		-- la fiche de décision collée au volet part avec lui
+		local fiche = _G.OpusRaidFiche
+		if fiche and fiche:IsShown() and fiche.opusVolet then fiche:Hide() end
 	end
 	PoserLanguette()
 end

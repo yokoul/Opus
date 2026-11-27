@@ -305,6 +305,9 @@ local function TextePawn (g)
 	return (g.pct > 0 and "+" or "−") .. p .. " %"
 end
 
+-- les couleurs d'un écart : gain, perte, sans changement (avant leur premier usage, sinon elles sont nil)
+local VERT, ROUGE, GRIS = { 0.25, 1, 0.25 }, { 1, 0.35, 0.35 }, { 0.6, 0.6, 0.6 }
+
 -- Les lignes d'infobulle : ce qu'il porte, niveau par niveau, face à l'objet, puis ce que ça change
 function Raid.InfobulleEquipement (nom, id, lien, classe)
 	local r = Raid.Comparer(nom, id)
@@ -346,7 +349,6 @@ end
 -- l'affichage en ligne : un verdict, puis les caractéristiques qui bougent le plus
 ------------------------------------------------------------------------
 
-local VERT, ROUGE, GRIS = { 0.25, 1, 0.25 }, { 1, 0.35, 0.35 }, { 0.6, 0.6, 0.6 }
 
 -- la case du verdict : l'écart de niveau d'objet sur fond teinté (+14 vert, −4 rouge, « vide », « = », « ? »)
 function Raid.Verdict (parent)
