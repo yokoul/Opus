@@ -1110,11 +1110,22 @@ local function DecrireObjet (o, presents)
 		if #r.candidats > 4 then d.explication[#d.explication + 1] = "et " .. (#r.candidats - 4) .. " autres : voir les détails" end
 	elseif r and not a then
 		d.explication[1] = "Personne de présent ne l'a en liste : Suicide King à l'annonce, ou désenchantement."
+	elseif a and a.etat == "delai" then
+		d.explication[1] = "Personne n'a objecté pour l'instant. « Clore le délai » le donne tout de suite à " .. Nom(a.propose) .. "."
+	elseif a and a.etat == "sk" then
+		local declares = Raid.ClassementSK and Raid.ClassementSK(a) or {}
+		d.explication[1] = #declares > 0 and ("Déclarés, du mieux placé au moins bien : " .. Noms(declares, 5) .. ".") or "Personne ne s'est encore déclaré."
+		d.explication[2] = "« Clore le tour » le donne au mieux placé des déclarés du moment."
 	end
 	-- les actions : la principale (annoncer, donner, trancher), puis désenchanter (hors liste) et les détails
 	local boutons = {}
 	if action and action[2] then
 		boutons[#boutons + 1] = { texte = Capitales(action[1]):gsub("…$", "…"), principal = true, clic = function () Raid.ActionObjet(o) Accrocher() end }
+	end
+	-- abréger : le délai sans objection, ou le Suicide King (les déclarés du moment)
+	if a and (a.etat == "delai" or a.etat == "sk") and Raid.CloreTour then
+		boutons[#boutons + 1] = { texte = a.etat == "delai" and "CLORE LE DÉLAI" or "CLORE LE TOUR", principal = not (action and action[2]),
+			clic = function () Raid.CloreTour(a) end }
 	end
 	if Raid.DesenchanterLibre(o, r) and r then
 		boutons[#boutons + 1] = { texte = "DÉSENCHANTER", clic = function () Raid.DesenchanterLigne(o) end }

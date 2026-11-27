@@ -4,6 +4,7 @@ Outils de guilde pour WoW Forever, faits pour la guilde **Opus** (royaume PvE, E
 Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://discord.gg/XtSksuFU6v
 
 ## À paraître
+- Raids : le maître du butin peut abréger un tour depuis le volet. « Clore le délai » donne tout de suite l'objet au proposé quand personne n'a objecté ; « Clore le tour » finit un Suicide King avec les déclarés du moment.
 - Raids : un rechargement ne ferme plus la soirée de guilde (le jeu annonçait le groupe avant de l'avoir relu). Le maître du butin retrouve ses attributions telles quelles : les tours en cours reprennent avec le temps qui leur restait, ceux finis pendant le rechargement se terminent normalement, et les joueurs se recalent.
 - Raids : le volet du maître du butin montre aussi les attributions en cours ou à remettre hors du corps ouvert.
 - Volet : l'infobulle de l'objet au survol d'une ligne ou de la banderole (Maj+clic : le lien dans la discussion).

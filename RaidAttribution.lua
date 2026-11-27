@@ -98,9 +98,18 @@ end
 
 Raid.Attribuer = Attribuer
 
-local function FinDelai (a)
+local function FinDelai (a, comment)
 	if a.etat ~= "delai" then return end
-	Attribuer(a, a.propose, "wish", " (pas d'objection)")
+	Attribuer(a, a.propose, "wish", comment or " (pas d'objection)")
+end
+
+-- Le maître du butin abrège un tour : le délai sans objection attribue tout de suite au proposé, le Suicide King
+-- classe les déclarés du moment. Le minuteur d'origine, plus tard, ne trouve plus rien à faire.
+function Raid.CloreTour (a)
+	if not Raid.PeutGerer() then Msg("clore " .. Raid.QuiPeut() .. ".") return false end
+	if a.etat == "delai" then FinDelai(a, " (pas d'objection, délai clos par le maître du butin)") return true end
+	if a.etat == "sk" then Raid.FinSK(a) return true end
+	return false
 end
 
 -- Les voix de chaque candidat du vote, dans l'ordre de l'annonce : { { nom, voix }, … }, le nombre de votants, et les
