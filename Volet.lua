@@ -136,7 +136,7 @@ local function BoutonNom (parent)
 	b:SetBackdrop({ bgFile = BLANC8, edgeFile = BLANC8, edgeSize = 1 })
 	b:SetBackdropColor(0, 0, 0, 0.35) b:SetBackdropBorderColor(C.orSombre[1], C.orSombre[2], C.orSombre[3], 1)
 	b.texte = Texte(b, "Nom") b.texte:SetPoint("CENTER", 0, 0)
-	b.Poser = function (self, t) self.texte:SetText(t) self:SetSize(math.max(64, self.texte:GetStringWidth() + 22), 30) end
+	b.Poser = function (self, t) self.texte:SetText(t) self:SetSize(math.max(54, self.texte:GetStringWidth() + 16), 30) end
 	b:SetScript("OnEnter", function (self) self:SetBackdropBorderColor(C["or"][1], C["or"][2], C["or"][3], 1) end)
 	b:SetScript("OnLeave", function (self) self:SetBackdropBorderColor(C.orSombre[1], C.orSombre[2], C.orSombre[3], 1) end)
 	return b
@@ -250,7 +250,7 @@ end
 
 local LARGEUR, HAUTEUR = 392, 624
 local DECALAGE = 66                     -- la languette, sous le haut du volet ouvert
-local LARGEUR_B = 340                   -- la banderole
+local LARGEUR_B = 290                   -- la banderole
 
 local function PourToi ()
 	local n = Volet.AFaireML and Volet.AFaireML() or 0
