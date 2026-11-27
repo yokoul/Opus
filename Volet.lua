@@ -1157,9 +1157,27 @@ local function DecrireObjet (o, presents)
 	if action and action[2] then
 		boutons[#boutons + 1] = { texte = Capitales(action[1]):gsub("…$", "…"), principal = true, clic = function () Raid.ActionObjet(o) Accrocher() end }
 	end
+	-- au Suicide King, le maître du butin se déclare comme les autres : ses boutons de joueur, sur sa ligne (sa
+	-- propre annonce n'a pas de ligne à part, et la banderole se cache quand le volet est ouvert)
+	if a and a.etat == "sk" then
+		local moi = Moi()
+		local mienne
+		for _, ann in ipairs(Raid.annonces or {}) do if ann.ml == moi and ann.n == a.n then mienne = ann end end
+		local declare = a.interesses and a.interesses[moi]
+		local passe = a.passes and a.passes[moi]
+		if mienne and not declare and not passe and not mienne.veut and not mienne.passe then
+			boutons[#boutons + 1] = { texte = "JE LE VEUX", principal = true, clic = function () mienne.veut = true Envoyer(mienne, "W", "!sk " .. a.n) end }
+			boutons[#boutons + 1] = { texte = "PASSER", clic = function () mienne.passe = true Envoyer(mienne, "X", "!passe " .. a.n) end }
+			d.aFaire = true
+		elseif declare or (mienne and mienne.veut) then
+			d.explication[#d.explication + 1] = "Tu es déclaré."
+		end
+	end
 	-- abréger : le délai sans objection, ou le Suicide King (les déclarés du moment)
 	if a and (a.etat == "delai" or a.etat == "sk") and Raid.CloreTour then
-		boutons[#boutons + 1] = { texte = a.etat == "delai" and "CLORE LE DÉLAI" or "CLORE LE TOUR", principal = not (action and action[2]),
+		local dejaPrincipal = false
+		for _, bt in ipairs(boutons) do if bt.principal then dejaPrincipal = true end end
+		boutons[#boutons + 1] = { texte = a.etat == "delai" and "CLORE LE DÉLAI" or "CLORE LE TOUR", principal = not dejaPrincipal and not (action and action[2]),
 			clic = function () Raid.CloreTour(a) end }
 	end
 	-- sans liste : le donner directement à un présent
@@ -1174,7 +1192,8 @@ local function DecrireObjet (o, presents)
 		boutons[#boutons + 1] = { texte = "DÉTAILS", clic = function () Fiche(o) end }
 	end
 	d.boutons = boutons
-	d.aFaire = (not a and r ~= nil) or sens == "afaire"
+	-- à faire : un objet à annoncer (avec ou sans liste), une action du maître du butin, ou se déclarer
+	d.aFaire = (not a) or sens == "afaire" or d.aFaire or false
 	-- une égalité au vote : une banderole pour trancher, même volet fermé
 	if a and a.etat == "trancher" then
 		d.appel = { genre = "decision", objet = d.objet, sous = "Égalité au vote · à trancher",
