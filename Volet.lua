@@ -1184,8 +1184,14 @@ local function DecrireObjet (o, presents)
 	if not a and not r and Raid.DonnerDirect then
 		boutons[#boutons + 1] = { texte = "DONNER À…", clic = function (self) Volet.MenuDonner(self, o) end }
 	end
+	-- sans désenchanteur (ni choisi, ni dans la liste de l'instantané, ni présent), l'objet va à la banque : le
+	-- maître du butin le garde pour la déposer. Le bouton dit où il va vraiment.
 	if Raid.DesenchanterLibre(o, r) then
-		boutons[#boutons + 1] = { texte = "DÉSENCHANTER", clic = function () Raid.DesenchanterLigne(o) end }
+		local qui = Raid.Desenchanteur and Raid.Desenchanteur()
+		boutons[#boutons + 1] = { texte = qui and "DÉSENCHANTER" or "POUR LA BANQUE", clic = function () Raid.DesenchanterLigne(o) end }
+		if not qui then
+			d.explication[#d.explication + 1] = "Aucun désenchanteur : « Pour la banque » te le laisse, pour la banque de guilde. Choisis un désenchanteur en pied du volet."
+		end
 	end
 	-- les détails demandent les listes (candidats, scores)
 	if Raid.db and Raid.db.instantane then
