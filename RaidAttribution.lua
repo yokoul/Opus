@@ -530,6 +530,8 @@ end
 Raid.Ecoute("PLAYER_LOGIN", function ()
 	local s = Raid.db.soiree
 	if not s or time() - (s.derniere or 0) > 6 * 3600 or #Raid.attributions > 0 then return end
+	-- une soirée fermée ne revient pas : rien à reprendre
+	if not Raid.db.ouverte then s.attributionsGardees = nil return end
 	if s.attributionsGardees and #s.attributionsGardees > 0 then Reprendre(s) return end
 	local par, i = {}, Raid.db.instantane
 	for _, e in ipairs(s.evenements) do

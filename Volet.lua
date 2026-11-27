@@ -332,7 +332,7 @@ local function PoserLanguette ()
 	l.fleche:SetTexture(ouvert and "Interface\\Buttons\\UI-SpellbookIcon-PrevPage-Up" or "Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up")
 	-- le rubis bat doucement tant qu'une décision attend et que le volet est fermé
 	if etat == "toi" and not ouvert then l.pouls:Play() else l.pouls:Stop() l.rubis:SetAlpha(1) end
-	if volet and volet.Remplir and volet:IsShown() then volet:Remplir() end
+	if volet and volet.Remplir and volet:IsShown() and not Volet.enSync then volet:Remplir() end
 end
 
 local Choisir
@@ -1192,13 +1192,14 @@ function Volet.SourcesML (sources)
 	local objets = {}
 	local vus = {}
 	for _, o in ipairs(ObjetsML()) do objets[#objets + 1] = o if o.attribution then vus[o.attribution] = true end end
-	-- les attributions de la soirée qui ne sont pas sur le corps ouvert : en cours, à remettre, ou parmi les dix
-	-- dernières (après un rechargement, ou un autre corps ouvert depuis)
+	-- les attributions de la soirée qui ne sont pas sur le corps ouvert : en cours, ou à remettre (après un
+	-- rechargement, ou un autre corps ouvert depuis) ; un figurant de l'essai ne reçoit rien
 	local liste = Raid.attributions or {}
-	for n, a in ipairs(liste) do
+	for _, a in ipairs(liste) do
 		local actif = a.etat == "delai" or a.etat == "vote" or a.etat == "sk" or a.etat == "trancher"
 		local aRemettre = (a.etat == "attribue" or a.etat == "de") and a.attributaire and not a.remis
-		if not vus[a] and (actif or aRemettre or n > #liste - 10) then
+			and not tostring(a.attributaire):match("^Essai ")
+		if not vus[a] and (actif or aRemettre) then
 			pseudos[a] = pseudos[a] or { lien = a.lien, id = a.id, attribution = a }
 			objets[#objets + 1] = pseudos[a]
 		end
@@ -1378,6 +1379,9 @@ function Volet.Synchroniser ()
 		montre = nil
 	end
 	local vus = {}
+	-- pendant la passe, les lignes sont à moitié faites : le volet ne se redessine qu'à la fin (sinon la ligne
+	-- dépliée, pas encore revue, se replie)
+	Volet.enSync = true
 	wipe(entrees)
 	local sources = {}
 	local moi = Moi()
@@ -1411,6 +1415,7 @@ function Volet.Synchroniser ()
 			if not ancien.clos then Volet.Clore(cle, d.clos) end
 		end
 	end
+	Volet.enSync = nil
 	for id, ap in pairs(appels) do
 		local source = id:sub(1, 1)
 		if (source == "r" or source == "j" or source == "m") and not vus[id] and not ap.clos then Volet.Retirer(id) end
@@ -1519,10 +1524,14 @@ function Volet.RemplirDirect (r)
 		f.nom:SetText(d.objet.nom) f.nom:SetTextColor(Qualite(d.objet.qualite))
 		f.sous:SetText(d.sous or "")
 		for _, et in pairs(f.etiquettes) do et:Hide() end
+		-- le nom et la ligne d'état s'arrêtent avant l'étiquette (elle déborde sur les deux lignes)
+		local marge = 8
 		if d.etiquette then
 			local et = EtiquetteDe(f, d.etiquette[1], d.etiquette[2]) et:Show()
-			f.nom:SetPoint("TOPRIGHT", -(et:GetWidth() + 12), -8)
+			marge = et:GetWidth() + 12
 		end
+		f.nom:SetPoint("TOPRIGHT", -marge, -8)
+		f.sous:SetPoint("TOPRIGHT", -marge, -27)
 		f.lisere:SetShown(e.p == 0)
 		f.fond:SetShown(f.cle == deplie)
 		f:SetAlpha(e.p == 3 and 0.6 or 1)
