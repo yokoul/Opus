@@ -219,9 +219,10 @@ function Raid.RecevoirAnnonce (ml, c)
 		Raid.Prioriser(Raid.Liste(c[6]))
 	else
 		local a = Trouver(ml, n)
-		-- un résultat d'une annonce qu'on n'a pas vue (rechargement, arrivée en cours de soirée) : il entre, déjà ancien
+		-- un résultat d'une annonce qu'on n'a pas vue : donné directement par le maître du butin (en direct), ou repris
+		-- après un rechargement (déjà ancien, sans banderole)
 		if not a and genre == "R" and tonumber(c[5]) then
-			a = { ml = ml, n = n, id = tonumber(c[5]), lien = Raid.LienDe(tonumber(c[5])), propose = "", resync = true }
+			a = { ml = ml, n = n, id = tonumber(c[5]), lien = Raid.LienDe(tonumber(c[5])), propose = "", resync = c[6] ~= "1" }
 			Raid.annonces[#Raid.annonces + 1] = a
 		end
 		if not a then return end

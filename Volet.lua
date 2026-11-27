@@ -979,7 +979,7 @@ local function Decrire (a)
 		-- tranché : attribué, désenchanté, banque
 		local qui = a.attributaire
 		local pourquoi = a.avant == "delai" and "sans objection" or a.avant == "vote" and "après le vote" or a.avant == "sk" and "Suicide King"
-			or a.avant == "trancher" and "décision des officiers" or nil
+			or a.avant == "trancher" and "décision des officiers" or (not a.avant and not a.resync and "donné par le maître du butin") or nil
 		if a.etat == "attribue" then
 			d.sous = Signe("Coche") .. "À " .. Nom(qui) .. (pourquoi and (" · " .. pourquoi) or "")
 			d.etiquette = { qui == moi and "À TOI" or "ATTRIBUÉ", "rendu" }

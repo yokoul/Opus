@@ -3,7 +3,7 @@
 --   A;n;itemID;proposé;secondes;candidat,candidat…;item:…   une annonce, le délai d'objection qui reste, l'objet complet
 --   V;n;secondes;quorum;électeurs;auteur;candidats;motif   une objection : le vote est ouvert, entre ces candidats
 --   S;n;itemID;secondes;item:…                        un Suicide King : les intéressés se déclarent
---   R;n;état;attributaire;itemID                      la fin : attribue, trancher, de ou banque
+--   R;n;état;attributaire;itemID;1                    la fin : attribue, trancher, de ou banque (1 : en direct)
 --   K;n;déclaré,déclaré…                              au Suicide King : les déclarés, du mieux placé au moins bien
 -- Un joueur qui recharge envoie Q (où en est la soirée ?) : le maître du butin renvoie l'état des annonces.
 -- Les joueurs lui répondent, sur le même canal : O;n;motif (objection), B;n;candidat (un vote), W;n (je le veux),

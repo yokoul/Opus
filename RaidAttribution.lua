@@ -87,7 +87,8 @@ function Raid.ChaineObjet (lien) return lien and lien:match("item:[%-%d:]+") or 
 
 -- aux addons du raid (Comm.lua), s'il est chargé
 local function Diffuser (...) if Raid.Diffuser then Raid.Diffuser(...) end end
-Raid.DiffuserAttribution = function (a) Diffuser("R", a.n, a.etat, a.attributaire or "", a.id or "") end
+-- « 1 » en dernier : un résultat en direct (le renvoi après un rechargement ne le met pas)
+Raid.DiffuserAttribution = function (a) Diffuser("R", a.n, a.etat, a.attributaire or "", a.id or "", "1") end
 
 local function Attribuer (a, nom, voie, comment)
 	a.etat, a.attributaire = "attribue", nom
