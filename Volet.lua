@@ -494,8 +494,8 @@ end
 
 local function CreerLanguette ()
 	local l = CreateFrame("Button", "OpusVoletLanguette", UIParent)
-	l:SetSize(30, 128) l:SetFrameStrata("HIGH") l:SetClampedToScreen(true)
-	NeufParts(l, "Panneau.tga", 512, 256, 42, 39, 10, 0)
+	l:SetSize(24, 120) l:SetFrameStrata("HIGH") l:SetClampedToScreen(true)
+	NeufParts(l, "Panneau.tga", 512, 256, 42, 39, 8, 0)
 	-- une ombre portée vers l'écran, peinte en dégradé, pour détacher la languette du décor
 	l.ombre = l:CreateTexture(nil, "BACKGROUND", nil, -8)
 	l.ombre:SetPoint("TOPLEFT", l, "TOPRIGHT", -3, -6) l.ombre:SetPoint("BOTTOMLEFT", l, "BOTTOMRIGHT", -3, 6) l.ombre:SetWidth(10)
@@ -505,15 +505,15 @@ local function CreerLanguette ()
 	end
 	-- le contenu se centre sur le cuir, pas sur la languette entière (le bord ouvragé de droite en mange une part)
 	local cx = -2
-	l.gemme = Image(l, "Gemme.tga", 18, 36) l.gemme:SetPoint("CENTER", cx, 12)
-	l.rubis = Image(l, "Rubis.tga", 24, 24) l.rubis:SetPoint("CENTER", cx, 14)
-	l.compte = Texte(l, "Titre") l.compte:SetPoint("TOP", l, "CENTER", cx, -8) l.compte:SetJustifyH("CENTER")
-	l.fleche = l:CreateTexture(nil, "OVERLAY") l.fleche:SetSize(14, 14) l.fleche:SetPoint("BOTTOM", cx, 12)
+	l.gemme = Image(l, "Gemme.tga", 15, 30) l.gemme:SetPoint("CENTER", cx, 12)
+	l.rubis = Image(l, "Rubis.tga", 20, 20) l.rubis:SetPoint("CENTER", cx, 13)
+	l.compte = Texte(l, "Titre") l.compte:SetPoint("TOP", l, "CENTER", cx, -6) l.compte:SetJustifyH("CENTER")
+	l.fleche = l:CreateTexture(nil, "OVERLAY") l.fleche:SetSize(12, 12) l.fleche:SetPoint("BOTTOM", cx, 10)
 	l.fleche:SetVertexColor(C["or"][1], C["or"][2], C["or"][3])
 	l.pouls = l.rubis:CreateAnimationGroup() l.pouls:SetLooping("BOUNCE")
 	local a = l.pouls:CreateAnimation("Alpha") a:SetFromAlpha(1) a:SetToAlpha(0.55) a:SetDuration(0.9) a:SetSmoothing("IN_OUT")
 	l:SetHighlightTexture(BLANC8)
-	local h = l:GetHighlightTexture() h:ClearAllPoints() h:SetPoint("TOPLEFT", 0, -6) h:SetPoint("BOTTOMRIGHT", -8, 6)
+	local h = l:GetHighlightTexture() h:ClearAllPoints() h:SetPoint("TOPLEFT", 0, -6) h:SetPoint("BOTTOMRIGHT", -6, 6)
 	h:SetVertexColor(C.orVif[1], C.orVif[2], C.orVif[3], 0.07)
 	l:RegisterForClicks("LeftButtonUp")
 	l:SetScript("OnClick", function (self)
@@ -686,7 +686,7 @@ local function CreerVolet ()
 	v.lieu = Texte(c, "Texte", C.pale) v.lieu:SetPoint("TOPLEFT", 52, -22) v.lieu:SetText(DEMO.lieu)
 	-- l'épingle : le volet reste ouvert (même en combat) tant qu'elle est mise
 	local ep = CreateFrame("Button", nil, c)
-	ep:SetSize(20, 20) ep:SetPoint("TOPRIGHT", -2, -2)
+	ep:SetSize(18, 18) ep:SetPoint("BOTTOMRIGHT", 0, -2) ep:SetFrameLevel(c:GetFrameLevel() + 5)
 	ep.image = ep:CreateTexture(nil, "ARTWORK") ep.image:SetAllPoints()
 	ep:SetHighlightTexture(BLANC8) ep:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.08)
 	ep.Poser = function (self)
@@ -702,7 +702,7 @@ local function CreerVolet ()
 	end)
 	ep:SetScript("OnLeave", GameTooltip_Hide)
 	ep:Poser()
-	v.attend = Texte(c, "Texte", C.braiseTexte) v.attend:SetPoint("TOPRIGHT", -2, -26) v.attend:SetJustifyH("RIGHT")
+	v.attend = Texte(c, "Texte", C.braiseTexte) v.attend:SetPoint("TOPRIGHT", -2, -12) v.attend:SetJustifyH("RIGHT")
 
 	-- les onglets : cartouches de l'atlas d'Auberdine, parchemin pour l'onglet ouvert, fer pour les autres
 	v.onglets = {}
@@ -1434,7 +1434,7 @@ function Volet.RemplirDirect (r)
 	local ml = #ObjetsML() > 0
 	if not r.de then
 		r.de = CreateFrame("Button", nil, r)
-		r.de:SetPoint("BOTTOMLEFT", 6, 0) r.de:SetPoint("BOTTOMRIGHT", -6, 0) r.de:SetHeight(20)
+		r.de:SetPoint("BOTTOMLEFT", 6, 0) r.de:SetPoint("BOTTOMRIGHT", -26, 0) r.de:SetHeight(20)
 		r.de.texte = Texte(r.de, "Texte", C.poussiere) r.de.texte:SetPoint("LEFT")
 		r.de:SetScript("OnClick", function ()
 			local presents = Raid.Presents and Raid.Presents() or {}
@@ -1455,7 +1455,8 @@ function Volet.RemplirDirect (r)
 		r.de.texte:SetText("Désenchanteur : " .. (choisi and Nom(choisi) or ("auto" .. (qui and (" (" .. Nom(qui) .. ")") or " · personne : banque")))
 			.. "  |cff8a8070clic : changer|r")
 	end
-	local y, place, caches = 0, r:GetHeight() - 16 - (ml and 22 or 0), 0
+	-- en bas : la ligne « et N de plus », l'épingle, et le désenchanteur du maître du butin
+	local y, place, caches = 0, r:GetHeight() - 22 - (ml and 20 or 0), 0
 	for k, e in ipairs(liste) do
 		local d = e.d
 		local f = LigneDirecte(r, k)
