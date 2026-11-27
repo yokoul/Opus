@@ -1,7 +1,8 @@
 -- ButinGroupe.lua : en donjon, à chaque jet de butin de groupe, qui peut équiper l'objet, ce qu'il y gagne, et qui jette quoi
 -- Activé dans les réglages, vue « Butin » (« Comparer le butin en donjon »). En groupe (pas en raid), chaque objet mis en
--- jeu a sa bande, accrochée à droite du cadre de jet du jeu (dé, cupidité, passer) et partie avec lui : une ligne par
--- membre qui peut le porter (sans cadre du jeu visible, la fenêtre « Opus : butin du groupe » prend le relais). Pour
+-- jeu a sa bande, accrochée sous le cadre de jet du jeu (dé, cupidité, passer) et partie avec lui : une ligne qui
+-- compte les choix puis nomme le gagnant, et au clic la liste des membres (sans cadre du jeu visible, la fenêtre
+-- « Opus : butin du groupe » prend le relais). Pour
 -- chaque membre, s'il peut le porter (classe, niveau), ce qu'il porte à cet emplacement et l'écart de
 -- niveau d'objet (l'inspection de RaidEquipement.lua), puis son choix (besoin, cupidité, passe) et son jet, lus dans
 -- le journal du butin : rien n'est demandé aux autres, un membre sans Opus apparaît comme les autres.
@@ -9,7 +10,6 @@ local _, Opus = ...
 local Raid = Opus.Raid
 
 local GARDER = 20                   -- secondes d'affichage après le gagnant (dans la fenêtre)
-local LARGE_BANDE = 372
 local LARGEUR = 560
 local HAUT_MEMBRE = 20
 local TETE = 52                     -- la hauteur de l'objet et des en-têtes, au-dessus des membres
@@ -208,27 +208,84 @@ local function Bloc (k)
 end
 
 ------------------------------------------------------------------------
--- la bande, accrochée au cadre de jet du jeu
+-- la bande, accrochée au cadre de jet du jeu : une ligne (« 2 besoin, 1 cupidité », puis « ✓ Seliane 87 »), la liste
+-- de qui jette quoi au clic. Sous le cadre s'il y a la place, sinon à sa droite (les cadres du jeu s'empilent).
 ------------------------------------------------------------------------
 
--- le cadre de jet du jeu pour ce tirage, s'il est affiché
-local function CadreDeJet (rollID)
-	for i = 1, (NUM_GROUP_LOOT_FRAMES or 4) do
-		local c = _G["GroupLootFrame" .. i]
-		if c and c:IsShown() and c.rollID == rollID then return c end
+local LIGNE, RANG = 20, 16              -- la ligne de résumé, une ligne de la liste
+local ICONE = {
+	besoin = "Interface\\Buttons\\UI-GroupLoot-Dice-Up", ["cupidité"] = "Interface\\Buttons\\UI-GroupLoot-Coin-Up",
+	["désenchanter"] = "Interface\\Buttons\\UI-GroupLoot-DE-Up", passe = "Interface\\Buttons\\UI-GroupLoot-Pass-Up",
+}
+local COCHE = "Interface\\RaidFrame\\ReadyCheck-Ready"
+local function Icone (quoi, taille) return "|T" .. ICONE[quoi] .. ":" .. (taille or 14) .. "|t" end
+
+local faux = {}                     -- les cadres de jet imités des essais, [tirage] = cadre
+
+-- un cadre de jet imité pour les essais (sans groupe, le jeu n'en montre pas) : l'objet et son nom
+local function CadreFaux (t)
+	if faux[t] then return faux[t] end
+	local c = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+	c:SetSize(244, 52)
+	if c.SetBackdrop then
+		c:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+			tile = true, tileSize = 16, edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+		c:SetBackdropColor(0.05, 0.05, 0.08, 0.92)
+		c:SetBackdropBorderColor(0.6, 0.6, 0.6, 0.9)
 	end
+	c.icone = Raid.Icone(c, 36) c.icone:SetPoint("LEFT", 8, 0)
+	c.nom = c:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	c.nom:SetPoint("TOPLEFT", 50, -10) c.nom:SetPoint("RIGHT", -8, 0) c.nom:SetJustifyH("LEFT") c.nom:SetWordWrap(false)
+	c.sous = c:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	c.sous:SetPoint("TOPLEFT", 50, -28) c.sous:SetText("essai (le cadre de jet du jeu)")
+	-- ils s'empilent vers le haut, comme ceux du jeu
+	local n = 0
+	for _ in pairs(faux) do n = n + 1 end
+	c:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 220 + n * 56)
+	faux[t] = c
+	return c
 end
 
-local bandes = {}                   -- [cadre de jet du jeu] = bande
+local function Cadres ()
+	local l = {}
+	for i = 1, (NUM_GROUP_LOOT_FRAMES or 4) do
+		local c = _G["GroupLootFrame" .. i]
+		if c and c:IsShown() then l[#l + 1] = c end
+	end
+	for _, c in pairs(faux) do if c:IsShown() then l[#l + 1] = c end end
+	return l
+end
 
-local COURT = { besoin = "|cff40ff40Besoin|r", ["cupidité"] = "|cffffd100Cupidité|r", ["désenchanter"] = "|cffc080ffDés.|r", passe = "|cff808080Passe|r" }
+-- le cadre de jet pour ce tirage, s'il est affiché
+local function CadreDeJet (t)
+	if faux[t] then return faux[t]:IsShown() and faux[t] or nil end
+	for _, c in ipairs(Cadres()) do if c.rollID == t.rollID then return c end end
+end
 
-local function LigneBande (b, k)
-	if b.lignes[k] then return b.lignes[k] end
+-- la place sous ce cadre est-elle libre d'un autre cadre de jet, sur cette hauteur ?
+local function LibreDessous (cadre, hauteur)
+	local s = cadre:GetEffectiveScale()
+	local g, d, b = (cadre:GetLeft() or 0) * s, (cadre:GetRight() or 0) * s, (cadre:GetBottom() or 0) * s
+	for _, o in ipairs(Cadres()) do
+		if o ~= cadre and o:GetLeft() then
+			local so = o:GetEffectiveScale()
+			local og, od, ob, oh = o:GetLeft() * so, o:GetRight() * so, o:GetBottom() * so, o:GetTop() * so
+			if og < d and od > g and oh > b - hauteur * s and ob < b then return false end
+		end
+	end
+	return true
+end
+
+local bandes = {}                   -- [cadre de jet] = bande
+
+local function Rang (b, k)
+	if b.rangs[k] then return b.rangs[k] end
 	local m = CreateFrame("Button", nil, b)
-	m:SetSize(LARGE_BANDE - 12, HAUT_MEMBRE)
-	m:SetPoint("TOPLEFT", 6, -6 - (k - 1) * HAUT_MEMBRE)
+	m:SetHeight(RANG)
+	m:SetPoint("TOPLEFT", 4, -LIGNE - 2 - (k - 1) * RANG) m:SetPoint("TOPRIGHT", -4, -LIGNE - 2 - (k - 1) * RANG)
+	m.fond = m:CreateTexture(nil, "BACKGROUND") m.fond:SetAllPoints() m.fond:SetColorTexture(1, 0.82, 0, 0.12)
 	m.survol = m:CreateTexture(nil, "HIGHLIGHT") m.survol:SetAllPoints() m.survol:SetColorTexture(1, 1, 1, 0.05)
+	-- au survol : ce qu'il porte, et ce que l'objet lui changerait
 	m:SetScript("OnEnter", function (self)
 		local t = self.tirage
 		if not t then return end
@@ -239,83 +296,138 @@ local function LigneBande (b, k)
 		GameTooltip:Show()
 	end)
 	m:SetScript("OnLeave", GameTooltip_Hide)
-	m.nom = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	m.nom:SetPoint("LEFT", 2, 0) m.nom:SetWidth(108) m.nom:SetJustifyH("LEFT") m.nom:SetWordWrap(false)
-	m.verdict = Raid.Verdict(m)
-	m.verdict:SetPoint("LEFT", 112, 0)
-	m.niveau = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	m.niveau:SetPoint("LEFT", 112, 0)
-	m.change = Raid.Pastilles(m, 2)
-	m.change:SetPoint("LEFT", 162, 0)
-	m.choix = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	m.choix:SetPoint("LEFT", 286, 0) m.choix:SetWidth(52) m.choix:SetJustifyH("LEFT")
+	m.choix = m:CreateTexture(nil, "ARTWORK") m.choix:SetSize(14, 14) m.choix:SetPoint("LEFT", 2, 0)
 	m.jet = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	m.jet:SetPoint("LEFT", 334, 0) m.jet:SetWidth(24) m.jet:SetJustifyH("RIGHT")
-	b.lignes[k] = m
+	m.jet:SetPoint("LEFT", 18, 0) m.jet:SetWidth(22) m.jet:SetJustifyH("RIGHT")
+	m.nom = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	m.nom:SetPoint("LEFT", 46, 0) m.nom:SetPoint("RIGHT", -52, 0) m.nom:SetJustifyH("LEFT") m.nom:SetWordWrap(false)
+	m.verdict = Raid.Verdict(m)
+	m.verdict:SetPoint("RIGHT", 0, 0)
+	m.note = m:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	m.note:SetPoint("RIGHT", -2, 0) m.note:SetJustifyH("RIGHT")
+	b.rangs[k] = m
 	return m
 end
 
 local function BandeDe (cadre)
 	if bandes[cadre] then return bandes[cadre] end
-	-- enfant du cadre du jeu : même étage d'affichage que lui (un sac ouvert passe devant les deux), et partie avec lui
+	-- enfant du cadre de jet : même étage d'affichage que lui, et partie avec lui
 	local b = CreateFrame("Frame", nil, cadre, "BackdropTemplate")
 	if b.SetBackdrop then
 		b:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-			tile = true, tileSize = 16, edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
-		b:SetBackdropColor(0.05, 0.05, 0.08, 0.92)
-		b:SetBackdropBorderColor(0.83, 0.69, 0.22, 0.8)
+			tile = true, tileSize = 16, edgeSize = 10, insets = { left = 2, right = 2, top = 2, bottom = 2 } })
+		b:SetBackdropColor(0.04, 0.04, 0.06, 0.88)
+		b:SetBackdropBorderColor(0.45, 0.45, 0.45, 0.8)
 	end
-	b:SetWidth(LARGE_BANDE)
-	b:SetPoint("TOPLEFT", cadre, "TOPRIGHT", 4, 0)
-	b.lignes = {}
-	-- le cadre du jeu s'en va (jet fini, objet ramassé) : la bande avec lui
+	-- la ligne : un clic montre ou cache la liste (le choix est gardé)
+	b.ligne = CreateFrame("Button", nil, b)
+	b.ligne:SetPoint("TOPLEFT", 4, -2) b.ligne:SetPoint("TOPRIGHT", -4, -2) b.ligne:SetHeight(LIGNE - 2)
+	b.ligne.survol = b.ligne:CreateTexture(nil, "HIGHLIGHT") b.ligne.survol:SetAllPoints() b.ligne.survol:SetColorTexture(1, 1, 1, 0.05)
+	b.ligne.texte = b.ligne:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	b.ligne.texte:SetPoint("LEFT", 4, 0) b.ligne.texte:SetPoint("RIGHT", -20, 0) b.ligne.texte:SetJustifyH("LEFT") b.ligne.texte:SetWordWrap(false)
+	b.ligne.plus = b.ligne:CreateTexture(nil, "ARTWORK") b.ligne.plus:SetSize(14, 14) b.ligne.plus:SetPoint("RIGHT", -2, 0)
+	b.ligne:SetScript("OnClick", function ()
+		Opus.db.butinGroupeListe = not Opus.db.butinGroupeListe
+		Opus.RafraichirButinGroupe()
+	end)
+	b.ligne:SetScript("OnEnter", function (self)
+		Raid.Ancrer(self)
+		GameTooltip:AddLine(Opus.db.butinGroupeListe and "Clic : cacher la liste" or "Clic : qui jette quoi, et qui peut le porter", 1, 1, 1)
+		GameTooltip:Show()
+	end)
+	b.ligne:SetScript("OnLeave", GameTooltip_Hide)
+	b.rangs = {}
+	-- le cadre s'en va (jet fini, objet ramassé) : la bande avec lui
 	cadre:HookScript("OnHide", function () b:Hide() end)
 	bandes[cadre] = b
 	return b
 end
 
--- Les lignes d'un tirage : ceux qui peuvent le porter (ou bientôt), puis ceux qui ne peuvent pas mais ont fait un
--- choix (un « Besoin » se remarque) ; pour un objet qui ne s'équipe pas, ceux qui ont choisi.
+-- Qui figure dans la liste : ceux qui peuvent le porter (ou bientôt), et ceux qui ont fait un choix ; pour un objet qui
+-- ne s'équipe pas, tout le groupe. Le gagnant d'abord, puis besoin, cupidité, en attente, passe ; le meilleur jet devant.
+local RANG_CHOIX = { besoin = 0, ["cupidité"] = 1, ["désenchanter"] = 1, passe = 3 }
 local function LignesDuTirage (t, membres)
 	local lignes = {}
 	for i, mb in ipairs(membres) do
-		local peut = Peut(mb.unite, t.id)
-		local choix = t.choix[mb.nom]
-		if peut == "oui" or (peut and peut ~= "non") or (choix and choix.quoi) then
-			lignes[#lignes + 1] = { mb = mb, peut = peut, i = i }
-		end
+		local peut = mb.unite and Peut(mb.unite, t.id)
+		local c = t.choix[mb.nom]
+		if peut ~= "non" or (c and c.quoi) then lignes[#lignes + 1] = { mb = mb, peut = peut, c = c, i = i } end
+	end
+	local function Cle (o)
+		if o.mb.nom == t.gagnant then return -1 end
+		return o.c and o.c.quoi and RANG_CHOIX[o.c.quoi] or 2
 	end
 	table.sort(lignes, function (a, z)
-		local pa = a.peut == "oui" and 0 or (a.peut and a.peut ~= "non") and 1 or 2
-		local pz = z.peut == "oui" and 0 or (z.peut and z.peut ~= "non") and 1 or 2
-		if pa ~= pz then return pa < pz end
+		local ka, kz = Cle(a), Cle(z)
+		if ka ~= kz then return ka < kz end
+		local ja, jz = a.c and a.c.jet or -1, z.c and z.c.jet or -1
+		if ja ~= jz then return ja > jz end
 		return a.i < z.i
 	end)
 	return lignes
 end
 
-local function PoserBande (t, cadre, membres)
-	local b = BandeDe(cadre)
-	for _, m in ipairs(b.lignes) do m:Hide() end
-	local lignes = LignesDuTirage(t, membres)
-	if #lignes == 0 then b:Hide() return end
-	for k, o in ipairs(lignes) do
-		local mb, peut = o.mb, o.peut
-		local m = LigneBande(b, k)
-		local _, classe = UnitClass(mb.unite)
-		m.tirage, m.nomMembre, m.portable, m.classeNom = t, mb.nom, peut, classe
-		m.nom:SetText(Opus.Couleur(classe) .. mb.nom .. "|r")
-		m:SetAlpha(peut == "oui" and 1 or 0.55)
-		local eq = peut == "oui" and Raid.Comparer(mb.nom, t.id) or nil
-		m.niveau:SetText(peut and peut ~= "oui" and peut ~= "non" and ("|cffff8040" .. peut .. "|r") or (peut == "non" and Opus.Gris("ne peut pas")) or "")
-		if eq then Raid.PoserVerdict(m.verdict, eq, t.id, t.lien, classe) else m.verdict:Hide() end
-		Raid.PoserPastilles(m.change, eq, t.id, t.lien)
+-- la ligne de résumé : pendant les jets, les choix comptés ; ensuite, le gagnant
+local function Resume (t, membres)
+	if t.gagnant then
+		local c = t.choix[t.gagnant]
+		local _, classe = UnitClass(t.gagnant == Raid.MonNom() and "player" or t.gagnant)
+		return "|T" .. COCHE .. ":14|t " .. (c and c.quoi and ICONE[c.quoi] and (Icone(c.quoi) .. " ") or "")
+			.. Opus.Couleur(classe) .. t.gagnant .. "|r" .. (c and c.jet and ("  |cffffd100" .. c.jet .. "|r") or "")
+	end
+	if t.finie then return Opus.Gris("Tout le monde a passé") end
+	local n, attente = {}, 0
+	for _, mb in ipairs(membres) do
 		local c = t.choix[mb.nom]
-		m.choix:SetText(c and c.quoi and COURT[c.quoi] or Opus.Gris("…"))
-		m.jet:SetText(c and c.jet and ("|cffffffff" .. c.jet .. "|r") or "")
+		if c and c.quoi then n[c.quoi] = (n[c.quoi] or 0) + 1 else attente = attente + 1 end
+	end
+	local morceaux = {}
+	for _, quoi in ipairs({ "besoin", "cupidité", "désenchanter", "passe" }) do
+		if n[quoi] then morceaux[#morceaux + 1] = Icone(quoi) .. " " .. n[quoi] end
+	end
+	if attente > 0 then morceaux[#morceaux + 1] = Opus.Gris(attente .. " en attente") end
+	return table.concat(morceaux, "   ")
+end
+
+local function PoserBande (t, cadre, membres)
+	-- ceux que le journal a nommés sans être du groupe (un essai, un membre parti) comptent aussi
+	local vus, tous = {}, {}
+	for _, mb in ipairs(membres) do vus[mb.nom] = true tous[#tous + 1] = mb end
+	for nom in pairs(t.choix) do if not vus[nom] then vus[nom] = true tous[#tous + 1] = { nom = nom } end end
+	membres = tous
+	local b = BandeDe(cadre)
+	for _, m in ipairs(b.rangs) do m:Hide() end
+	b.ligne.texte:SetText(Resume(t, membres))
+	local liste = Opus.db.butinGroupeListe and LignesDuTirage(t, membres) or {}
+	b.ligne.plus:SetTexture(Opus.db.butinGroupeListe and "Interface\\Buttons\\UI-MinusButton-Up" or "Interface\\Buttons\\UI-PlusButton-Up")
+	for k, o in ipairs(liste) do
+		local mb, peut, c = o.mb, o.peut, o.c
+		local m = Rang(b, k)
+		local _, classe = mb.unite and UnitClass(mb.unite)
+		m.tirage, m.nomMembre, m.portable, m.classeNom = t, mb.nom, peut, classe
+		m.fond:SetShown(mb.nom == t.gagnant)
+		if c and c.quoi and ICONE[c.quoi] then m.choix:SetTexture(ICONE[c.quoi]) m.choix:Show() else m.choix:Hide() end
+		m.jet:SetText(c and c.jet and ((mb.nom == t.gagnant and "|cffffd100" or "|cffffffff") .. c.jet .. "|r") or Opus.Gris(c and c.quoi and "" or "…"))
+		m.nom:SetText(Opus.Couleur(classe) .. mb.nom .. "|r")
+		m:SetAlpha((peut == "non" or (c and c.quoi == "passe")) and 0.5 or 1)
+		-- à droite : ce que l'objet lui vaut (Pawn ou l'écart de niveau d'objet), ou pourquoi il ne peut pas le porter
+		local eq = peut == "oui" and Raid.Comparer(mb.nom, t.id) or nil
+		if eq then Raid.PoserVerdict(m.verdict, eq, t.id, t.lien, classe) m.note:SetText("")
+		else
+			m.verdict:Hide()
+			m.note:SetText(peut == "non" and "ne peut pas" or (peut and peut ~= "oui") and ("|cffff8040" .. peut .. "|r") or "")
+		end
 		m:Show()
 	end
-	b:SetHeight(12 + #lignes * HAUT_MEMBRE)
+	local hauteur = LIGNE + (#liste > 0 and (#liste * RANG + 6) or 2)
+	b:SetHeight(hauteur)
+	-- sous le cadre, de sa largeur ; sinon (un autre cadre de jet dessous) à sa droite
+	b:ClearAllPoints()
+	if LibreDessous(cadre, hauteur + 2) then
+		b:SetPoint("TOPLEFT", cadre, "BOTTOMLEFT", 0, -2) b:SetPoint("TOPRIGHT", cadre, "BOTTOMRIGHT", 0, -2)
+	else
+		b:SetPoint("TOPLEFT", cadre, "TOPRIGHT", 4, 0) b:SetWidth(math.max(cadre:GetWidth() or 0, 240))
+	end
 	b:Show()
 end
 
@@ -326,6 +438,11 @@ function Opus.RafraichirButinGroupe ()
 		-- sans gagnant lu dans le journal, le tirage se termine avec son temps
 		if not t.finie and GetTime() > t.fin + 5 then t.finie = GetTime() end
 		if not t.finie or GetTime() - t.finie < GARDER then garde[#garde + 1] = t end
+	end
+	for t, c in pairs(faux) do
+		local reste = false
+		for _, g in ipairs(garde) do if g == t then reste = true end end
+		if not reste then c:Hide() faux[t] = nil end
 	end
 	tirages = garde
 	if #tirages == 0 then essai, masquee = false, false end
@@ -338,7 +455,14 @@ function Opus.RafraichirButinGroupe ()
 	-- chaque tirage dont le cadre de jet du jeu est affiché : sa bande ; les autres, dans la fenêtre
 	local enFenetre = {}
 	for _, t in ipairs(tirages) do
-		local cadre = t.rollID and t.rollID > 0 and CadreDeJet(t.rollID)
+		local f2 = faux[t]
+		if f2 then
+			-- le cadre imité d'un essai : l'objet, puis il s'en va quelques secondes après le résultat
+			t.lien = Raid.LienAJour(t.lien, t.id)
+			Raid.PoserIcone(f2.icone, t.id, t.lien) f2.nom:SetText(t.lien)
+			f2:SetShown(not (t.finie and GetTime() - t.finie > 8))
+		end
+		local cadre = (t.rollID > 0 or f2) and CadreDeJet(t)
 		if cadre then t.aEuCadre = true PoserBande(t, cadre, membres)
 		elseif not t.aEuCadre and GetTime() - (t.debut or 0) > 1 then enFenetre[#enFenetre + 1] = t end
 	end
@@ -467,7 +591,9 @@ Raid.Commande("jet", "jet <itemID>", "essayer la fenêtre du butin de groupe (do
 	local id = tonumber((texte or ""):match("%d+"))
 	if not id then Raid.Msg("/opus raid jet <itemID> (le numéro de l'objet, par exemple sur wowhead).") return end
 	essai, masquee = true, false
-	tirages[#tirages + 1] = { rollID = -1, id = id, lien = Raid.LienDe(id), fin = GetTime() + 60, choix = {}, debut = GetTime() - 2 }
+	local t = { rollID = -1, id = id, lien = Raid.LienDe(id), fin = GetTime() + 60, choix = {}, debut = GetTime() - 2 }
+	tirages[#tirages + 1] = t
+	CadreFaux(t)
 	Raid.Prioriser((function () local n = {} for _, m in ipairs(Membres()) do n[#n + 1] = m.nom end return n end)())
 	Opus.RafraichirButinGroupe()
 end)
@@ -479,5 +605,8 @@ Opus.ButinGroupeMembres = Membres
 function Opus.ButinGroupeEssai (id, duree)
 	local t = { rollID = -1, id = id, lien = Raid.LienDe(id), fin = GetTime() + duree, choix = {}, debut = GetTime() }
 	tirages[#tirages + 1] = t
+	-- la bande s'essaie sur un cadre de jet imité, même sans le réglage
+	essai = true
+	CadreFaux(t)
 	return t
 end

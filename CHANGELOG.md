@@ -10,6 +10,7 @@ Contact : **Illustre Inconnu** en jeu, ou le Discord de la guilde : https://disc
 - Raids : le volet du maître du butin montre aussi les attributions en cours ou à remettre hors du corps ouvert.
 - Volet : l'infobulle de l'objet au survol d'une ligne ou de la banderole (Maj+clic : le lien dans la discussion).
 - Raids : l'infobulle d'un candidat dans les détails de l'objet ne lève plus d'erreur quand Pawn calcule son gain.
+- Donjons : la bande de chaque jet de groupe se fait discrète. Une seule ligne sous le cadre de jet du jeu, de sa largeur : les choix comptés avec les icônes du jeu (dé, pièce, désenchantement, passer) et qui reste à choisir, puis le gagnant et son jet. Un clic dessus montre la liste (le gagnant, puis besoin, cupidité, passe, le meilleur jet devant ; à droite le gain pour chacun, ou « ne peut pas ») ; le choix est gardé. S'il y a un autre cadre de jet dessous, la bande se met à droite. /opus volet essai donjon la montre sur des cadres de jet imités.
 - Raids : un joueur qui recharge (ou arrive) en cours de soirée retrouve les annonces : son addon demande l'état au maître du butin, qui le renvoie.
 - Raids : les règles fixes du maître du butin, « /opus raid regle scarabée Bob » (un lien ou un itemID marche aussi ; « de » pour le désenchanteur, « banque » pour soi). À l'ouverture du corps, ces objets partent tout seuls, sans annonce. « /opus raid regle » les liste, « /opus raid regle retirer 2 » en retire une.
 - Raids : Alt+clic sur un objet des sacs (maître du butin, soirée ouverte) l'ajoute au volet, à annoncer.
