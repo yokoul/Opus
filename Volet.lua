@@ -1140,7 +1140,7 @@ local function DecrireObjet (o, presents)
 		end
 		if #r.candidats > 4 then d.explication[#d.explication + 1] = "et " .. (#r.candidats - 4) .. " autres : voir les détails" end
 	elseif r and not a then
-		d.explication[1] = "Personne de présent ne l'a en liste : Suicide King à l'annonce, ou désenchantement."
+		d.explication[1] = "Personne de présent ne l'a en liste : « Annoncer » lance un Suicide King ; « Donner à… » le donne directement à un présent."
 	elseif not r and not a then
 		d.explication = { "Pas d'instantané sur ce poste : pas de listes ce soir.",
 			"« Annoncer » lance un Suicide King (la liste de la soirée s'il y en a une, sinon le premier déclaré l'emporte) ;",
@@ -1180,8 +1180,8 @@ local function DecrireObjet (o, presents)
 		boutons[#boutons + 1] = { texte = a.etat == "delai" and "CLORE LE DÉLAI" or "CLORE LE TOUR", principal = not dejaPrincipal and not (action and action[2]),
 			clic = function () Raid.CloreTour(a) end }
 	end
-	-- sans liste : le donner directement à un présent
-	if not a and not r and Raid.DonnerDirect then
+	-- personne de présent ne l'a en liste (ou pas de listes du tout) : le donner directement à un présent
+	if not a and (not r or #r.candidats == 0) and Raid.DonnerDirect then
 		boutons[#boutons + 1] = { texte = "DONNER À…", clic = function (self) Volet.MenuDonner(self, o) end }
 	end
 	-- sans désenchanteur (ni choisi, ni dans la liste de l'instantané, ni présent), l'objet va à la banque : le

@@ -103,13 +103,15 @@ local function FinDelai (a, comment)
 	Attribuer(a, a.propose, "wish", comment or " (pas d'objection)")
 end
 
--- Sans instantané : l'objet donné directement à un présent, par le maître du butin. Noté au rapport comme une
+-- Un objet que personne de présent n'a en liste (ou sans instantané) : donné directement à un présent, par le maître du butin. Noté au rapport comme une
 -- attribution (T puis A), avec le motif dans l'annonce ; le don depuis le corps suit, comme pour les autres.
 function Raid.DonnerDirect (o, nom)
 	local actif, raison = Raid.Actif()
 	if not actif then Msg(raison .. ".") return nil end
 	if not Raid.PeutGerer() then Msg("attribution " .. Raid.QuiPeut() .. ".") return nil end
 	if o.attribution then return o.attribution end
+	local r = Raid.Proposer(o.id, Raid.Presents())
+	if r and #r.candidats > 0 then Msg(o.lien .. " est en liste chez " .. r.candidats[1].nom .. " : annonce-le.") return nil end
 	Soiree()
 	local a = { n = #Raid.attributions + 1, lien = o.lien, id = o.id, source = o.source, votes = {}, objecteurs = {}, candidats = {} }
 	Raid.attributions[a.n] = a
@@ -118,7 +120,7 @@ function Raid.DonnerDirect (o, nom)
 	table.sort(noms)
 	a.evenementT = Raid.Noter("T", { boss = Raid.dernierBoss or "", item = o.id, presents = noms })
 	a.decision = true
-	Attribuer(a, nom, "wish", " (donné par le maître du butin, sans liste ce soir)")
+	Attribuer(a, nom, "wish", r and " (hors liste, donné par le maître du butin)" or " (donné par le maître du butin, sans liste ce soir)")
 	o.attribution = a
 	return a
 end
